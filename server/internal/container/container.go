@@ -216,7 +216,7 @@ func (c *Container) initServices() {
 
 	// 核心业务服务
 	c.spaceService = application.NewSpaceService(c.spaceRepository)
-	c.baseService = application.NewBaseService(c.baseRepository, c.dbProvider) // ✅ 注入DBProvider
+	c.baseService = application.NewBaseService(c.baseRepository, c.spaceRepository, c.dbProvider) // ✅ 注入DBProvider + SpaceRepository
 
 	// ✅ 先初始化 FieldService，然后传递给 TableService (暂时传nil，待实现broadcaster)
 	c.fieldService = application.NewFieldService(
