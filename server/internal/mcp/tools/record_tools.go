@@ -40,12 +40,12 @@ func RegisterRecordTools(srv *server.MCPServer, recordService *application.Recor
 			offset = 0
 		}
 
-		records, err := recordService.ListRecords(ctx, tableID, limit, offset)
+		records, total, err := recordService.ListRecords(ctx, tableID, limit, offset)
 		if err != nil {
 			return ToToolResult(nil, err)
 		}
 
-		logger.Info("MCP tool executed", logger.String("tool", "list_records"), logger.String("table_id", tableID))
+		logger.Info("MCP tool executed", logger.String("tool", "list_records"), logger.String("table_id", tableID), logger.Int64("total", total))
 		return ToToolResult(map[string]interface{}{
 			"records": records,
 			"total":   len(records),
@@ -107,6 +107,10 @@ func RegisterRecordTools(srv *server.MCPServer, recordService *application.Recor
 	// 4. 更新记录
 	srv.AddTool(mcp.NewTool("update_record",
 		mcp.WithDescription("更新记录的字段数据"),
+		mcp.WithString("table_id",
+			mcp.Required(),
+			mcp.Description("表格 ID"),
+		),
 		mcp.WithString("record_id",
 			mcp.Required(),
 			mcp.Description("记录 ID"),
@@ -117,6 +121,7 @@ func RegisterRecordTools(srv *server.MCPServer, recordService *application.Recor
 		),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args, _ := req.Params.Arguments.(map[string]interface{})
+		tableID, _ := GetStringArg(args, "table_id")
 		recordID, _ := GetStringArg(args, "record_id")
 		data, _ := GetMapArg(args, "data")
 
@@ -126,7 +131,7 @@ func RegisterRecordTools(srv *server.MCPServer, recordService *application.Recor
 			Data: data,
 		}
 
-		record, err := recordService.UpdateRecord(ctx, recordID, reqDTO, userID)
+		record, err := recordService.UpdateRecord(ctx, tableID, recordID, reqDTO, userID)
 		if err != nil {
 			return ToToolResult(nil, err)
 		}
@@ -138,15 +143,20 @@ func RegisterRecordTools(srv *server.MCPServer, recordService *application.Recor
 	// 5. 删除记录
 	srv.AddTool(mcp.NewTool("delete_record",
 		mcp.WithDescription("删除指定记录"),
+		mcp.WithString("table_id",
+			mcp.Required(),
+			mcp.Description("表格 ID"),
+		),
 		mcp.WithString("record_id",
 			mcp.Required(),
 			mcp.Description("记录 ID"),
 		),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args, _ := req.Params.Arguments.(map[string]interface{})
+		tableID, _ := GetStringArg(args, "table_id")
 		recordID, _ := GetStringArg(args, "record_id")
 
-		err := recordService.DeleteRecord(ctx, recordID)
+		err := recordService.DeleteRecord(ctx, tableID, recordID)
 		if err != nil {
 			return ToToolResult(nil, err)
 		}
@@ -203,12 +213,17 @@ func RegisterRecordTools(srv *server.MCPServer, recordService *application.Recor
 	// 7. 批量更新记录
 	srv.AddTool(mcp.NewTool("batch_update_records",
 		mcp.WithDescription("批量更新多条记录"),
+		mcp.WithString("table_id",
+			mcp.Required(),
+			mcp.Description("表格 ID"),
+		),
 		mcp.WithArray("records",
 			mcp.Required(),
 			mcp.Description("更新数组，每个元素包含 id 和 fields"),
 		),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args, _ := req.Params.Arguments.(map[string]interface{})
+		tableID, _ := GetStringArg(args, "table_id")
 		recordsRaw, _ := GetArrayArg(args, "records")
 
 		userID := MustGetUserID(ctx)
@@ -230,7 +245,7 @@ func RegisterRecordTools(srv *server.MCPServer, recordService *application.Recor
 			Records: records,
 		}
 
-		response, err := recordService.BatchUpdateRecords(ctx, reqDTO, userID)
+		response, err := recordService.BatchUpdateRecords(ctx, tableID, reqDTO, userID)
 		if err != nil {
 			return ToToolResult(nil, err)
 		}
@@ -242,12 +257,17 @@ func RegisterRecordTools(srv *server.MCPServer, recordService *application.Recor
 	// 8. 批量删除记录
 	srv.AddTool(mcp.NewTool("batch_delete_records",
 		mcp.WithDescription("批量删除多条记录"),
+		mcp.WithString("table_id",
+			mcp.Required(),
+			mcp.Description("表格 ID"),
+		),
 		mcp.WithArray("record_ids",
 			mcp.Required(),
 			mcp.Description("记录ID数组"),
 		),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args, _ := req.Params.Arguments.(map[string]interface{})
+		tableID, _ := GetStringArg(args, "table_id")
 		recordIDsRaw, _ := GetArrayArg(args, "record_ids")
 
 		// 转换为 []string
@@ -262,7 +282,7 @@ func RegisterRecordTools(srv *server.MCPServer, recordService *application.Recor
 			RecordIDs: recordIDs,
 		}
 
-		response, err := recordService.BatchDeleteRecords(ctx, reqDTO)
+		response, err := recordService.BatchDeleteRecords(ctx, tableID, reqDTO)
 		if err != nil {
 			return ToToolResult(nil, err)
 		}

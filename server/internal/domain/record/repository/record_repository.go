@@ -13,13 +13,26 @@ type RecordRepository interface {
 	Save(ctx context.Context, record *entity.Record) error
 
 	// FindByID 根据ID查找记录
+	// ⚠️ 已废弃：请使用 FindByIDs，因为需要 tableID
 	FindByID(ctx context.Context, id valueobject.RecordID) (*entity.Record, error)
+
+	// FindByIDs 根据ID列表查找记录（需要提供 tableID）
+	// ✅ 对齐 Teable 架构：所有记录操作都需要 tableID
+	FindByIDs(ctx context.Context, tableID string, ids []valueobject.RecordID) ([]*entity.Record, error)
+
+	// FindByTableAndID 根据表ID和记录ID查找记录
+	// ✅ 对齐 Teable 架构：所有记录操作都需要 tableID
+	FindByTableAndID(ctx context.Context, tableID string, id valueobject.RecordID) (*entity.Record, error)
 
 	// FindByTableID 查找表的所有记录
 	FindByTableID(ctx context.Context, tableID string) ([]*entity.Record, error)
 
 	// Delete 删除记录（物理删除）
 	Delete(ctx context.Context, id valueobject.RecordID) error
+
+	// DeleteByTableAndID 根据表ID和记录ID删除记录
+	// ✅ 对齐 Teable 架构：所有记录操作都需要 tableID
+	DeleteByTableAndID(ctx context.Context, tableID string, id valueobject.RecordID) error
 
 	// Exists 检查记录是否存在
 	Exists(ctx context.Context, id valueobject.RecordID) (bool, error)

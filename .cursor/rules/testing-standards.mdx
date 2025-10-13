@@ -1,0 +1,237 @@
+# 测试标准规范
+
+## 测试原则
+
+- **全面性**：覆盖核心业务逻辑和边界情况
+- **独立性**：每个测试用例独立，不依赖执行顺序
+- **可维护性**：测试代码与生产代码同样重要
+- **快速反馈**：单元测试应该快速执行
+- **金字塔模型**：单元测试 > 集成测试 > E2E测试
+
+## 测试分层
+
+```
+tests/
+├── unit/              # 单元测试（70%）
+│   ├── domain/
+│   ├── application/
+│   └── infrastructure/
+├── integration/       # 集成测试（20%）
+│   ├── repository/
+│   └── api/
+└── e2e/              # 端到端测试（10%）
+    └── scenarios/
+```
+
+## 单元测试
+
+### 1. 领域层测试
+```go
+package entity_test
+
+import (
+    "testing"
+    
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+)
+
+func TestUser_Activate(t *testing.T) {
+    tests := []struct {
+        name    string
+        setup   func() *entity.User
+        wantErr error
+    }{
+        {
+            name: "激活待处理用户成功",
+            setup: func() *entity.User {
+                email, _ := valueobject.NewEmail("test@example.com")
+                user, _ := entity.NewUser(email, "Test User")
+                return user
+            },
+            wantErr: nil,
+        },
+        {
+            name: "激活已激活用户失败",
+            setup: func() *entity.User {
+                email, _ := valueobject.NewEmail("test@example.com")
+                user, _ := entity.NewUser(email, "Test User")
+                user.Activate() // 先激活
+                return user
+            },
+            wantErr: entity.ErrUserAlreadyActive,
+        },
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            // Arrange
+            user := tt.setup()
+            
+            // Act
+            err := user.Activate()
+            
+            // Assert
+            if tt.wantErr != nil {
+                assert.ErrorIs(t, err, tt.wantErr)
+            } else {
+                assert.NoError(t, err)
+                assert.True(t, user.IsActive())
+            }
+        })
+    }
+}
+```
+
+### 2. 应用层测试（使用Mock）
+```go
+package service_test
+
+import (
+    "context"
+    "testing"
+    
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/mock"
+)
+
+// MockUserRepository Mock仓储
+type MockUserRepository struct {
+    mock.Mock
+}
+
+func (m *MockUserRepository) Save(ctx context.Context, user *entity.User) error {
+    args := m.Called(ctx, user)
+    return args.Error(0)
+}
+
+// 测试用例
+func TestUserService_CreateUser(t *testing.T) {
+    t.Run("成功创建用户", func(t *testing.T) {
+        // Arrange
+        mockRepo := new(MockUserRepository)
+        mockUoW := new(MockUnitOfWork)
+        mockEventBus := new(MockEventBus)
+        
+        userService := service.NewUserService(mockRepo, mockEventBus, mockUoW)
+        
+        cmd := command.CreateUserCommand{
+            Email:    "test@example.com",
+            Name:     "Test User",
+            Password: "password123",
+        }
+        
+        // 设置期望
+        mockUoW.On("Begin", mock.Anything).Return(nil)
+        mockRepo.On("FindByEmail", mock.Anything, mock.Anything).Return(nil, repository.ErrUserNotFound)
+        mockRepo.On("Save", mock.Anything, mock.Anything).Return(nil)
+        mockUoW.On("Commit", mock.Anything).Return(nil)
+        mockEventBus.On("Publish", mock.Anything).Return()
+        
+        // Act
+        userID, err := userService.CreateUser(context.Background(), cmd)
+        
+        // Assert
+        assert.NoError(t, err)
+        assert.NotEqual(t, uuid.Nil, userID)
+        
+        // 验证Mock调用
+        mockUoW.AssertExpectations(t)
+        mockRepo.AssertExpectations(t)
+        mockEventBus.AssertExpectations(t)
+    })
+}
+```
+
+## 集成测试
+
+### 1. 仓储集成测试
+```go
+package postgres_test
+
+import (
+    "context"
+    "testing"
+    
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+)
+
+func TestUserRepository_Integration(t *testing.T) {
+    if testing.Short() {
+        t.Skip("跳过集成测试")
+    }
+    
+    // 设置测试数据库
+    db := setupTestDB(t)
+    defer cleanupTestDB(t, db)
+    
+    repo := postgres.NewUserRepository(db)
+    
+    t.Run("保存和查找用户", func(t *testing.T) {
+        // Arrange
+        ctx := context.Background()
+        email, _ := valueobject.NewEmail("test@example.com")
+        user, _ := entity.NewUser(email, "Test User")
+        
+        // Act - 保存
+        err := repo.Save(ctx, user)
+        require.NoError(t, err)
+        
+        // Act - 查找
+        foundUser, err := repo.FindByID(ctx, user.ID())
+        
+        // Assert
+        require.NoError(t, err)
+        assert.Equal(t, user.ID(), foundUser.ID())
+        assert.Equal(t, user.Email(), foundUser.Email())
+        assert.Equal(t, user.Name(), foundUser.Name())
+    })
+}
+```
+
+## 测试覆盖率
+
+### 运行测试和覆盖率
+```bash
+# 运行所有测试
+go test ./...
+
+# 运行测试并生成覆盖率报告
+go test -cover ./...
+
+# 生成详细覆盖率报告
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out -o coverage.html
+
+# 只运行单元测试（跳过集成测试）
+go test -short ./...
+
+# 并行运行测试
+go test -parallel 4 ./...
+```
+
+## 基准测试
+
+```go
+func BenchmarkOrder_AddItem(b *testing.B) {
+    order := entity.NewOrder(uuid.New())
+    product := createTestProduct(b, "Product", 1000)
+    
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        _ = order.AddItem(product, 1)
+    }
+}
+```
+
+## 最佳实践
+
+1. **AAA模式**：Arrange-Act-Assert结构
+2. **表驱动测试**：使用测试表覆盖多个场景
+3. **测试命名**：清晰描述测试场景
+4. **Mock使用**：只Mock外部依赖
+5. **测试独立性**：每个测试独立运行
+6. **测试数据**：使用测试辅助函数创建测试数据
+7. **清理资源**：使用defer清理测试资源
+8. **覆盖率目标**：核心业务逻辑达到80%以上

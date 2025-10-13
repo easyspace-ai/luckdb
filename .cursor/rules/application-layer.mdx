@@ -1,0 +1,166 @@
+# 应用层（Application Layer）开发规范
+
+## 核心原则
+
+应用层负责协调领域对象完成业务用例：
+- **薄应用层**：不包含业务逻辑，只协调领域对象
+- **用例驱动**：每个应用服务对应一个或多个业务用例
+- **事务管理**：管理事务边界
+- **DTO转换**：处理外部数据到领域对象的转换
+
+## 目录结构
+
+```
+internal/application/
+├── command/              # 命令（写操作）
+│   ├── create_user.go
+│   ├── update_user.go
+│   └── delete_user.go
+├── query/                # 查询（读操作）
+│   ├── get_user.go
+│   ├── list_users.go
+│   └── user_dto.go
+├── service/              # 应用服务
+│   ├── user_service.go
+│   └── order_service.go
+├── dto/                  # 数据传输对象
+│   ├── user_dto.go
+│   └── order_dto.go
+└── eventhandler/         # 领域事件处理器
+    ├── user_event_handler.go
+    └── order_event_handler.go
+```
+
+## CQRS 模式
+
+### 1. 命令（Command）
+```go
+// ✅ 好的做法
+package command
+
+import (
+    "context"
+    "github.com/google/uuid"
+)
+
+// CreateUserCommand 创建用户命令
+// 命令代表一个写操作意图
+type CreateUserCommand struct {
+    Email    string
+    Name     string
+    Password string
+}
+
+// Validate 验证命令
+func (cmd CreateUserCommand) Validate() error {
+    if cmd.Email == "" {
+        return ErrEmailRequired
+    }
+    if cmd.Name == "" {
+        return ErrNameRequired
+    }
+    if cmd.Password == "" {
+        return ErrPasswordRequired
+    }
+    return nil
+}
+```
+
+## 应用服务示例
+
+```go
+// UserService 用户应用服务
+type UserService struct {
+    userRepo     repository.UserRepository
+    eventBus     EventBus
+    uow          UnitOfWork
+    logger       Logger
+}
+
+// CreateUser 创建用户（命令处理）
+func (s *UserService) CreateUser(ctx context.Context, cmd command.CreateUserCommand) (uuid.UUID, error) {
+    // 1. 验证命令
+    if err := cmd.Validate(); err != nil {
+        return uuid.Nil, fmt.Errorf("invalid command: %w", err)
+    }
+    
+    // 2. 开始事务
+    if err := s.uow.Begin(ctx); err != nil {
+        return uuid.Nil, fmt.Errorf("failed to begin transaction: %w", err)
+    }
+    defer func() {
+        if err := recover(); err != nil {
+            s.uow.Rollback(ctx)
+            panic(err)
+        }
+    }()
+    
+    // 3. 创建值对象
+    email, err := valueobject.NewEmail(cmd.Email)
+    if err != nil {
+        s.uow.Rollback(ctx)
+        return uuid.Nil, fmt.Errorf("invalid email: %w", err)
+    }
+    
+    // 4. 检查邮箱是否已存在
+    existingUser, err := s.userRepo.FindByEmail(ctx, email)
+    if err == nil && existingUser != nil {
+        s.uow.Rollback(ctx)
+        return uuid.Nil, ErrEmailAlreadyExists
+    }
+    
+    // 5. 创建领域对象（业务逻辑在领域层）
+    user, err := entity.NewUser(email, cmd.Name)
+    if err != nil {
+        s.uow.Rollback(ctx)
+        return uuid.Nil, fmt.Errorf("failed to create user: %w", err)
+    }
+    
+    // 6. 持久化
+    if err := s.userRepo.Save(ctx, user); err != nil {
+        s.uow.Rollback(ctx)
+        return uuid.Nil, fmt.Errorf("failed to save user: %w", err)
+    }
+    
+    // 7. 提交事务
+    if err := s.uow.Commit(ctx); err != nil {
+        return uuid.Nil, fmt.Errorf("failed to commit transaction: %w", err)
+    }
+    
+    // 8. 发布领域事件（事务外）
+    s.eventBus.Publish(event.NewUserRegistered(user.ID(), email))
+    
+    // 9. 日志记录
+    s.logger.Info("user created", "user_id", user.ID(), "email", email.String())
+    
+    return user.ID(), nil
+}
+```
+
+## 事务管理
+
+### 工作单元（Unit of Work）模式
+```go
+// UnitOfWork 工作单元接口
+type UnitOfWork interface {
+    // Begin 开始事务
+    Begin(ctx context.Context) error
+    
+    // Commit 提交事务
+    Commit(ctx context.Context) error
+    
+    // Rollback 回滚事务
+    Rollback(ctx context.Context) error
+}
+```
+
+## 最佳实践
+
+1. **保持应用层薄**：不要在应用层写业务逻辑
+2. **使用CQRS**：分离命令和查询
+3. **事务边界**：应用服务方法是事务边界
+4. **领域事件**：在事务提交后发布事件
+5. **DTO转换**：使用专门的映射器转换DTO
+6. **错误处理**：包装底层错误，提供有意义的错误信息
+7. **日志记录**：记录关键业务操作
+8. **验证输入**：在命令/查询中验证输入

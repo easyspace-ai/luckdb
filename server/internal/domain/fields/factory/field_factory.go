@@ -13,6 +13,26 @@ func NewFieldFactory() *FieldFactory {
 	return &FieldFactory{}
 }
 
+// CreateFieldWithType 创建指定类型的字段（通用方法）
+func (f *FieldFactory) CreateFieldWithType(
+	tableID string,
+	name string,
+	fieldTypeStr string,
+	createdBy string,
+) (*entity.Field, error) {
+	fieldName, err := valueobject.NewFieldName(name)
+	if err != nil {
+		return nil, err
+	}
+
+	fieldType, err := valueobject.NewFieldType(fieldTypeStr)
+	if err != nil {
+		return nil, err
+	}
+
+	return entity.NewField(tableID, fieldName, fieldType, createdBy)
+}
+
 // CreateTextField 创建文本字段
 func (f *FieldFactory) CreateTextField(
 	tableID string,

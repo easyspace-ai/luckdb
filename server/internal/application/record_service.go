@@ -188,39 +188,41 @@ func (s *RecordService) GetRecord(ctx context.Context, recordID string) (*dto.Re
 //   - 所有操作在单个事务中（原子性）
 //   - 计算失败回滚整个事务
 //   - 事务成功后才发布 WebSocket 事件
-func (s *RecordService) UpdateRecord(ctx context.Context, recordID string, req dto.UpdateRecordRequest, userID string) (*dto.RecordResponse, error) {
+func (s *RecordService) UpdateRecord(ctx context.Context, tableID, recordID string, req dto.UpdateRecordRequest, userID string) (*dto.RecordResponse, error) {
 	var record *entity.Record
 	var finalFields map[string]interface{}
 
 	// ✅ 在事务中执行所有操作
 	err := database.Transaction(ctx, s.recordRepo.(*infraRepository.RecordRepositoryDynamic).GetDB(), nil, func(txCtx context.Context) error {
-		// 1. 查找记录
+		// 1. 查找记录（使用 tableID）
 		id := valueobject.NewRecordID(recordID)
 		var err error
-		record, err = s.recordRepo.FindByID(txCtx, id)
+		records, err := s.recordRepo.FindByIDs(txCtx, tableID, []valueobject.RecordID{id})
 		if err != nil {
 			return pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查找记录失败: %v", err))
 		}
-		if record == nil {
+		if len(records) == 0 {
 			return pkgerrors.ErrNotFound.WithDetails("记录不存在")
 		}
+		record = records[0]
 
 		// 2. 识别变化的字段（用于智能重算）
 		oldData := record.Data().ToMap()
 		changedFieldIDs := s.identifyChangedFields(oldData, req.Data)
 
-		// 3. 创建新数据
+		// 4. 创建新数据
 		newData, err := valueobject.NewRecordData(req.Data)
 		if err != nil {
 			return pkgerrors.ErrValidationFailed.WithDetails(fmt.Sprintf("记录数据无效: %v", err))
 		}
 
-		// 4. 更新记录
+		// 5. 更新记录（会递增版本号）
 		if err := record.Update(newData, userID); err != nil {
 			return pkgerrors.ErrValidationFailed.WithDetails(fmt.Sprintf("更新记录失败: %v", err))
 		}
 
-		// 5. 保存（在事务中）
+		// 6. 保存（在事务中）
+		// 注意：record.Update()已经递增了版本，但Save会用旧版本做乐观锁检查
 		if err := s.recordRepo.Save(txCtx, record); err != nil {
 			return pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("保存记录失败: %v", err))
 		}
@@ -297,15 +299,14 @@ func (s *RecordService) isValueEqual(a, b interface{}) bool {
 }
 
 // DeleteRecord 删除记录 ✨ 事务版
-func (s *RecordService) DeleteRecord(ctx context.Context, recordID string) error {
-	var tableID string
-
+// ✅ 对齐 Teable：所有记录操作都需要 tableID
+func (s *RecordService) DeleteRecord(ctx context.Context, tableID, recordID string) error {
 	// ✅ 在事务中执行所有操作
 	err := database.Transaction(ctx, s.recordRepo.(*infraRepository.RecordRepositoryDynamic).GetDB(), nil, func(txCtx context.Context) error {
 		id := valueobject.NewRecordID(recordID)
 
-		// 1. 先获取记录信息（用于事件）
-		record, err := s.recordRepo.FindByID(txCtx, id)
+		// 1. 先获取记录信息（使用 tableID）
+		record, err := s.recordRepo.FindByTableAndID(txCtx, tableID, id)
 		if err != nil {
 			return pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查找记录失败: %v", err))
 		}
@@ -313,10 +314,8 @@ func (s *RecordService) DeleteRecord(ctx context.Context, recordID string) error
 			return pkgerrors.ErrNotFound.WithDetails("记录不存在")
 		}
 
-		tableID = record.TableID()
-
-		// 2. 删除记录（在事务中）
-		if err := s.recordRepo.Delete(txCtx, id); err != nil {
+		// 2. 删除记录（使用 tableID）
+		if err := s.recordRepo.DeleteByTableAndID(txCtx, tableID, id); err != nil {
 			return pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("删除记录失败: %v", err))
 		}
 
@@ -350,7 +349,7 @@ func (s *RecordService) DeleteRecord(ctx context.Context, recordID string) error
 }
 
 // ListRecords 列出表格的所有记录
-func (s *RecordService) ListRecords(ctx context.Context, tableID string, limit, offset int) ([]*dto.RecordResponse, error) {
+func (s *RecordService) ListRecords(ctx context.Context, tableID string, limit, offset int) ([]*dto.RecordResponse, int64, error) {
 	// 构建过滤器
 	filter := recordRepo.RecordFilter{
 		TableID: &tableID,
@@ -363,24 +362,41 @@ func (s *RecordService) ListRecords(ctx context.Context, tableID string, limit, 
 	}
 
 	// 查询记录列表
-	records, _, err := s.recordRepo.List(ctx, filter)
+	records, total, err := s.recordRepo.List(ctx, filter)
 	if err != nil {
-		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查询记录列表失败: %v", err))
+		return nil, 0, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查询记录列表失败: %v", err))
 	}
 
 	// 转换为 DTO
-	return dto.FromRecordEntities(records), nil
+	return dto.FromRecordEntities(records), total, nil
 }
 
 // BatchCreateRecords 批量创建记录（严格遵守：返回AppError）
 func (s *RecordService) BatchCreateRecords(ctx context.Context, tableID string, req dto.BatchCreateRecordRequest, userID string) (*dto.BatchCreateRecordResponse, error) {
+	// ✅ 允许空数组：直接返回成功响应
+	if len(req.Records) == 0 {
+		return &dto.BatchCreateRecordResponse{
+			Records:      []*dto.RecordResponse{},
+			SuccessCount: 0,
+			FailedCount:  0,
+			Errors:       []string{},
+		}, nil
+	}
+
 	successRecords := make([]*dto.RecordResponse, 0, len(req.Records))
 	errorsList := make([]string, 0)
 
 	// 遍历每条记录进行创建
 	for i, item := range req.Records {
-		// 创建记录数据值对象
-		recordData, err := valueobject.NewRecordData(item.Fields)
+		// ✅ 对齐单条创建逻辑：使用 typecast service 验证和转换数据
+		validatedData, err := s.typecastService.ValidateAndTypecastRecord(ctx, tableID, item.Fields, true)
+		if err != nil {
+			errorsList = append(errorsList, fmt.Sprintf("记录%d数据验证失败: %v", i+1, err))
+			continue
+		}
+
+		// 创建记录数据值对象（使用验证后的数据）
+		recordData, err := valueobject.NewRecordData(validatedData)
 		if err != nil {
 			errorsList = append(errorsList, fmt.Sprintf("记录%d数据无效: %v", i+1, err))
 			continue
@@ -431,23 +447,24 @@ func (s *RecordService) BatchCreateRecords(ctx context.Context, tableID string, 
 }
 
 // BatchUpdateRecords 批量更新记录（严格遵守：返回AppError）
-func (s *RecordService) BatchUpdateRecords(ctx context.Context, req dto.BatchUpdateRecordRequest, userID string) (*dto.BatchUpdateRecordResponse, error) {
+func (s *RecordService) BatchUpdateRecords(ctx context.Context, tableID string, req dto.BatchUpdateRecordRequest, userID string) (*dto.BatchUpdateRecordResponse, error) {
 	successRecords := make([]*dto.RecordResponse, 0, len(req.Records))
 	errorsList := make([]string, 0)
 
 	// 遍历每条记录进行更新
 	for i, item := range req.Records {
-		// 查找记录
+		// 查找记录（使用 tableID）
 		id := valueobject.NewRecordID(item.ID)
-		record, err := s.recordRepo.FindByID(ctx, id)
+		records, err := s.recordRepo.FindByIDs(ctx, tableID, []valueobject.RecordID{id})
 		if err != nil {
 			errorsList = append(errorsList, fmt.Sprintf("记录%s查找失败: %v", item.ID, err))
 			continue
 		}
-		if record == nil {
+		if len(records) == 0 {
 			errorsList = append(errorsList, fmt.Sprintf("记录%s不存在", item.ID))
 			continue
 		}
+		record := records[0]
 
 		// 创建新数据
 		newData, err := valueobject.NewRecordData(item.Fields)
@@ -487,16 +504,16 @@ func (s *RecordService) BatchUpdateRecords(ctx context.Context, req dto.BatchUpd
 }
 
 // BatchDeleteRecords 批量删除记录（严格遵守：返回AppError）
-func (s *RecordService) BatchDeleteRecords(ctx context.Context, req dto.BatchDeleteRecordRequest) (*dto.BatchDeleteRecordResponse, error) {
+func (s *RecordService) BatchDeleteRecords(ctx context.Context, tableID string, req dto.BatchDeleteRecordRequest) (*dto.BatchDeleteRecordResponse, error) {
 	errorsList := make([]string, 0)
 	successCount := 0
 
-	// 遍历每条记录进行删除
+	// 遍历每条记录进行删除（使用 tableID）
 	for _, recordID := range req.RecordIDs {
 		id := valueobject.NewRecordID(recordID)
 
-		// 删除记录
-		if err := s.recordRepo.Delete(ctx, id); err != nil {
+		// 删除记录（使用 tableID）
+		if err := s.recordRepo.DeleteByTableAndID(ctx, tableID, id); err != nil {
 			errorsList = append(errorsList, fmt.Sprintf("记录%s删除失败: %v", recordID, err))
 			continue
 		}

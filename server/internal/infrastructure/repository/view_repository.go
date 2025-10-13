@@ -43,7 +43,7 @@ type ViewModel struct {
 	ShareMeta   string     `gorm:"column:share_meta;type:text"` // JSON
 	CreatedBy   string     `gorm:"column:created_by"`
 	CreatedAt   time.Time  `gorm:"column:created_time"`
-	UpdatedAt   time.Time  `gorm:"column:updated_time"` // ✅ 修复：使用正确的列名 updated_time
+	UpdatedAt   time.Time  `gorm:"column:last_modified_time"` // ✅ 修复：使用正确的列名 last_modified_time
 	DeletedAt   *time.Time `gorm:"column:deleted_time;index"`
 }
 

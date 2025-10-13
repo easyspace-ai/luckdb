@@ -1,0 +1,500 @@
+---
+alwaysApply: true
+---
+
+# Documentation Management - 文档管理规范
+
+## 规则概述
+
+为了保持项目目录整洁，所有由 AI 助手生成的分析报告、修复总结、完成报告等文档文件必须按照统一的规范存放和命名。
+
+## 文档存放位置
+
+### 主文档目录结构
+
+所有 AI 生成的文档统一存放在 `book/ai-reports/` 目录下，按以下子目录分类：
+
+```
+book/
+└── ai-reports/
+    ├── analysis/          # 分析报告 (Analysis Reports)
+    ├── fixes/             # 修复报告 (Fix Reports)
+    ├── refactoring/       # 重构报告 (Refactoring Reports)
+    ├── features/          # 功能完成报告 (Feature Completion)
+    ├── optimization/      # 优化报告 (Optimization Reports)
+    ├── testing/           # 测试报告 (Testing Reports)
+    └── architecture/      # 架构设计文档 (Architecture Documents)
+```
+
+## 文档命名规范
+
+### 命名格式
+
+所有文档必须遵循以下命名格式：
+
+```
+YYYY-MM-DD_<category>_<description>.md
+```
+
+**格式说明：**
+- `YYYY-MM-DD`: 文档生成日期（如 2024-10-11）
+- `<category>`: 文档类别（见下方分类）
+- `<description>`: 简短描述，使用下划线分隔单词，全小写
+
+### 文档分类 (Category)
+
+| 类别代码 | 英文名称 | 中文说明 | 存放目录 |
+|---------|---------|---------|---------|
+| `analysis` | Analysis | 分析报告 | `analysis/` |
+| `fix` | Fix | 修复报告 | `fixes/` |
+| `refactor` | Refactoring | 重构报告 | `refactoring/` |
+| `feature` | Feature | 功能完成 | `features/` |
+| `optimize` | Optimization | 优化报告 | `optimization/` |
+| `test` | Testing | 测试报告 | `testing/` |
+| `arch` | Architecture | 架构设计 | `architecture/` |
+
+### 命名示例
+
+**✅ 正确示例：**
+
+```
+book/ai-reports/analysis/2024-10-11_analysis_api_response_format.md
+book/ai-reports/fixes/2024-10-11_fix_user_authentication_bug.md
+ 
+```
+
+**❌ 错误示例（禁止）：**
+
+```
+# ❌ 不要在根目录创建文档
+API_TEST_ANALYSIS_AND_FIXES.md
+BACKEND_FIX_REQUIRED.md
+COMPREHENSIVE_API_FIX_COMPLETE.md
+
+# ❌ 不要使用全大写或不规范的命名
+NAMING_STANDARDIZATION_COMPLETE.md
+FRONTEND_FIX_COMPLETE.md
+FINAL_REFACTOR_SUMMARY.md
+```
+
+## 具体规则
+
+### 1. 创建新文档时
+
+当需要创建分析报告、修复总结、完成报告等文档时：
+
+1. **确定文档类型**：选择合适的分类（analysis/fix/refactor/feature 等）
+2. **生成规范文件名**：使用 `YYYY-MM-DD_<category>_<description>.md` 格式
+3. **存放到对应目录**：将文件创建在 `book/ai-reports/<category>/` 下
+
+**示例：**
+
+```bash
+# 如果要创建 API 测试分析报告
+book/ai-reports/analysis/2024-10-11_analysis_api_test_comprehensive.md
+
+# 如果要创建修复总结
+book/ai-reports/fixes/2024-10-11_fix_naming_standardization.md
+
+# 如果要创建功能完成报告
+book/ai-reports/features/2024-10-11_feature_base_module_implementation.md
+```
+
+### 2. 文档内容规范
+
+每个文档应包含以下基本信息：
+
+```markdown
+# [文档标题]
+
+**生成日期**: YYYY-MM-DD  
+**分类**: [Analysis/Fix/Refactor/Feature/etc]  
+**关键词**: [关键词1, 关键词2, 关键词3]  
+**相关模块**: [涉及的模块或功能]
+
+## 概述
+
+[文档概述内容]
+
+## 详细内容
+
+[具体内容...]
+
+## 总结
+
+[总结内容...]
+```
+
+### 3. 已有文档迁移
+
+对于项目根目录已存在的旧文档，建议：
+
+1. **保留重要文档**：将重要的报告按新规范迁移
+2. **清理过时文档**：删除已过时或不再需要的文档
+3. **批量迁移**：使用脚本批量重命名和移动
+
+**迁移脚本示例**：
+
+```bash
+#!/bin/bash
+# 迁移旧文档到新目录结构
+
+# 创建目录结构
+mkdir -p book/ai-reports/{analysis,fixes,refactoring,features,optimization,testing,architecture}
+
+# 根据文件名模式迁移（示例）
+# 迁移分析类文档
+find . -maxdepth 1 -name "*ANALYSIS*.md" -exec mv {} book/ai-reports/analysis/ \;
+
+# 迁移修复类文档
+find . -maxdepth 1 -name "*FIX*.md" -exec mv {} book/ai-reports/fixes/ \;
+
+# 迁移重构类文档
+find . -maxdepth 1 -name "*REFACTOR*.md" -exec mv {} book/ai-reports/refactoring/ \;
+
+# 迁移完成报告
+find . -maxdepth 1 -name "*COMPLETE*.md" -exec mv {} book/ai-reports/features/ \;
+```
+
+### 4. 文档保留策略
+
+为防止文档堆积，建议定期清理：
+
+- **分析报告**: 保留最近 3 个月
+- **修复报告**: 重要修复永久保留，一般修复保留 6 个月
+- **重构报告**: 保留最近一次重构相关的所有文档
+- **功能报告**: 永久保留
+- **优化报告**: 保留最近 6 个月
+- **测试报告**: 保留最近 1 个月
+- **架构文档**: 永久保留
+
+### 5. .gitignore 配置
+
+建议在 `.gitignore` 中添加以下配置（可选）：
+
+```gitignore
+# AI 生成的临时报告（可选择性忽略）
+book/ai-reports/testing/
+book/ai-reports/analysis/*_temp_*.md
+```
+
+## 执行要求
+
+### 对 AI 助手的要求
+
+1. **强制遵守**：创建任何报告、总结、分析文档时，必须遵循上述命名和存放规范
+2. **自动分类**：根据文档内容自动选择合适的分类目录
+3. **日期标注**：始终在文件名中包含生成日期
+4. **描述清晰**：文件名中的描述部分要简洁明了，体现文档核心内容
+5. **禁止根目录**：禁止在项目根目录直接创建任何 `.md` 报告文件
+
+### 对开发者的要求
+
+1. **定期清理**：每月检查并清理过期文档
+2. **及时迁移**：发现不规范的文档及时迁移到正确位置
+3. **遵守规范**：手动创建文档时也应遵守此规范
+
+## 快速参考
+
+### 常见文档类型映射表
+
+| 旧文件名模式 | 新存放路径 | 新命名格式 |
+|------------|----------|-----------|
+| `*_ANALYSIS_*.md` | `book/ai-reports/analysis/` | `YYYY-MM-DD_analysis_*.md` |
+| `*_FIX_*.md` | `book/ai-reports/fixes/` | `YYYY-MM-DD_fix_*.md` |
+| `*_REFACTOR_*.md` | `book/ai-reports/refactoring/` | `YYYY-MM-DD_refactor_*.md` |
+| `*_COMPLETE*.md` | `book/ai-reports/features/` | `YYYY-MM-DD_feature_*.md` |
+| `*_OPTIMIZATION*.md` | `book/ai-reports/optimization/` | `YYYY-MM-DD_optimize_*.md` |
+| `*_TEST_*.md` | `book/ai-reports/testing/` | `YYYY-MM-DD_test_*.md` |
+
+## 示例场景
+
+### 场景 1: 完成 API 修复
+
+**任务**: 修复了用户认证相关的 API 问题，需要生成报告
+
+**操作**:
+```bash
+# 创建文件
+book/ai-reports/fixes/2024-10-11_fix_user_authentication_api.md
+```
+
+### 场景 2: 性能优化分析
+
+**任务**: 分析了数据库查询性能问题
+
+**操作**:
+```bash
+# 创建文件
+book/ai-reports/analysis/2024-10-11_analysis_database_query_performance.md
+```
+
+### 场景 3: 功能开发完成
+
+**任务**: 完成了视图分享功能的开发
+
+**操作**:
+```bash
+# 创建文件
+book/ai-reports/features/2024-10-11_feature_view_sharing_implementation.md
+```
+
+## 总结
+
+遵循此规范可以：
+- ✅ 保持项目根目录整洁
+- ✅ 文档分类清晰，易于查找
+- ✅ 按时间排序，方便追溯
+- ✅ 定期清理，避免文档堆积
+- ✅ 提高团队协作效率
+
+# Documentation Management - 文档管理规范
+
+## 规则概述
+
+为了保持项目目录整洁，所有由 AI 助手生成的分析报告、修复总结、完成报告等文档文件必须按照统一的规范存放和命名。
+
+## 文档存放位置
+
+### 主文档目录结构
+
+所有 AI 生成的文档统一存放在 `book/ai-reports/` 目录下，按以下子目录分类：
+
+```
+book/
+└── ai-reports/
+    ├── analysis/          # 分析报告 (Analysis Reports)
+    ├── fixes/             # 修复报告 (Fix Reports)
+    ├── refactoring/       # 重构报告 (Refactoring Reports)
+    ├── features/          # 功能完成报告 (Feature Completion)
+    ├── optimization/      # 优化报告 (Optimization Reports)
+    ├── testing/           # 测试报告 (Testing Reports)
+    └── architecture/      # 架构设计文档 (Architecture Documents)
+```
+
+## 文档命名规范
+
+### 命名格式
+
+所有文档必须遵循以下命名格式：
+
+```
+YYYY-MM-DD_<category>_<description>.md
+```
+
+**格式说明：**
+- `YYYY-MM-DD`: 文档生成日期（如 2024-10-11）
+- `<category>`: 文档类别（见下方分类）
+- `<description>`: 简短描述，使用下划线分隔单词，全小写
+
+### 文档分类 (Category)
+
+| 类别代码 | 英文名称 | 中文说明 | 存放目录 |
+|---------|---------|---------|---------|
+| `analysis` | Analysis | 分析报告 | `analysis/` |
+| `fix` | Fix | 修复报告 | `fixes/` |
+| `refactor` | Refactoring | 重构报告 | `refactoring/` |
+| `feature` | Feature | 功能完成 | `features/` |
+| `optimize` | Optimization | 优化报告 | `optimization/` |
+| `test` | Testing | 测试报告 | `testing/` |
+| `arch` | Architecture | 架构设计 | `architecture/` |
+
+### 命名示例
+
+**✅ 正确示例：**
+
+```
+book/ai-reports/analysis/2024-10-11_analysis_api_response_format.md
+book/ai-reports/fixes/2024-10-11_fix_user_authentication_bug.md
+book/ai-reports/refactoring/2024-10-11_refactor_service_layer_cleanup.md
+book/ai-reports/features/2024-10-11_feature_view_sharing_complete.md
+book/ai-reports/optimization/2024-10-11_optimize_database_query_performance.md
+book/ai-reports/testing/2024-10-11_test_comprehensive_api_validation.md
+book/ai-reports/architecture/2024-10-11_arch_ddd_implementation_guide.md
+```
+
+**❌ 错误示例（禁止）：**
+
+```
+# ❌ 不要在根目录创建文档
+API_TEST_ANALYSIS_AND_FIXES.md
+BACKEND_FIX_REQUIRED.md
+COMPREHENSIVE_API_FIX_COMPLETE.md
+
+# ❌ 不要使用全大写或不规范的命名
+NAMING_STANDARDIZATION_COMPLETE.md
+FRONTEND_FIX_COMPLETE.md
+FINAL_REFACTOR_SUMMARY.md
+```
+
+## 具体规则
+
+### 1. 创建新文档时
+
+当需要创建分析报告、修复总结、完成报告等文档时：
+
+1. **确定文档类型**：选择合适的分类（analysis/fix/refactor/feature 等）
+2. **生成规范文件名**：使用 `YYYY-MM-DD_<category>_<description>.md` 格式
+3. **存放到对应目录**：将文件创建在 `book/ai-reports/<category>/` 下
+
+**示例：**
+
+```bash
+# 如果要创建 API 测试分析报告
+book/ai-reports/analysis/2024-10-11_analysis_api_test_comprehensive.md
+
+# 如果要创建修复总结
+book/ai-reports/fixes/2024-10-11_fix_naming_standardization.md
+
+# 如果要创建功能完成报告
+book/ai-reports/features/2024-10-11_feature_base_module_implementation.md
+```
+
+### 2. 文档内容规范
+
+每个文档应包含以下基本信息：
+
+```markdown
+# [文档标题]
+
+**生成日期**: YYYY-MM-DD  
+**分类**: [Analysis/Fix/Refactor/Feature/etc]  
+**关键词**: [关键词1, 关键词2, 关键词3]  
+**相关模块**: [涉及的模块或功能]
+
+## 概述
+
+[文档概述内容]
+
+## 详细内容
+
+[具体内容...]
+
+## 总结
+
+[总结内容...]
+```
+
+### 3. 已有文档迁移
+
+对于项目根目录已存在的旧文档，建议：
+
+1. **保留重要文档**：将重要的报告按新规范迁移
+2. **清理过时文档**：删除已过时或不再需要的文档
+3. **批量迁移**：使用脚本批量重命名和移动
+
+**迁移脚本示例**：
+
+```bash
+#!/bin/bash
+# 迁移旧文档到新目录结构
+
+# 创建目录结构
+mkdir -p book/ai-reports/{analysis,fixes,refactoring,features,optimization,testing,architecture}
+
+# 根据文件名模式迁移（示例）
+# 迁移分析类文档
+find . -maxdepth 1 -name "*ANALYSIS*.md" -exec mv {} book/ai-reports/analysis/ \;
+
+# 迁移修复类文档
+find . -maxdepth 1 -name "*FIX*.md" -exec mv {} book/ai-reports/fixes/ \;
+
+# 迁移重构类文档
+find . -maxdepth 1 -name "*REFACTOR*.md" -exec mv {} book/ai-reports/refactoring/ \;
+
+# 迁移完成报告
+find . -maxdepth 1 -name "*COMPLETE*.md" -exec mv {} book/ai-reports/features/ \;
+```
+
+### 4. 文档保留策略
+
+为防止文档堆积，建议定期清理：
+
+- **分析报告**: 保留最近 3 个月
+- **修复报告**: 重要修复永久保留，一般修复保留 6 个月
+- **重构报告**: 保留最近一次重构相关的所有文档
+- **功能报告**: 永久保留
+- **优化报告**: 保留最近 6 个月
+- **测试报告**: 保留最近 1 个月
+- **架构文档**: 永久保留
+
+### 5. .gitignore 配置
+
+建议在 `.gitignore` 中添加以下配置（可选）：
+
+```gitignore
+# AI 生成的临时报告（可选择性忽略）
+book/ai-reports/testing/
+book/ai-reports/analysis/*_temp_*.md
+```
+
+## 执行要求
+
+### 对 AI 助手的要求
+
+1. **强制遵守**：创建任何报告、总结、分析文档时，必须遵循上述命名和存放规范
+2. **自动分类**：根据文档内容自动选择合适的分类目录
+3. **日期标注**：始终在文件名中包含生成日期
+4. **描述清晰**：文件名中的描述部分要简洁明了，体现文档核心内容
+5. **禁止根目录**：禁止在项目根目录直接创建任何 `.md` 报告文件
+
+### 对开发者的要求
+
+1. **定期清理**：每月检查并清理过期文档
+2. **及时迁移**：发现不规范的文档及时迁移到正确位置
+3. **遵守规范**：手动创建文档时也应遵守此规范
+
+## 快速参考
+
+### 常见文档类型映射表
+
+| 旧文件名模式 | 新存放路径 | 新命名格式 |
+|------------|----------|-----------|
+| `*_ANALYSIS_*.md` | `book/ai-reports/analysis/` | `YYYY-MM-DD_analysis_*.md` |
+| `*_FIX_*.md` | `book/ai-reports/fixes/` | `YYYY-MM-DD_fix_*.md` |
+| `*_REFACTOR_*.md` | `book/ai-reports/refactoring/` | `YYYY-MM-DD_refactor_*.md` |
+| `*_COMPLETE*.md` | `book/ai-reports/features/` | `YYYY-MM-DD_feature_*.md` |
+| `*_OPTIMIZATION*.md` | `book/ai-reports/optimization/` | `YYYY-MM-DD_optimize_*.md` |
+| `*_TEST_*.md` | `book/ai-reports/testing/` | `YYYY-MM-DD_test_*.md` |
+
+## 示例场景
+
+### 场景 1: 完成 API 修复
+
+**任务**: 修复了用户认证相关的 API 问题，需要生成报告
+
+**操作**:
+```bash
+# 创建文件
+book/ai-reports/fixes/2024-10-11_fix_user_authentication_api.md
+```
+
+### 场景 2: 性能优化分析
+
+**任务**: 分析了数据库查询性能问题
+
+**操作**:
+```bash
+# 创建文件
+book/ai-reports/analysis/2024-10-11_analysis_database_query_performance.md
+```
+
+### 场景 3: 功能开发完成
+
+**任务**: 完成了视图分享功能的开发
+
+**操作**:
+```bash
+# 创建文件
+book/ai-reports/features/2024-10-11_feature_view_sharing_implementation.md
+```
+
+## 总结
+
+遵循此规范可以：
+- ✅ 保持项目根目录整洁
+- ✅ 文档分类清晰，易于查找
+- ✅ 按时间排序，方便追溯
+- ✅ 定期清理，避免文档堆积
+- ✅ 提高团队协作效率
+

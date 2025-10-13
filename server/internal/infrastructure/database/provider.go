@@ -20,11 +20,6 @@ type DBProvider interface {
 	// SQLite: 删除所有带前缀的表
 	DropSchema(ctx context.Context, schemaName string) error
 
-	// SetSearchPath 设置当前会话的搜索路径
-	// PostgreSQL: SET search_path TO schemaName
-	// SQLite: 不需要
-	SetSearchPath(ctx context.Context, schemaName string) error
-
 	// ==================== 动态表管理（完全复刻旧系统）====================
 
 	// CreatePhysicalTable 创建物理表（包含系统字段）

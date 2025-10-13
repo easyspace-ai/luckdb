@@ -51,15 +51,6 @@ func (p *PostgresProvider) DropSchema(ctx context.Context, schemaName string) er
 	return nil
 }
 
-// SetSearchPath 设置当前会话的搜索路径
-func (p *PostgresProvider) SetSearchPath(ctx context.Context, schemaName string) error {
-	sql := fmt.Sprintf("SET search_path TO %s", p.quoteIdentifier(schemaName))
-	if err := p.db.WithContext(ctx).Exec(sql).Error; err != nil {
-		return fmt.Errorf("设置search_path失败: %w", err)
-	}
-	return nil
-}
-
 // ==================== 动态表管理 ====================
 
 // CreatePhysicalTable 创建物理表（包含系统字段）

@@ -80,7 +80,15 @@ func (h *RecordHandler) GetRecord(c *gin.Context) {
 // UpdateRecord 更新记录
 func (h *RecordHandler) UpdateRecord(c *gin.Context) {
 	ctx := c.Request.Context()
+	tableID := c.Param("tableId") // ✅ 从路由获取 tableId（新路由）
 	recordID := c.Param("recordId")
+
+	// ✅ 兼容旧路由：如果没有 tableId，尝试从 record 查找
+	if tableID == "" {
+		// TODO: 从 record 的元数据中获取 tableId（需要额外查询）
+		response.Error(c, errors.ErrBadRequest.WithDetails("请使用新路由: PATCH /api/v1/tables/:tableId/records/:recordId"))
+		return
+	}
 
 	var req dto.UpdateRecordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -94,7 +102,7 @@ func (h *RecordHandler) UpdateRecord(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.recordService.UpdateRecord(ctx, recordID, req, userID)
+	resp, err := h.recordService.UpdateRecord(ctx, tableID, recordID, req, userID)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -113,9 +121,16 @@ func (h *RecordHandler) UpdateRecord(c *gin.Context) {
 
 // DeleteRecord 删除记录
 func (h *RecordHandler) DeleteRecord(c *gin.Context) {
+	tableID := c.Param("tableId") // ✅ 从路由获取 tableId（新路由）
 	recordID := c.Param("recordId")
 
-	if err := h.recordService.DeleteRecord(c.Request.Context(), recordID); err != nil {
+	// ✅ 兼容旧路由：如果没有 tableId，返回错误提示使用新路由
+	if tableID == "" {
+		response.Error(c, errors.ErrBadRequest.WithDetails("请使用新路由: DELETE /api/v1/tables/:tableId/records/:recordId"))
+		return
+	}
+
+	if err := h.recordService.DeleteRecord(c.Request.Context(), tableID, recordID); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -158,22 +173,29 @@ func (h *RecordHandler) BatchCreateRecords(c *gin.Context) {
 // PATCH /api/v1/records/batch
 // ✅ 严格使用 response.Success
 func (h *RecordHandler) BatchUpdateRecords(c *gin.Context) {
-	// 1. 参数绑定
+	// 1. 获取 tableId
+	tableID := c.Param("tableId")
+	if tableID == "" {
+		response.Error(c, errors.ErrBadRequest.WithDetails("请使用新路由: PATCH /api/v1/tables/:tableId/records/batch"))
+		return
+	}
+
+	// 2. 参数绑定
 	var req dto.BatchUpdateRecordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, errors.ErrBadRequest.WithDetails(err.Error()))
 		return
 	}
 
-	// 2. 获取用户ID
+	// 3. 获取用户ID
 	userID := c.GetString("user_id")
 	if userID == "" {
 		response.Error(c, errors.ErrUnauthorized.WithDetails("未授权"))
 		return
 	}
 
-	// 3. 调用Service
-	resp, err := h.recordService.BatchUpdateRecords(c.Request.Context(), req, userID)
+	// 4. 调用Service（传递 tableID）
+	resp, err := h.recordService.BatchUpdateRecords(c.Request.Context(), tableID, req, userID)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -184,24 +206,31 @@ func (h *RecordHandler) BatchUpdateRecords(c *gin.Context) {
 }
 
 // BatchDeleteRecords 批量删除记录
-// DELETE /api/v1/records/batch
+// DELETE /api/v1/tables/:tableId/records/batch
 // ✅ 严格使用 response.Success
 func (h *RecordHandler) BatchDeleteRecords(c *gin.Context) {
-	// 1. 参数绑定
+	// 1. 获取 tableId
+	tableID := c.Param("tableId")
+	if tableID == "" {
+		response.Error(c, errors.ErrBadRequest.WithDetails("请使用新路由: DELETE /api/v1/tables/:tableId/records/batch"))
+		return
+	}
+
+	// 2. 参数绑定
 	var req dto.BatchDeleteRecordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, errors.ErrBadRequest.WithDetails(err.Error()))
 		return
 	}
 
-	// 2. 调用Service
-	resp, err := h.recordService.BatchDeleteRecords(c.Request.Context(), req)
+	// 3. 调用Service（传递 tableID）
+	resp, err := h.recordService.BatchDeleteRecords(c.Request.Context(), tableID, req)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
 
-	// 3. ✅ 严格使用response.Success
+	// 4. ✅ 严格使用response.Success
 	response.Success(c, resp, "批量删除记录成功")
 }
 
@@ -213,13 +242,26 @@ func (h *RecordHandler) ListRecords(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	resp, err := h.recordService.ListRecords(c.Request.Context(), tableID, limit, offset)
+	// 调用 Service 获取记录列表和总数
+	records, total, err := h.recordService.ListRecords(c.Request.Context(), tableID, limit, offset)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
 
-	response.Success(c, resp, "获取记录列表成功")
+	// 计算总页数
+	totalPages := int((total + int64(limit) - 1) / int64(limit))
+	page := (offset / limit) + 1
+
+	// 使用分页响应（Records 是唯一需要分页的资源）
+	pagination := response.Pagination{
+		Page:       page,
+		Limit:      limit,
+		Total:      int(total),
+		TotalPages: totalPages,
+	}
+
+	response.PaginatedSuccess(c, records, pagination, "获取记录列表成功")
 }
 
 // ==================== 辅助方法 ====================

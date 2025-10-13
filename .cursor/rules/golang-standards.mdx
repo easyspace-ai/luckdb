@@ -1,0 +1,576 @@
+# Golang 代码标准与最佳实践
+
+## 代码风格
+
+### 1. 格式化
+- **必须**使用 `gofmt` 或 `goimports` 格式化代码
+- 使用 `golangci-lint` 进行静态代码检查
+- 提交前运行：`gofmt -w .` 和 `goimports -w .`
+
+### 2. 命名规范
+
+#### 包命名
+```go
+// ✅ 好的做法
+package user
+package repository
+package valueobject
+
+// ❌ 坏的做法
+package user_service  // 不要使用下划线
+package UserService   // 不要使用大写
+package utils         // 避免通用名称
+```
+
+#### 变量命名
+```go
+// ✅ 驼峰命名，简短且有意义
+var userCount int
+var maxRetries = 3
+const defaultTimeout = 30 * time.Second
+
+// 缩写词保持大写
+var userID string
+var httpClient *http.Client
+var urlPath string
+
+// ❌ 避免
+var user_count int  // 不要使用下划线
+var u int          // 单字母变量（除非是循环计数器）
+var numberOfUsersInTheSystem int  // 过长
+```
+
+#### 函数命名
+```go
+// ✅ 好的做法
+func GetUserByID(id string) (*User, error)
+func NewUser(email string) *User
+func (u *User) IsActive() bool
+func (u *User) Activate() error
+
+// ❌ 坏的做法
+func get_user(id string) (*User, error)  // 不要使用下划线
+func User(email string) *User            // 构造函数应以New开头
+```
+
+#### 接口命名
+```go
+// ✅ 单方法接口：动词 + er
+type Reader interface {
+    Read(p []byte) (n int, err error)
+}
+
+type UserRepository interface {
+    Save(ctx context.Context, user *User) error
+    FindByID(ctx context.Context, id string) (*User, error)
+}
+
+// ❌ 避免
+type IUserRepository interface {}  // 不要使用I前缀
+type UserRepositoryInterface interface {}  // 不要使用Interface后缀
+```
+
+## 代码组织
+
+### 1. 文件结构
+```go
+// user.go
+package entity
+
+import (
+    // 标准库
+    "context"
+    "fmt"
+    "time"
+    
+    // 第三方库
+    "github.com/google/uuid"
+    
+    // 本项目内部包
+    "github.com/yourorg/easydb/internal/domain/valueobject"
+)
+
+// 常量
+const (
+    MaxNameLength = 100
+    MinAge        = 18
+)
+
+// 变量
+var (
+    ErrInvalidUser = errors.New("invalid user")
+)
+
+// 类型定义
+type User struct {
+    id        uuid.UUID
+    name      string
+    email     valueobject.Email
+    createdAt time.Time
+}
+
+// 构造函数
+func NewUser(name string, email valueobject.Email) (*User, error) {
+    // 实现
+}
+
+// 方法
+func (u *User) GetID() uuid.UUID {
+    return u.id
+}
+```
+
+### 2. 包组织原则
+- 按功能领域组织，不按技术层组织
+- 避免循环依赖
+- 包应该小而聚焦
+
+```go
+// ✅ 好的做法 - 按功能领域
+internal/
+  domain/
+    user/
+      entity.go
+      repository.go
+      service.go
+    order/
+      entity.go
+      repository.go
+
+// ❌ 坏的做法 - 按技术层
+internal/
+  models/
+    user.go
+    order.go
+  services/
+    user_service.go
+    order_service.go
+```
+
+## 错误处理
+
+### 1. 错误返回
+```go
+// ✅ 好的做法
+func GetUser(id string) (*User, error) {
+    user, err := repo.FindByID(id)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get user: %w", err)
+    }
+    return user, nil
+}
+
+// ✅ 使用errors.Is和errors.As
+if errors.Is(err, ErrUserNotFound) {
+    // 处理特定错误
+}
+
+var domainErr *DomainError
+if errors.As(err, &domainErr) {
+    // 处理领域错误
+}
+
+// ❌ 坏的做法
+func GetUser(id string) *User {
+    user, _ := repo.FindByID(id)  // 不要忽略错误
+    return user
+}
+```
+
+### 2. 自定义错误
+```go
+// ✅ 实现error接口
+type ValidationError struct {
+    Field   string
+    Message string
+}
+
+func (e *ValidationError) Error() string {
+    return fmt.Sprintf("%s: %s", e.Field, e.Message)
+}
+
+// ✅ 使用哨兵错误
+var (
+    ErrNotFound      = errors.New("not found")
+    ErrUnauthorized  = errors.New("unauthorized")
+    ErrInvalidInput  = errors.New("invalid input")
+)
+```
+
+## 并发处理
+
+### 1. Goroutine使用
+```go
+// ✅ 好的做法 - 使用WaitGroup
+func ProcessUsers(users []*User) error {
+    var wg sync.WaitGroup
+    errChan := make(chan error, len(users))
+    
+    for _, user := range users {
+        wg.Add(1)
+        go func(u *User) {
+            defer wg.Done()
+            if err := processUser(u); err != nil {
+                errChan <- err
+            }
+        }(user)  // 注意：传递副本避免闭包问题
+    }
+    
+    wg.Wait()
+    close(errChan)
+    
+    // 收集错误
+    for err := range errChan {
+        if err != nil {
+            return err
+        }
+    }
+    return nil
+}
+
+// ❌ 坏的做法
+for _, user := range users {
+    go processUser(user)  // 没有同步，没有错误处理
+}
+```
+
+### 2. Context使用
+```go
+// ✅ 好的做法
+func (s *UserService) GetUser(ctx context.Context, id string) (*User, error) {
+    // 检查context是否已取消
+    select {
+    case <-ctx.Done():
+        return nil, ctx.Err()
+    default:
+    }
+    
+    // 传递context给下游
+    user, err := s.repo.FindByID(ctx, id)
+    if err != nil {
+        return nil, err
+    }
+    return user, nil
+}
+
+// ✅ 设置超时
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+user, err := service.GetUser(ctx, userID)
+
+// ❌ 坏的做法
+func GetUser(id string) (*User, error) {  // 缺少context参数
+    // 实现
+}
+```
+
+### 3. Channel使用
+```go
+// ✅ 好的做法
+func GenerateIDs(count int) <-chan string {  // 返回只读channel
+    ids := make(chan string)
+    go func() {
+        defer close(ids)  // 发送者负责关闭channel
+        for i := 0; i < count; i++ {
+            ids <- uuid.New().String()
+        }
+    }()
+    return ids
+}
+
+// 使用
+for id := range GenerateIDs(10) {
+    fmt.Println(id)
+}
+
+// ❌ 坏的做法 - channel泄漏
+func BadGenerateIDs(count int) chan string {
+    ids := make(chan string)
+    go func() {
+        for i := 0; i < count; i++ {
+            ids <- uuid.New().String()
+        }
+        // 忘记关闭channel
+    }()
+    return ids
+}
+```
+
+## 接口设计
+
+### 1. 接口定义
+```go
+// ✅ 好的做法 - 小接口
+type Reader interface {
+    Read(p []byte) (n int, err error)
+}
+
+type Writer interface {
+    Write(p []byte) (n int, err error)
+}
+
+type ReadWriter interface {
+    Reader
+    Writer
+}
+
+// ❌ 坏的做法 - 接口过大
+type DataAccess interface {
+    Create()
+    Read()
+    Update()
+    Delete()
+    List()
+    Count()
+    // ... 太多方法
+}
+```
+
+### 2. 依赖注入
+```go
+// ✅ 好的做法 - 依赖接口
+type UserService struct {
+    repo   UserRepository     // 接口类型
+    cache  CacheService       // 接口类型
+    logger Logger             // 接口类型
+}
+
+func NewUserService(repo UserRepository, cache CacheService, logger Logger) *UserService {
+    return &UserService{
+        repo:   repo,
+        cache:  cache,
+        logger: logger,
+    }
+}
+
+// ❌ 坏的做法 - 依赖具体实现
+type UserService struct {
+    repo   *PostgresUserRepository  // 具体类型
+    cache  *RedisCache
+}
+```
+
+## 测试规范
+
+### 1. 表驱动测试
+```go
+// ✅ 好的做法
+func TestValidateEmail(t *testing.T) {
+    tests := []struct {
+        name    string
+        email   string
+        wantErr bool
+    }{
+        {
+            name:    "valid email",
+            email:   "user@example.com",
+            wantErr: false,
+        },
+        {
+            name:    "invalid email - no @",
+            email:   "userexample.com",
+            wantErr: true,
+        },
+        {
+            name:    "invalid email - empty",
+            email:   "",
+            wantErr: true,
+        },
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            err := ValidateEmail(tt.email)
+            if (err != nil) != tt.wantErr {
+                t.Errorf("ValidateEmail() error = %v, wantErr %v", err, tt.wantErr)
+            }
+        })
+    }
+}
+```
+
+### 2. Mock和接口
+```go
+// ✅ 使用接口便于测试
+type UserRepository interface {
+    Save(ctx context.Context, user *User) error
+}
+
+// Mock实现
+type MockUserRepository struct {
+    SaveFunc func(ctx context.Context, user *User) error
+}
+
+func (m *MockUserRepository) Save(ctx context.Context, user *User) error {
+    if m.SaveFunc != nil {
+        return m.SaveFunc(ctx, user)
+    }
+    return nil
+}
+
+// 测试中使用
+func TestUserService_CreateUser(t *testing.T) {
+    mockRepo := &MockUserRepository{
+        SaveFunc: func(ctx context.Context, user *User) error {
+            return nil
+        },
+    }
+    
+    service := NewUserService(mockRepo)
+    err := service.CreateUser(context.Background(), "test@example.com")
+    if err != nil {
+        t.Errorf("unexpected error: %v", err)
+    }
+}
+```
+
+## 性能优化
+
+### 1. 避免不必要的分配
+```go
+// ✅ 好的做法
+func ProcessData(data []byte) {
+    // 重用slice
+    buffer := make([]byte, 0, 1024)
+    buffer = append(buffer, data...)
+}
+
+// ❌ 坏的做法
+func ProcessData(data []byte) {
+    for i := 0; i < len(data); i++ {
+        buffer := make([]byte, 1)  // 每次循环都分配
+        buffer[0] = data[i]
+    }
+}
+```
+
+### 2. 使用sync.Pool
+```go
+// ✅ 重用对象
+var bufferPool = sync.Pool{
+    New: func() interface{} {
+        return new(bytes.Buffer)
+    },
+}
+
+func ProcessRequest() {
+    buf := bufferPool.Get().(*bytes.Buffer)
+    defer func() {
+        buf.Reset()
+        bufferPool.Put(buf)
+    }()
+    
+    // 使用buffer
+}
+```
+
+## 代码注释
+
+### 1. 公开API必须注释
+```go
+// ✅ 好的做法
+// User represents a user in the system.
+// It contains basic user information and authentication details.
+type User struct {
+    ID    string
+    Email string
+}
+
+// NewUser creates a new User instance with the given email.
+// It validates the email format and returns an error if invalid.
+func NewUser(email string) (*User, error) {
+    // 实现
+}
+
+// ❌ 坏的做法
+type User struct {  // 缺少注释
+    ID    string
+    Email string
+}
+```
+
+### 2. 注释规范
+```go
+// ✅ 好的做法
+// 使用完整的句子
+// 以类型/函数名开头
+// 解释"为什么"而不是"是什么"
+
+// ProcessOrder validates and processes the given order.
+// It checks inventory, calculates totals, and creates payment records.
+// Returns ErrInsufficientInventory if any item is out of stock.
+func ProcessOrder(order *Order) error {
+    // 实现
+}
+
+// ❌ 坏的做法
+// process order  // 首字母应大写，应该是完整句子
+func ProcessOrder(order *Order) error {
+    // 实现
+}
+```
+
+## 工具链
+
+### 必备工具
+```bash
+# 代码格式化
+go install golang.org/x/tools/cmd/goimports@latest
+
+# 静态分析
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# 测试覆盖率
+go test -cover ./...
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+
+# 性能分析
+go test -bench=. -benchmem
+go test -cpuprofile=cpu.prof
+go tool pprof cpu.prof
+```
+
+### golangci-lint 配置
+```yaml
+# .golangci.yml
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+    - misspell
+    - revive
+    - gocritic
+```
+
+## 性能基准测试
+
+```go
+func BenchmarkProcessUser(b *testing.B) {
+    user := NewUser("test@example.com")
+    
+    b.ResetTimer()  // 重置计时器
+    for i := 0; i < b.N; i++ {
+        ProcessUser(user)
+    }
+}
+
+// 带内存分配统计
+func BenchmarkProcessUserAllocs(b *testing.B) {
+    user := NewUser("test@example.com")
+    
+    b.ReportAllocs()  // 报告内存分配
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        ProcessUser(user)
+    }
+}
+```
+

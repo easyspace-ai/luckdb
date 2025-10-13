@@ -19,7 +19,7 @@ type UpdateRecordRequest struct {
 
 // BatchCreateRecordRequest 批量创建记录请求（对齐原版）
 type BatchCreateRecordRequest struct {
-	Records []RecordCreateItem `json:"records" binding:"required,min=1,max=1000"`
+	Records []RecordCreateItem `json:"records" binding:"required,max=1000"` // ✅ 移除 min=1，允许空数组
 }
 
 // RecordCreateItem 单条记录创建项

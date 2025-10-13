@@ -49,22 +49,31 @@ func (s *TypecastService) ValidateAndTypecastRecord(
 		return nil, fmt.Errorf("获取字段列表失败: %w", err)
 	}
 
-	// 2. 构建字段映射（field_id -> Field）
-	fieldMap := make(map[string]*entity.Field)
+	// 2. 构建字段映射（同时支持 field_id 和 field_name）
+	fieldMapByID := make(map[string]*entity.Field)
+	fieldMapByName := make(map[string]*entity.Field)
 	for _, field := range fields {
-		fieldMap[field.ID().String()] = field
+		fieldMapByID[field.ID().String()] = field
+		fieldMapByName[field.Name().String()] = field
 	}
 
 	// 3. 验证和转换每个字段的值
 	result := make(map[string]interface{})
 
-	for fieldID, value := range data {
-		field, exists := fieldMap[fieldID]
+	for fieldKey, value := range data {
+		// 先尝试通过 ID 查找，再尝试通过名称查找
+		field, exists := fieldMapByID[fieldKey]
 		if !exists {
-			logger.Warn("字段不存在，跳过",
-				logger.String("field_id", fieldID))
-			continue
+			field, exists = fieldMapByName[fieldKey]
+			if !exists {
+				logger.Warn("字段不存在，跳过",
+					logger.String("field_key", fieldKey))
+				continue
+			}
 		}
+
+		// 统一使用字段ID作为结果的键
+		fieldID := field.ID().String()
 
 		// 跳过计算字段（只读）
 		if field.IsComputed() {

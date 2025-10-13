@@ -1,0 +1,279 @@
+# 项目结构规范
+
+## 标准项目结构
+
+```
+easydb/
+├── .cursor/                    # Cursor规则配置
+│   └── rules/                  # 开发规范文件
+├── cmd/                        # 应用程序入口
+│   ├── server/                 # 主服务器
+│   │   └── main.go
+│   ├── mcp/                    # MCP服务
+│   │   └── main.go
+│   └── migrate/                # 数据库迁移工具
+│       └── main.go
+├── internal/                   # 内部代码（不可被外部导入）
+│   ├── domain/                 # 领域层（核心）
+│   │   ├── entity/             # 实体
+│   │   ├── valueobject/        # 值对象
+│   │   ├── aggregate/          # 聚合
+│   │   ├── repository/         # 仓储接口
+│   │   ├── service/            # 领域服务
+│   │   └── event/              # 领域事件
+│   ├── application/            # 应用层
+│   │   ├── command/            # 命令（写操作）
+│   │   ├── query/              # 查询（读操作）
+│   │   ├── service/            # 应用服务
+│   │   └── eventhandler/       # 事件处理器
+│   ├── infrastructure/         # 基础设施层
+│   │   ├── persistence/        # 持久化
+│   │   ├── cache/              # 缓存
+│   │   ├── message/            # 消息队列
+│   │   ├── external/           # 外部服务
+│   │   └── eventbus/           # 事件总线
+│   ├── interfaces/             # 接口层
+│   │   ├── http/               # HTTP接口
+│   │   ├── grpc/               # gRPC接口
+│   │   └── mcp/                # MCP协议
+│   ├── container/              # 依赖注入容器
+│   │   └── container.go
+│   └── testing/                # 测试辅助
+│       ├── fixtures/           # 测试夹具
+│       └── mocks/              # Mock对象
+├── pkg/                        # 可被外部导入的公共库
+│   ├── logger/                 # 日志库
+│   ├── errors/                 # 错误处理
+│   └── utils/                  # 工具函数
+├── migrations/                 # 数据库迁移
+│   ├── 000001_init_schema.up.sql
+│   └── 000001_init_schema.down.sql
+├── docs/                       # 文档
+│   ├── architecture/           # 架构文档
+│   └── api/                    # API文档
+├── deploy/                     # 部署配置
+│   ├── docker/                 # Docker相关
+│   └── kubernetes/             # Kubernetes配置
+├── tests/                      # 测试文件
+│   ├── integration/            # 集成测试
+│   └── e2e/                    # 端到端测试
+├── .gitignore                  # Git忽略文件
+├── .golangci.yml              # golangci-lint配置
+├── go.mod                      # Go模块定义
+├── Makefile                    # Make命令
+├── README.md                   # 项目说明
+└── config.yaml                 # 应用配置示例
+```
+
+## 目录说明
+
+### cmd/ - 应用程序入口
+- 每个可执行程序一个子目录
+- main.go文件保持简洁，只负责初始化和启动
+- 业务逻辑放在internal/目录
+
+```go
+// cmd/server/main.go
+package main
+
+func main() {
+    // 加载配置
+    cfg, err := loadConfig()
+    if err != nil {
+        log.Fatalf("failed to load config: %v", err)
+    }
+    
+    // 创建容器
+    c, cleanup, err := container.NewContainer(cfg)
+    if err != nil {
+        log.Fatalf("failed to create container: %v", err)
+    }
+    defer cleanup()
+    
+    // 启动服务器
+    if err := c.HTTPServer.Start(ctx); err != nil {
+        log.Fatalf("server error: %v", err)
+    }
+}
+```
+
+### internal/ - 内部代码
+- 只能被本项目导入，不能被外部项目导入
+- 按DDD分层组织代码
+
+### pkg/ - 公共库
+- 可以被外部项目导入的代码
+- 保持通用性和独立性
+- 不包含业务逻辑
+
+### migrations/ - 数据库迁移
+- 使用版本号命名：`000001_description.up.sql`
+- 每个迁移都有up和down两个文件
+- 保持迁移文件的原子性
+
+## 依赖注入容器
+
+```go
+// internal/container/container.go
+package container
+
+import (
+    "database/sql"
+)
+
+// Container 依赖注入容器
+type Container struct {
+    // Config
+    Config *config.Config
+    
+    // Infrastructure
+    DB     *sql.DB
+    Logger logger.Logger
+    
+    // Repositories
+    UserRepository  repository.UserRepository
+    
+    // Services
+    UserService  *service.UserService
+    
+    // Handlers
+    UserHandler  *handler.UserHandler
+    
+    // Server
+    HTTPServer *http.Server
+}
+
+// NewContainer 创建容器
+func NewContainer(cfg *config.Config) (*Container, func(), error) {
+    c := &Container{Config: cfg}
+    
+    // 初始化基础设施
+    db, err := initDB(cfg.Database)
+    if err != nil {
+        return nil, nil, err
+    }
+    c.DB = db
+    
+    // 初始化仓储
+    c.UserRepository = postgres.NewUserRepository(db)
+    
+    // 初始化服务
+    c.UserService = service.NewUserService(c.UserRepository)
+    
+    // 初始化处理器
+    c.UserHandler = handler.NewUserHandler(c.UserService)
+    
+    // 清理函数
+    cleanup := func() {
+        db.Close()
+    }
+    
+    return c, cleanup, nil
+}
+```
+
+## Makefile示例
+
+```makefile
+.PHONY: help build test lint clean run
+
+help: ## 显示帮助信息
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+build: ## 构建应用
+	go build -o bin/server cmd/server/main.go
+
+test: ## 运行测试
+	go test -v -cover ./...
+
+lint: ## 运行linter
+	golangci-lint run ./...
+
+clean: ## 清理构建文件
+	rm -rf bin/
+
+run: ## 运行应用
+	go run cmd/server/main.go
+
+.DEFAULT_GOAL := help
+```
+
+## 配置文件示例
+
+```yaml
+# config.yaml
+server:
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
+
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: postgres
+  database: easydb
+
+redis:
+  host: localhost
+  port: 6379
+
+logger:
+  level: info
+  format: json
+```
+
+## README.md模板
+
+```markdown
+# EasyDB
+
+简短的项目描述
+
+## 特性
+
+- 🏗️ 领域驱动设计（DDD）架构
+- 🔒 JWT认证和授权
+- 📊 RESTful API
+- 🗄️ PostgreSQL数据库
+
+## 快速开始
+
+### 前置要求
+
+- Go 1.21+
+- PostgreSQL 14+
+- Redis 7+
+
+### 安装
+
+\`\`\`bash
+git clone https://github.com/yourorg/easydb.git
+cd easydb
+go mod download
+make migrate-up
+make run
+\`\`\`
+
+## 测试
+
+\`\`\`bash
+make test
+make test-coverage
+\`\`\`
+
+## 许可证
+
+[MIT License](LICENSE)
+```
+
+## 最佳实践
+
+1. **保持结构清晰**：遵循标准Go项目结构
+2. **按功能组织**：internal按DDD分层，pkg按功能
+3. **单一职责**：每个包有明确的职责
+4. **避免循环依赖**：合理规划包依赖关系
+5. **文档齐全**：README、架构文档、API文档
+6. **自动化**：使用Makefile简化常用命令
+7. **版本控制**：合理的.gitignore配置
+8. **配置管理**：配置与代码分离

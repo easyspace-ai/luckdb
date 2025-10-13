@@ -51,7 +51,9 @@ func (r *FieldRepositoryImpl) Save(ctx context.Context, field *entity.Field) err
 func (r *FieldRepositoryImpl) FindByID(ctx context.Context, id valueobject.FieldID) (*entity.Field, error) {
 	var dbField models.Field
 
+	// ✅ 显式指定 schema
 	err := r.db.WithContext(ctx).
+		Table("field").
 		Where("id = ?", id.String()).
 		Where("deleted_time IS NULL").
 		First(&dbField).Error
@@ -70,7 +72,9 @@ func (r *FieldRepositoryImpl) FindByID(ctx context.Context, id valueobject.Field
 func (r *FieldRepositoryImpl) FindByTableID(ctx context.Context, tableID string) ([]*entity.Field, error) {
 	var dbFields []*models.Field
 
+	// ✅ 查询元数据表，依赖默认 public schema
 	err := r.db.WithContext(ctx).
+		Table("field").
 		Where("table_id = ?", tableID).
 		Where("deleted_time IS NULL").
 		Order("field_order ASC").
@@ -87,7 +91,9 @@ func (r *FieldRepositoryImpl) FindByTableID(ctx context.Context, tableID string)
 func (r *FieldRepositoryImpl) FindByName(ctx context.Context, tableID string, name valueobject.FieldName) (*entity.Field, error) {
 	var dbField models.Field
 
+	// ✅ 显式指定 schema
 	err := r.db.WithContext(ctx).
+		Table("field").
 		Where("table_id = ? AND name = ?", tableID, name.String()).
 		Where("deleted_time IS NULL").
 		First(&dbField).Error
@@ -113,8 +119,9 @@ func (r *FieldRepositoryImpl) Delete(ctx context.Context, id valueobject.FieldID
 // Exists 检查字段是否存在
 func (r *FieldRepositoryImpl) Exists(ctx context.Context, id valueobject.FieldID) (bool, error) {
 	var count int64
+	// ✅ 显式指定 schema
 	err := r.db.WithContext(ctx).
-		Model(&models.Field{}).
+		Table("field").
 		Where("id = ?", id.String()).
 		Where("deleted_time IS NULL").
 		Count(&count).Error
@@ -124,8 +131,9 @@ func (r *FieldRepositoryImpl) Exists(ctx context.Context, id valueobject.FieldID
 
 // ExistsByName 检查名称是否已存在
 func (r *FieldRepositoryImpl) ExistsByName(ctx context.Context, tableID string, name valueobject.FieldName, excludeID *valueobject.FieldID) (bool, error) {
+	// ✅ 显式指定 schema
 	query := r.db.WithContext(ctx).
-		Model(&models.Field{}).
+		Table("field").
 		Where("table_id = ? AND name = ?", tableID, name.String()).
 		Where("deleted_time IS NULL")
 
@@ -143,8 +151,9 @@ func (r *FieldRepositoryImpl) ExistsByName(ctx context.Context, tableID string, 
 // CountByTableID 统计表的字段数
 func (r *FieldRepositoryImpl) CountByTableID(ctx context.Context, tableID string) (int64, error) {
 	var count int64
+	// ✅ 显式指定 schema
 	err := r.db.WithContext(ctx).
-		Model(&models.Field{}).
+		Table("field").
 		Where("table_id = ?", tableID).
 		Where("deleted_time IS NULL").
 		Count(&count).Error

@@ -28,7 +28,11 @@ func NewValidatorFactory() *ValidatorFactory {
 // registerValidators 注册所有验证器
 func (f *ValidatorFactory) registerValidators() {
 	// 文本类型
-	f.Register(NewSingleLineTextValidator())
+	singleLineValidator := NewSingleLineTextValidator()
+	f.Register(singleLineValidator)
+	// 向后兼容：text 作为 singleLineText 的别名
+	f.validators["text"] = singleLineValidator
+
 	f.Register(NewLongTextValidator())
 
 	// 数字类型
@@ -45,7 +49,11 @@ func (f *ValidatorFactory) registerValidators() {
 	f.Register(NewDateValidator())
 
 	// 选择类型
-	f.Register(NewSingleSelectValidator())
+	singleSelectValidator := NewSingleSelectValidator()
+	f.Register(singleSelectValidator)
+	// 向后兼容：select 作为 singleSelect 的别名
+	f.validators["select"] = singleSelectValidator
+
 	f.Register(NewMultipleSelectValidator())
 
 	// 链接类型

@@ -1,0 +1,266 @@
+# DDD 领域驱动设计架构规范
+
+## 核心原则
+
+### 1. 分层架构
+遵循严格的DDD分层架构，保持依赖方向单向流动：
+```
+Interface Layer (接口层) 
+    ↓
+Application Layer (应用层)
+    ↓
+Domain Layer (领域层) ← Infrastructure Layer (基础设施层)
+```
+
+### 2. 依赖规则
+- **领域层**：核心业务逻辑，不依赖任何外层
+- **应用层**：协调领域对象，依赖领域层
+- **基础设施层**：实现技术细节，依赖领域层接口
+- **接口层**：处理外部请求，依赖应用层
+
+## 目录结构规范
+
+```
+server/
+├── cmd/                    # 应用程序入口点
+│   ├── server/            # 主服务器
+│   ├── mcp/               # MCP服务
+│   └── migrate/           # 数据库迁移工具
+├── internal/              # 内部代码（不可被外部import）
+│   ├── domain/            # 领域层（核心）
+│   │   ├── entity/        # 实体
+│   │   ├── valueobject/   # 值对象
+│   │   ├── aggregate/     # 聚合根
+│   │   ├── repository/    # 仓储接口
+│   │   ├── service/       # 领域服务
+│   │   └── event/         # 领域事件
+│   ├── application/       # 应用层
+│   │   ├── command/       # 命令（写操作）
+│   │   ├── query/         # 查询（读操作）
+│   │   ├── dto/           # 数据传输对象
+│   │   └── service/       # 应用服务
+│   ├── infrastructure/    # 基础设施层
+│   │   ├── persistence/   # 持久化实现
+│   │   ├── cache/         # 缓存实现
+│   │   ├── message/       # 消息队列
+│   │   └── external/      # 外部服务
+│   └── interfaces/        # 接口层
+│       ├── http/          # HTTP处理器
+│       ├── grpc/          # gRPC处理器
+│       └── mcp/           # MCP协议处理器
+├── pkg/                   # 可被外部import的公共库
+└── migrations/            # 数据库迁移文件
+```
+
+## 关键概念
+
+### 聚合（Aggregate）
+- 每个聚合有一个聚合根（Aggregate Root）
+- 聚合内的对象作为一个整体保持一致性
+- 外部只能通过聚合根访问聚合内部对象
+- 聚合之间通过ID引用，不直接持有对象引用
+
+### 实体（Entity）
+- 有唯一标识符
+- 生命周期内标识保持不变
+- 可以有属性变化
+
+### 值对象（Value Object）
+- 无唯一标识符
+- 不可变（Immutable）
+- 通过属性值判断相等性
+- 可以被共享
+
+### 仓储（Repository）
+- 在领域层定义接口
+- 在基础设施层实现
+- 只为聚合根提供仓储
+- 封装数据访问逻辑
+
+### 领域服务（Domain Service）
+- 包含不属于任何实体或值对象的业务逻辑
+- 无状态
+- 操作多个聚合时使用
+
+### 领域事件（Domain Event）
+- 表示领域中发生的重要事情
+- 用于解耦聚合之间的依赖
+- 实现最终一致性
+
+## 命名规范
+
+### 包命名
+- 使用小写单数形式：`entity`, `repository`, `service`
+- 按功能领域划分：`user`, `order`, `product`
+
+### 文件命名
+- 使用下划线分隔：`user_repository.go`, `order_service.go`
+- 测试文件：`user_repository_test.go`
+
+### 类型命名
+- 实体/聚合：业务名词，如 `User`, `Order`
+- 接口：以业务能力命名，如 `UserRepository`, `OrderService`
+- 实现：以 `实现类型 + 接口名` 命名，如 `PostgresUserRepository`
+
+## 最佳实践
+
+### 1. 保持领域层纯净
+```go
+// ✅ 好的做法 - 领域层只包含业务逻辑
+type Order struct {
+    ID          OrderID
+    UserID      UserID
+    Items       []OrderItem
+    TotalAmount Money
+    Status      OrderStatus
+}
+
+func (o *Order) AddItem(item OrderItem) error {
+    if o.Status != OrderStatusPending {
+        return ErrCannotModifyOrder
+    }
+    o.Items = append(o.Items, item)
+    o.recalculateTotal()
+    return nil
+}
+
+// ❌ 坏的做法 - 领域层不应该包含技术细节
+type Order struct {
+    ID          string `gorm:"primaryKey"` // 不要在领域层使用ORM标签
+    CreatedAt   time.Time `json:"created_at"`
+}
+```
+
+### 2. 使用仓储模式隔离持久化
+```go
+// domain/repository/user_repository.go - 领域层定义接口
+type UserRepository interface {
+    Save(ctx context.Context, user *entity.User) error
+    FindByID(ctx context.Context, id entity.UserID) (*entity.User, error)
+    FindByEmail(ctx context.Context, email valueobject.Email) (*entity.User, error)
+}
+
+// infrastructure/persistence/postgres_user_repository.go - 基础设施层实现
+type PostgresUserRepository struct {
+    db *sql.DB
+}
+
+func (r *PostgresUserRepository) Save(ctx context.Context, user *entity.User) error {
+    // 实现持久化逻辑
+}
+```
+
+### 3. 应用服务协调工作流
+```go
+// application/service/user_service.go
+type UserService struct {
+    userRepo     repository.UserRepository
+    emailService EmailService
+    eventBus     EventBus
+}
+
+func (s *UserService) RegisterUser(ctx context.Context, cmd command.RegisterUserCommand) error {
+    // 1. 创建领域对象
+    user, err := entity.NewUser(cmd.Email, cmd.Password)
+    if err != nil {
+        return err
+    }
+    
+    // 2. 执行业务逻辑
+    if err := user.Activate(); err != nil {
+        return err
+    }
+    
+    // 3. 持久化
+    if err := s.userRepo.Save(ctx, user); err != nil {
+        return err
+    }
+    
+    // 4. 发送领域事件
+    s.eventBus.Publish(event.UserRegistered{UserID: user.ID})
+    
+    return nil
+}
+```
+
+### 4. 使用值对象封装业务规则
+```go
+// domain/valueobject/email.go
+type Email struct {
+    value string
+}
+
+func NewEmail(value string) (Email, error) {
+    if !isValidEmail(value) {
+        return Email{}, ErrInvalidEmail
+    }
+    return Email{value: strings.ToLower(value)}, nil
+}
+
+func (e Email) String() string {
+    return e.value
+}
+
+func (e Email) Equals(other Email) bool {
+    return e.value == other.value
+}
+```
+
+## 事务处理
+
+### 使用工作单元（Unit of Work）模式
+```go
+type UnitOfWork interface {
+    Begin(ctx context.Context) error
+    Commit(ctx context.Context) error
+    Rollback(ctx context.Context) error
+}
+
+// 在应用服务中使用
+func (s *OrderService) CreateOrder(ctx context.Context, cmd command.CreateOrderCommand) error {
+    tx, err := s.uow.Begin(ctx)
+    if err != nil {
+        return err
+    }
+    defer func() {
+        if err != nil {
+            tx.Rollback(ctx)
+        }
+    }()
+    
+    // 执行业务逻辑
+    order := createOrder(cmd)
+    if err = s.orderRepo.Save(ctx, order); err != nil {
+        return err
+    }
+    
+    return tx.Commit(ctx)
+}
+```
+
+## 错误处理
+
+### 定义领域错误
+```go
+// domain/errors.go
+type DomainError struct {
+    Code    string
+    Message string
+}
+
+func (e DomainError) Error() string {
+    return e.Message
+}
+
+var (
+    ErrUserNotFound     = DomainError{Code: "USER_NOT_FOUND", Message: "用户不存在"}
+    ErrInvalidEmail     = DomainError{Code: "INVALID_EMAIL", Message: "邮箱格式无效"}
+    ErrDuplicateEmail   = DomainError{Code: "DUPLICATE_EMAIL", Message: "邮箱已被使用"}
+)
+```
+
+## 参考资料
+- Eric Evans - Domain-Driven Design
+- Vaughn Vernon - Implementing Domain-Driven Design
+- Martin Fowler - Patterns of Enterprise Application Architecture
+

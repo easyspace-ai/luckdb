@@ -70,15 +70,9 @@ func (s *FieldService) CreateField(ctx context.Context, req dto.CreateFieldReque
 		return nil, pkgerrors.ErrConflict.WithDetails("字段名称已存在")
 	}
 
-	// 3. 根据类型使用工厂创建字段（参考原版 factory.ts createFieldInstanceByVo）
+	// 3. 根据类型使用工厂创建字段（保留原始类型名称）
 	var field *entity.Field
 	switch req.Type {
-	case "text", "singleLineText":
-		field, err = s.fieldFactory.CreateTextField(req.TableID, req.Name, userID)
-
-	case "longText":
-		field, err = s.fieldFactory.CreateTextField(req.TableID, req.Name, userID)
-
 	case "number":
 		// 从 Options 中提取 precision
 		var precision *int
@@ -121,15 +115,9 @@ func (s *FieldService) CreateField(ctx context.Context, req dto.CreateFieldReque
 		linkFieldID, lookupFieldID := s.extractLookupOptionsFromOptions(req.Options)
 		field, err = s.fieldFactory.CreateLookupField(req.TableID, req.Name, userID, linkFieldID, lookupFieldID)
 
-	case "checkbox", "boolean", "email", "url", "phone", "phoneNumber", "rating",
-		"attachment", "user", "autoNumber", "createdTime", "lastModifiedTime",
-		"createdBy", "lastModifiedBy", "button", "duration", "percent", "currency":
-		// 这些类型目前使用文本字段基础创建，具体类型由 fieldType 区分
-		field, err = s.fieldFactory.CreateTextField(req.TableID, req.Name, userID)
-
 	default:
-		logger.Warn("未知字段类型，使用文本字段", logger.String("type", req.Type))
-		field, err = s.fieldFactory.CreateTextField(req.TableID, req.Name, userID)
+		// ✅ 使用通用方法创建字段，保留原始类型名称（如 singleLineText, longText, email 等）
+		field, err = s.fieldFactory.CreateFieldWithType(req.TableID, req.Name, req.Type, userID)
 	}
 
 	if err != nil {

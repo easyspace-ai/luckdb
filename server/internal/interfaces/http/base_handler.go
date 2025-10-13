@@ -78,29 +78,19 @@ func (h *BaseHandler) GetBase(c *gin.Context) {
 
 // ListBases 获取Base列表
 // GET /api/v1/spaces/:spaceId/bases
-// ✅ 严格使用 response.PaginatedSuccess
+// ✅ Base列表不分页，返回数组
 func (h *BaseHandler) ListBases(c *gin.Context) {
 	spaceID := c.Param("spaceId")
-	page := c.DefaultQuery("page", "1")
-	limit := c.DefaultQuery("limit", "20")
 
 	// 调用Service
-	bases, pagination, err := h.service.ListBases(c.Request.Context(), spaceID, page, limit)
+	bases, err := h.service.ListBases(c.Request.Context(), spaceID)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
 
-	// 转换为response.Pagination
-	responsePagination := response.Pagination{
-		Page:       pagination.Page,
-		Limit:      pagination.PageSize,
-		Total:      int(pagination.Total),
-		TotalPages: pagination.TotalPages,
-	}
-
-	// ✅ 严格使用response.PaginatedSuccess
-	response.PaginatedSuccess(c, bases, responsePagination, "获取Base列表成功")
+	// 返回数组
+	response.Success(c, bases, "获取Base列表成功")
 }
 
 // UpdateBase 更新Base

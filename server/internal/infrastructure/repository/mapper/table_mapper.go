@@ -61,8 +61,9 @@ func ToTableModel(table *entity.Table) *models.Table {
 
 	updatedAt := table.UpdatedAt()
 
-	// 生成数据库表名（使用表格ID）
-	dbTableName := "tbl_" + table.ID().String()
+	// ✅ 使用实体中的 dbTableName（完整路径格式："baseID"."tableID"）
+	// 而不是重新生成，这样保留了 TableService 设置的完整路径
+	dbTableName := table.DBTableName()
 
 	// 设置默认Order值（数据库要求非空）
 	defaultOrder := 0.0
@@ -71,13 +72,13 @@ func ToTableModel(table *entity.Table) *models.Table {
 		ID:               table.ID().String(),
 		BaseID:           table.BaseID(),
 		Name:             table.Name().String(),
-		DBTableName:      &dbTableName,
+		DBTableName:      dbTableName, // ✅ 直接使用实体的值（包含 baseID.tableID 格式）
 		Description:      table.Description(),
 		Icon:             table.Icon(),
 		CreatedBy:        table.CreatedBy(),
 		CreatedTime:      table.CreatedAt(),
 		LastModifiedTime: &updatedAt,
-		Order:            &defaultOrder, // 修复：设置默认order值，满足数据库非空约束
+		Order:            &defaultOrder,
 	}
 }
 

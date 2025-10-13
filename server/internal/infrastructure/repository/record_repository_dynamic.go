@@ -14,7 +14,6 @@ import (
 	"github.com/easyspace-ai/luckdb/server/internal/domain/record/valueobject"
 	tableRepo "github.com/easyspace-ai/luckdb/server/internal/domain/table/repository"
 	"github.com/easyspace-ai/luckdb/server/internal/infrastructure/database"
-	"github.com/easyspace-ai/luckdb/server/internal/infrastructure/database/models"
 	pkgDatabase "github.com/easyspace-ai/luckdb/server/pkg/database"
 	"github.com/easyspace-ai/luckdb/server/pkg/errors"
 	"github.com/easyspace-ai/luckdb/server/pkg/logger"
@@ -54,53 +53,47 @@ func NewRecordRepositoryDynamic(
 // ==================== 核心查询方法 ====================
 
 // FindByID 根据ID查找记录（从物理表查询）
-// 参考旧系统：teable-develop/apps/nestjs-backend/src/features/record/record.service.ts
+// ⚠️ 废弃：此方法需要 record_meta 表（已移除），请使用 FindByIDs(tableID, []recordID) 替代
+// 参考旧系统：Teable 不支持只通过 record_id 查找，必须提供 table_id
 func (r *RecordRepositoryDynamic) FindByID(ctx context.Context, id valueobject.RecordID) (*entity.Record, error) {
-	logger.Info("正在从物理表查询记录",
-		logger.String("record_id", id.String()))
+	// ❌ 已移除对 record_meta 的依赖（对齐 Teable 架构）
+	// Teable 所有 API 都需要提供 table_id，不支持只用 record_id 查找
+	return nil, fmt.Errorf("FindByID is deprecated: please use FindByIDs with table_id instead")
+}
 
-	// 1. 从 record_meta 获取 table_id（快速定位）
-	var meta models.RecordMeta
-	if err := r.db.WithContext(ctx).
-		Where("id = ?", id.String()).
-		Where("deleted_at IS NULL").
-		First(&meta).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil // 记录不存在
-		}
-		return nil, fmt.Errorf("查询record_meta失败: %w", err)
+// FindByIDs 根据ID列表查询记录（需要提供 tableID）
+// ✅ 对齐 Teable 架构：所有记录操作都需要 tableID
+func (r *RecordRepositoryDynamic) FindByIDs(ctx context.Context, tableID string, ids []valueobject.RecordID) ([]*entity.Record, error) {
+	if len(ids) == 0 {
+		return []*entity.Record{}, nil
 	}
 
-	tableID := meta.TableID
+	logger.Info("正在从物理表查询记录列表",
+		logger.String("table_id", tableID),
+		logger.Int("record_count", len(ids)))
 
-	// 2. 获取 Table 信息（获取 base_id）
+	// 1. 获取 Table 信息
 	table, err := r.tableRepo.GetByID(ctx, tableID)
 	if err != nil {
 		return nil, fmt.Errorf("获取Table信息失败: %w", err)
 	}
 	if table == nil {
-		return nil, fmt.Errorf("Table不存在: %s", tableID)
+		// ✅ 返回 AppError 而不是普通错误，确保返回 404 而不是 500
+		return nil, errors.ErrTableNotFound.WithDetails(tableID)
 	}
 
 	baseID := table.BaseID()
 
-	// 3. 获取字段列表（用于构建SELECT和映射）
+	// 2. 获取字段列表
 	fields, err := r.fieldRepo.FindByTableID(ctx, tableID)
 	if err != nil {
 		return nil, fmt.Errorf("获取字段列表失败: %w", err)
 	}
 
-	// 4. ✅ 设置 search_path（PostgreSQL Schema隔离）
-	if r.dbProvider.SupportsSchema() {
-		if err := r.dbProvider.SetSearchPath(ctx, baseID); err != nil {
-			return nil, fmt.Errorf("设置search_path失败: %w", err)
-		}
-	}
-
-	// 5. ✅ 从物理表查询
+	// 3. ✅ 从物理表查询（使用完整表名）
 	fullTableName := r.dbProvider.GenerateTableName(baseID, tableID)
 
-	// 构建 SELECT 列（系统字段 + 用户字段）
+	// 构建 SELECT 列
 	selectCols := []string{
 		"__id",
 		"__auto_number",
@@ -111,31 +104,64 @@ func (r *RecordRepositoryDynamic) FindByID(ctx context.Context, id valueobject.R
 		"__version",
 	}
 
-	// 添加所有用户字段的 db_field_name
 	for _, field := range fields {
 		selectCols = append(selectCols, field.DBFieldName().String())
 	}
 
-	// 查询物理表
-	var result map[string]interface{}
-	if err := r.db.WithContext(ctx).
-		Table(fullTableName).
-		Select(selectCols).
-		Where("__id = ?", id.String()).
-		First(&result).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("从物理表查询失败: %w", err)
+	// 转换 ID 为字符串数组
+	recordIDStrs := make([]string, len(ids))
+	for i, id := range ids {
+		recordIDStrs[i] = id.String()
 	}
 
-	logger.Info("✅ 记录查询成功（物理表）",
-		logger.String("record_id", id.String()),
-		logger.String("table_id", tableID),
-		logger.String("physical_table", fullTableName))
+	// 查询指定 ID 的记录
+	var results []map[string]interface{}
+	err = r.db.WithContext(ctx).
+		Table(fullTableName).
+		Select(selectCols).
+		Where("__id IN ?", recordIDStrs).
+		Find(&results).Error
 
-	// 6. 转换为 Domain 实体
-	return r.toDomainEntity(result, fields, tableID)
+	if err != nil {
+		logger.Error("从物理表查询记录失败",
+			logger.String("table_id", tableID),
+			logger.ErrorField(err))
+		return nil, err
+	}
+
+	// 4. 转换为实体
+	records := make([]*entity.Record, 0, len(results))
+	for _, result := range results {
+		// 使用辅助方法转换
+		record, err := r.toDomainEntity(result, fields, tableID)
+		if err != nil {
+			logger.Warn("转换记录实体失败，跳过",
+				logger.String("record_id", fmt.Sprintf("%v", result["__id"])),
+				logger.ErrorField(err))
+			continue
+		}
+		records = append(records, record)
+	}
+
+	logger.Info("✅ 从物理表查询记录成功",
+		logger.String("table_id", tableID),
+		logger.Int("requested_count", len(ids)),
+		logger.Int("found_count", len(records)))
+
+	return records, nil
+}
+
+// FindByTableAndID 根据表ID和记录ID查找单条记录
+// ✅ 对齐 Teable 架构：所有记录操作都需要 tableID
+func (r *RecordRepositoryDynamic) FindByTableAndID(ctx context.Context, tableID string, id valueobject.RecordID) (*entity.Record, error) {
+	records, err := r.FindByIDs(ctx, tableID, []valueobject.RecordID{id})
+	if err != nil {
+		return nil, err
+	}
+	if len(records) == 0 {
+		return nil, nil // 记录不存在
+	}
+	return records[0], nil
 }
 
 // FindByTableID 查找表的所有记录（从物理表查询）
@@ -149,7 +175,8 @@ func (r *RecordRepositoryDynamic) FindByTableID(ctx context.Context, tableID str
 		return nil, fmt.Errorf("获取Table信息失败: %w", err)
 	}
 	if table == nil {
-		return nil, fmt.Errorf("Table不存在: %s", tableID)
+		// ✅ 返回 AppError 而不是普通错误，确保返回 404 而不是 500
+		return nil, errors.ErrTableNotFound.WithDetails(tableID)
 	}
 
 	baseID := table.BaseID()
@@ -160,14 +187,7 @@ func (r *RecordRepositoryDynamic) FindByTableID(ctx context.Context, tableID str
 		return nil, fmt.Errorf("获取字段列表失败: %w", err)
 	}
 
-	// 3. ✅ 设置 search_path
-	if r.dbProvider.SupportsSchema() {
-		if err := r.dbProvider.SetSearchPath(ctx, baseID); err != nil {
-			return nil, fmt.Errorf("设置search_path失败: %w", err)
-		}
-	}
-
-	// 4. ✅ 从物理表查询列表
+	// 3. ✅ 从物理表查询列表（使用完整表名）
 	fullTableName := r.dbProvider.GenerateTableName(baseID, tableID)
 
 	// 构建 SELECT 列
@@ -245,25 +265,41 @@ func (r *RecordRepositoryDynamic) Save(ctx context.Context, record *entity.Recor
 		return fmt.Errorf("获取字段列表失败: %w", err)
 	}
 
-	// 3. ✅ 设置 search_path
-	if r.dbProvider.SupportsSchema() {
-		if err := r.dbProvider.SetSearchPath(ctx, baseID); err != nil {
-			return fmt.Errorf("设置search_path失败: %w", err)
-		}
-	}
-
-	// 4. ✅ 构建数据映射（field_id -> db_field_name）
+	// 3. ✅ 构建数据映射（使用完整表名）
 	fullTableName := r.dbProvider.GenerateTableName(baseID, tableID)
 
 	// 5. ✅ 检查记录是否已存在（用于判断INSERT还是UPDATE）
 	var existingVersion int64
+	var count int64
 	err = r.db.WithContext(ctx).
 		Table(fullTableName).
-		Select("__version").
 		Where("__id = ?", record.ID().String()).
-		Scan(&existingVersion).Error
+		Count(&count).Error
 
-	isNewRecord := err != nil && err == gorm.ErrRecordNotFound
+	if err != nil {
+		return fmt.Errorf("检查记录是否存在失败: %w", err)
+	}
+
+	isNewRecord := count == 0
+
+	// 如果记录存在，获取当前版本号
+	if !isNewRecord {
+		err = r.db.WithContext(ctx).
+			Table(fullTableName).
+			Select("__version").
+			Where("__id = ?", record.ID().String()).
+			Scan(&existingVersion).Error
+		if err != nil {
+			return fmt.Errorf("获取记录版本号失败: %w", err)
+		}
+	}
+
+	logger.Info("检查记录是否存在",
+		logger.String("record_id", record.ID().String()),
+		logger.Bool("is_new", isNewRecord),
+		logger.Int64("count", count),
+		logger.Int64("existing_version", existingVersion),
+		logger.Int64("entity_version", record.Version().Value()))
 
 	// 构建数据
 	data := make(map[string]interface{})
@@ -277,7 +313,7 @@ func (r *RecordRepositoryDynamic) Save(ctx context.Context, record *entity.Recor
 		// ✅ 新记录：设置初始版本和创建信息
 		data["__created_by"] = record.CreatedBy()
 		data["__created_time"] = record.CreatedAt()
-		data["__version"] = 0
+		data["__version"] = record.Version().Value() // 使用entity的版本，通常是1
 	} else {
 		// ✅ 更新记录：乐观锁 - 版本号递增
 		data["__version"] = gorm.Expr("__version + 1")
@@ -307,11 +343,13 @@ func (r *RecordRepositoryDynamic) Save(ctx context.Context, record *entity.Recor
 			Create(data)
 	} else {
 		// ✅ 更新记录：乐观锁 - WHERE __version = ?
+		// 注意：record.Update() 已经递增了版本，所以要用 version-1 做检查
 		currentVersion := record.Version().Value()
+		checkVersion := currentVersion - 1 // 使用旧版本做乐观锁检查
 		result = r.db.WithContext(ctx).
 			Table(fullTableName).
 			Where("__id = ?", record.ID().String()).
-			Where("__version = ?", currentVersion).
+			Where("__version = ?", checkVersion).
 			Updates(data)
 	}
 
@@ -337,19 +375,7 @@ func (r *RecordRepositoryDynamic) Save(ctx context.Context, record *entity.Recor
 		})
 	}
 
-	// 9. ✅ 保存/更新 record_meta
-	recordMeta := &models.RecordMeta{
-		ID:        record.ID().String(),
-		TableID:   tableID,
-		CreatedAt: record.CreatedAt(),
-	}
-
-	if err := r.db.WithContext(ctx).
-		Save(recordMeta).Error; err != nil {
-		logger.Warn("保存record_meta失败（不影响主流程）",
-			logger.String("record_id", record.ID().String()),
-			logger.ErrorField(err))
-	}
+	// ✅ 记录保存到物理表完成（对齐 Teable：不使用 record_meta）
 
 	logger.Info("✅ 记录保存成功（物理表+乐观锁）",
 		logger.String("record_id", record.ID().String()),
@@ -364,34 +390,47 @@ func (r *RecordRepositoryDynamic) Save(ctx context.Context, record *entity.Recor
 // ==================== 删除方法 ====================
 
 // Delete 删除记录（软删除）
+// ⚠️ 废弃：此方法需要 record_meta 表（已移除），请使用 RecordService.DeleteRecord(tableID, recordID) 替代
 func (r *RecordRepositoryDynamic) Delete(ctx context.Context, id valueobject.RecordID) error {
-	logger.Info("正在软删除记录",
+	// ❌ 已移除对 record_meta 的依赖（对齐 Teable 架构）
+	return fmt.Errorf("Delete is deprecated: please use RecordService methods with table_id instead")
+}
+
+// DeleteByTableAndID 根据表ID和记录ID删除记录（从物理表删除）
+// ✅ 对齐 Teable 架构：所有记录操作都需要 tableID
+func (r *RecordRepositoryDynamic) DeleteByTableAndID(ctx context.Context, tableID string, id valueobject.RecordID) error {
+	logger.Info("正在从物理表删除记录",
+		logger.String("table_id", tableID),
 		logger.String("record_id", id.String()))
 
-	// 1. 从 record_meta 获取 table_id
-	var meta models.RecordMeta
-	if err := r.db.WithContext(ctx).
-		Where("id = ?", id.String()).
-		First(&meta).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil // 记录不存在
-		}
-		return fmt.Errorf("查询record_meta失败: %w", err)
+	// 1. 获取 Table 信息
+	table, err := r.tableRepo.GetByID(ctx, tableID)
+	if err != nil {
+		return fmt.Errorf("获取Table信息失败: %w", err)
+	}
+	if table == nil {
+		return fmt.Errorf("Table不存在: %s", tableID)
 	}
 
-	// 2. 软删除 record_meta
-	now := time.Now()
-	if err := r.db.WithContext(ctx).
-		Model(&models.RecordMeta{}).
-		Where("id = ?", id.String()).
-		Update("deleted_at", now).Error; err != nil {
-		return fmt.Errorf("软删除record_meta失败: %w", err)
+	baseID := table.BaseID()
+	fullTableName := r.dbProvider.GenerateTableName(baseID, tableID)
+
+	// 2. 从物理表删除记录
+	err = r.db.WithContext(ctx).
+		Table(fullTableName).
+		Where("__id = ?", id.String()).
+		Delete(nil).Error
+
+	if err != nil {
+		logger.Error("从物理表删除记录失败",
+			logger.String("table_id", tableID),
+			logger.String("record_id", id.String()),
+			logger.ErrorField(err))
+		return err
 	}
 
-	// 注意：物理表中的记录保留（用于审计和恢复）
-	// 软删除通过 record_meta.deleted_at 标记
-
-	logger.Info("✅ 记录软删除成功",
+	logger.Info("✅ 从物理表删除记录成功",
+		logger.String("table_id", tableID),
 		logger.String("record_id", id.String()))
 
 	return nil
@@ -403,13 +442,25 @@ func (r *RecordRepositoryDynamic) BatchSave(ctx context.Context, records []*enti
 	return r.BatchUpdate(ctx, records)
 }
 
-// CountByTableID 统计表的记录数量
+// CountByTableID 统计表的记录数量（从物理表查询）
 func (r *RecordRepositoryDynamic) CountByTableID(ctx context.Context, tableID string) (int64, error) {
+	// 1. 获取 Table 信息
+	table, err := r.tableRepo.GetByID(ctx, tableID)
+	if err != nil {
+		return 0, fmt.Errorf("获取Table信息失败: %w", err)
+	}
+	if table == nil {
+		// ✅ 返回 AppError 而不是普通错误，确保返回 404 而不是 500
+		return 0, errors.ErrTableNotFound.WithDetails(tableID)
+	}
+
+	baseID := table.BaseID()
+	fullTableName := r.dbProvider.GenerateTableName(baseID, tableID)
+
+	// 2. 从物理表统计
 	var count int64
 	if err := r.db.WithContext(ctx).
-		Model(&models.RecordMeta{}).
-		Where("table_id = ?", tableID).
-		Where("deleted_at IS NULL").
+		Table(fullTableName).
 		Count(&count).Error; err != nil {
 		return 0, fmt.Errorf("统计记录数量失败: %w", err)
 	}
@@ -467,14 +518,8 @@ func (r *RecordRepositoryDynamic) List(ctx context.Context, filter recordRepo.Re
 		return nil, 0, fmt.Errorf("获取字段列表失败: %w", err)
 	}
 
-	// 5. ✅ 设置 search_path
-	if r.dbProvider.SupportsSchema() {
-		if err := r.dbProvider.SetSearchPath(ctx, baseID); err != nil {
-			return nil, 0, fmt.Errorf("设置search_path失败: %w", err)
-		}
-	}
-
-	// 6. ✅ 从物理表查询（带分页和过滤）
+	// 5. ✅ 从物理表查询（带分页和过滤）
+	// 使用完整表名（包含schema）："baseID"."tableID"
 	fullTableName := r.dbProvider.GenerateTableName(baseID, tableID)
 
 	// 构建 SELECT 列
@@ -564,16 +609,8 @@ func (r *RecordRepositoryDynamic) NextID() valueobject.RecordID {
 
 // Exists 检查记录是否存在
 func (r *RecordRepositoryDynamic) Exists(ctx context.Context, id valueobject.RecordID) (bool, error) {
-	var count int64
-	if err := r.db.WithContext(ctx).
-		Model(&models.RecordMeta{}).
-		Where("id = ?", id.String()).
-		Where("deleted_at IS NULL").
-		Count(&count).Error; err != nil {
-		return false, err
-	}
-
-	return count > 0, nil
+	// ❌ 已移除对 record_meta 的依赖（对齐 Teable 架构）
+	return false, fmt.Errorf("Exists is deprecated: please use table-specific existence checks")
 }
 
 // toDomainEntity 将物理表查询结果转换为 Domain 实体
@@ -590,7 +627,18 @@ func (r *RecordRepositoryDynamic) toDomainEntity(
 	createdAt, _ := result["__created_time"].(time.Time)
 	updatedAt, _ := result["__last_modified_time"].(time.Time)
 
-	versionInt := result["__version"].(int64)
+	// __version 可能是 int32 或 int64，需要安全转换
+	var versionInt int64
+	switch v := result["__version"].(type) {
+	case int64:
+		versionInt = v
+	case int32:
+		versionInt = int64(v)
+	case int:
+		versionInt = int64(v)
+	default:
+		versionInt = 1 // 默认版本
+	}
 	version, _ := valueobject.NewRecordVersion(versionInt)
 
 	// 提取用户字段数据
@@ -741,18 +789,11 @@ func (r *RecordRepositoryDynamic) BatchCreate(ctx context.Context, records []*en
 
 	// 3. ✅ 开启事务（原子性保证）
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 3.1 设置 search_path
-		if r.dbProvider.SupportsSchema() {
-			if err := r.dbProvider.SetSearchPath(ctx, baseID); err != nil {
-				return fmt.Errorf("设置search_path失败: %w", err)
-			}
-		}
-
+		// 3.1 使用完整表名（包含schema）："baseID"."tableID"
 		fullTableName := r.dbProvider.GenerateTableName(baseID, tableID)
 
 		// 3.2 批量插入到物理表
 		dataList := make([]map[string]interface{}, 0, len(records))
-		metaList := make([]models.RecordMeta, 0, len(records))
 
 		for _, record := range records {
 			// 构建数据映射
@@ -772,23 +813,11 @@ func (r *RecordRepositoryDynamic) BatchCreate(ctx context.Context, records []*en
 			}
 
 			dataList = append(dataList, data)
-
-			// 构建 record_meta
-			metaList = append(metaList, models.RecordMeta{
-				ID:        record.ID().String(),
-				TableID:   tableID,
-				CreatedAt: record.CreatedAt(),
-			})
 		}
 
 		// 3.3 批量插入物理表（使用 CreateInBatches 提高性能）
 		if err := tx.Table(fullTableName).CreateInBatches(dataList, 500).Error; err != nil {
 			return fmt.Errorf("批量插入物理表失败: %w", err)
-		}
-
-		// 3.4 批量插入 record_meta
-		if err := tx.CreateInBatches(metaList, 500).Error; err != nil {
-			logger.Warn("批量插入record_meta失败（不影响主流程）", logger.ErrorField(err))
 		}
 
 		return nil
@@ -825,31 +854,8 @@ func (r *RecordRepositoryDynamic) BatchUpdate(ctx context.Context, records []*en
 }
 
 // BatchDelete 批量删除记录（软删除，原子事务）
+// ⚠️ 废弃：此方法需要 record_meta 表（已移除），请使用 RecordService 方法替代
 func (r *RecordRepositoryDynamic) BatchDelete(ctx context.Context, ids []valueobject.RecordID) error {
-	if len(ids) == 0 {
-		return nil
-	}
-
-	logger.Info("正在批量软删除记录",
-		logger.Int("count", len(ids)))
-
-	// 批量软删除 record_meta
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		idStrings := make([]string, len(ids))
-		for i, id := range ids {
-			idStrings[i] = id.String()
-		}
-
-		now := time.Now()
-		if err := tx.Model(&models.RecordMeta{}).
-			Where("id IN ?", idStrings).
-			Update("deleted_at", now).Error; err != nil {
-			return fmt.Errorf("批量软删除record_meta失败: %w", err)
-		}
-
-		logger.Info("✅ 批量软删除成功",
-			logger.Int("count", len(ids)))
-
-		return nil
-	})
+	// ❌ 已移除对 record_meta 的依赖（对齐 Teable 架构）
+	return fmt.Errorf("BatchDelete is deprecated: please use RecordService methods with table_id instead")
 }

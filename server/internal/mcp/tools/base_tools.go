@@ -34,8 +34,8 @@ func RegisterBaseTools(srv *server.MCPServer, baseService *application.BaseServi
 				return ToToolResult(nil, pkgerrors.ErrBadRequest.WithDetails("space_id is required"))
 			}
 
-			// TODO: 实现分页
-			bases, _, err := baseService.ListBases(ctx, spaceID, "", "")
+			// Base 列表不分页
+			bases, err := baseService.ListBases(ctx, spaceID)
 			if err != nil {
 				logger.Error("Failed to list bases",
 					logger.ErrorField(err),

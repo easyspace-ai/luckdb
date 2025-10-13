@@ -1020,43 +1020,36 @@ func (s *CalculationService) extractRecordIDs(linkValue interface{}) []string {
 }
 
 // fetchFieldValues 批量查询字段值
+// ⚠️ 废弃：需要提供 tableID 参数，因为 FindByID 已废弃
+// TODO: 重构调用方传入 tableID，改用 FindByIDs
 func (s *CalculationService) fetchFieldValues(ctx context.Context, recordIDs []string, fieldID string) []interface{} {
 	if len(recordIDs) == 0 {
 		return []interface{}{}
 	}
 
-	values := make([]interface{}, 0, len(recordIDs))
+	logger.Warn("❌ fetchFieldValues 使用了废弃的 FindByID，需要重构",
+		logger.Int("record_count", len(recordIDs)),
+		logger.String("field_id", fieldID))
 
-	// 批量查询Records
-	for _, recordID := range recordIDs {
-		rec, err := s.recordRepo.FindByID(ctx, valueobject.NewRecordID(recordID))
-		if err != nil || rec == nil {
-			continue
-		}
-
-		recordData := rec.Data().ToMap()
-		if value, exists := recordData[fieldID]; exists {
-			values = append(values, value)
-		}
-	}
-
-	return values
+	// ❌ FindByID 已废弃，返回空值
+	// 正确做法：调用方传入 tableID，使用 FindByIDs(tableID, recordIDs)
+	return []interface{}{}
 }
 
 // fetchRecordsMap 批量查询Records并转为Map
+// ⚠️ 废弃：需要提供 tableID 参数，因为 FindByID 已废弃
+// TODO: 重构调用方传入 tableID，改用 FindByIDs
 func (s *CalculationService) fetchRecordsMap(ctx context.Context, recordIDs []string) map[string]map[string]interface{} {
-	result := make(map[string]map[string]interface{})
-
-	for _, recordID := range recordIDs {
-		rec, err := s.recordRepo.FindByID(ctx, valueobject.NewRecordID(recordID))
-		if err != nil || rec == nil {
-			continue
-		}
-
-		result[recordID] = rec.Data().ToMap()
+	if len(recordIDs) == 0 {
+		return map[string]map[string]interface{}{}
 	}
 
-	return result
+	logger.Warn("❌ fetchRecordsMap 使用了废弃的 FindByID，需要重构",
+		logger.Int("record_count", len(recordIDs)))
+
+	// ❌ FindByID 已废弃，返回空Map
+	// 正确做法：调用方传入 tableID，使用 FindByIDs(tableID, recordIDs)
+	return map[string]map[string]interface{}{}
 }
 
 // isVirtualField 检查是否为虚拟字段

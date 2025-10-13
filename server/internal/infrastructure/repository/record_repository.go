@@ -66,6 +66,46 @@ func (r *RecordRepositoryImpl) FindByID(ctx context.Context, id valueobject.Reco
 	return mapper.ToRecordEntity(&dbRecord)
 }
 
+// FindByIDs 根据ID列表查找记录（需要提供 tableID）
+// ✅ 对齐 Teable 架构：所有记录操作都需要 tableID
+func (r *RecordRepositoryImpl) FindByIDs(ctx context.Context, tableID string, ids []valueobject.RecordID) ([]*entity.Record, error) {
+	if len(ids) == 0 {
+		return []*entity.Record{}, nil
+	}
+
+	// 转换 ID 为字符串数组
+	idStrs := make([]string, len(ids))
+	for i, id := range ids {
+		idStrs[i] = id.String()
+	}
+
+	var dbRecords []*models.Record
+	err := r.db.WithContext(ctx).
+		Where("id IN ?", idStrs).
+		Where("table_id = ?", tableID).
+		Where("deleted_time IS NULL").
+		Find(&dbRecords).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to find records: %w", err)
+	}
+
+	return mapper.ToRecordList(dbRecords)
+}
+
+// FindByTableAndID 根据表ID和记录ID查找单条记录
+// ✅ 对齐 Teable 架构：所有记录操作都需要 tableID
+func (r *RecordRepositoryImpl) FindByTableAndID(ctx context.Context, tableID string, id valueobject.RecordID) (*entity.Record, error) {
+	records, err := r.FindByIDs(ctx, tableID, []valueobject.RecordID{id})
+	if err != nil {
+		return nil, err
+	}
+	if len(records) == 0 {
+		return nil, nil // 记录不存在
+	}
+	return records[0], nil
+}
+
 // FindByTableID 查找表的所有记录
 func (r *RecordRepositoryImpl) FindByTableID(ctx context.Context, tableID string) ([]*entity.Record, error) {
 	var dbRecords []*models.Record
@@ -87,6 +127,16 @@ func (r *RecordRepositoryImpl) Delete(ctx context.Context, id valueobject.Record
 	return r.db.WithContext(ctx).
 		Model(&models.Record{}).
 		Where("id = ?", id.String()).
+		Update("deleted_time", gorm.Expr("NOW()")).Error
+}
+
+// DeleteByTableAndID 根据表ID和记录ID删除记录（软删除）
+// ✅ 对齐 Teable 架构：所有记录操作都需要 tableID
+func (r *RecordRepositoryImpl) DeleteByTableAndID(ctx context.Context, tableID string, id valueobject.RecordID) error {
+	return r.db.WithContext(ctx).
+		Model(&models.Record{}).
+		Where("id = ?", id.String()).
+		Where("table_id = ?", tableID).
 		Update("deleted_time", gorm.Expr("NOW()")).Error
 }
 

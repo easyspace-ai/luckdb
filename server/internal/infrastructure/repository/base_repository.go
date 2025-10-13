@@ -29,7 +29,8 @@ func (r *baseRepository) Create(ctx context.Context, base *entity.Base) error {
 // FindByID 根据ID查找Base
 func (r *baseRepository) FindByID(ctx context.Context, id string) (*entity.Base, error) {
 	var model models.Base
-	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&model).Error; err != nil {
+	// ✅ 显式指定 schema
+	if err := r.db.WithContext(ctx).Table("base").Where("id = ?", id).First(&model).Error; err != nil {
 		return nil, err
 	}
 	return r.toEntity(&model), nil
@@ -38,9 +39,11 @@ func (r *baseRepository) FindByID(ctx context.Context, id string) (*entity.Base,
 // FindBySpaceID 根据SpaceID查找所有Base
 func (r *baseRepository) FindBySpaceID(ctx context.Context, spaceID string) ([]*entity.Base, error) {
 	var modelList []models.Base
+	// ✅ 显式指定 schema
 	if err := r.db.WithContext(ctx).
+		Table("base").
 		Where("space_id = ?", spaceID).
-		Order("created_time DESC").  // 修复：使用正确的列名 created_time
+		Order("created_time DESC"). // 修复：使用正确的列名 created_time
 		Find(&modelList).Error; err != nil {
 		return nil, err
 	}
@@ -70,7 +73,8 @@ func (r *baseRepository) List(ctx context.Context, spaceID string, offset, limit
 	var modelList []models.Base
 	var total int64
 
-	db := r.db.WithContext(ctx).Model(&models.Base{})
+	// ✅ 显式指定 schema
+	db := r.db.WithContext(ctx).Table("base")
 
 	// 如果指定了spaceID，则过滤
 	if spaceID != "" {
@@ -84,7 +88,7 @@ func (r *baseRepository) List(ctx context.Context, spaceID string, offset, limit
 
 	// 查询数据
 	if err := db.Offset(offset).Limit(limit).
-		Order("created_time DESC").  // 修复：使用正确的列名 created_time
+		Order("created_time DESC"). // 修复：使用正确的列名 created_time
 		Find(&modelList).Error; err != nil {
 		return nil, 0, err
 	}
@@ -100,7 +104,8 @@ func (r *baseRepository) List(ctx context.Context, spaceID string, offset, limit
 // Exists 检查Base是否存在
 func (r *baseRepository) Exists(ctx context.Context, id string) (bool, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(&models.Base{}).
+	// ✅ 显式指定 schema
+	err := r.db.WithContext(ctx).Table("base").
 		Where("id = ?", id).
 		Count(&count).Error
 	return count > 0, err
@@ -109,7 +114,8 @@ func (r *baseRepository) Exists(ctx context.Context, id string) (bool, error) {
 // CountBySpaceID 统计Space下的Base数量
 func (r *baseRepository) CountBySpaceID(ctx context.Context, spaceID string) (int64, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(&models.Base{}).
+	// ✅ 显式指定 schema
+	err := r.db.WithContext(ctx).Table("base").
 		Where("space_id = ?", spaceID).
 		Count(&count).Error
 	return count, err

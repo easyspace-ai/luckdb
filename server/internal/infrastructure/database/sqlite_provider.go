@@ -53,12 +53,6 @@ func (s *SQLiteProvider) DropSchema(ctx context.Context, schemaName string) erro
 	return nil
 }
 
-// SetSearchPath SQLite不需要search_path
-func (s *SQLiteProvider) SetSearchPath(ctx context.Context, schemaName string) error {
-	// SQLite不需要，跳过
-	return nil
-}
-
 // ==================== 动态表管理 ====================
 
 // CreatePhysicalTable 创建物理表（带前缀）

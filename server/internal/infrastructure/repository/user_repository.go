@@ -50,7 +50,9 @@ func (r *UserRepositoryImpl) Save(ctx context.Context, user *entity.User) error 
 func (r *UserRepositoryImpl) FindByID(ctx context.Context, id valueobject.UserID) (*entity.User, error) {
 	var dbUser models.User
 
+	// ✅ 显式指定 schema
 	err := r.db.WithContext(ctx).
+		Table("users").
 		Where("id = ?", id.String()).
 		Where("deleted_time IS NULL").
 		First(&dbUser).Error
@@ -69,7 +71,9 @@ func (r *UserRepositoryImpl) FindByID(ctx context.Context, id valueobject.UserID
 func (r *UserRepositoryImpl) FindByEmail(ctx context.Context, email valueobject.Email) (*entity.User, error) {
 	var dbUser models.User
 
+	// ✅ 显式指定 schema
 	err := r.db.WithContext(ctx).
+		Table("users").
 		Where("email = ?", email.String()).
 		Where("deleted_time IS NULL").
 		First(&dbUser).Error
@@ -88,7 +92,9 @@ func (r *UserRepositoryImpl) FindByEmail(ctx context.Context, email valueobject.
 func (r *UserRepositoryImpl) FindByPhone(ctx context.Context, phone valueobject.Phone) (*entity.User, error) {
 	var dbUser models.User
 
+	// ✅ 显式指定 schema
 	err := r.db.WithContext(ctx).
+		Table("users").
 		Where("phone = ?", phone.String()).
 		Where("deleted_time IS NULL").
 		First(&dbUser).Error
@@ -114,8 +120,9 @@ func (r *UserRepositoryImpl) Delete(ctx context.Context, id valueobject.UserID) 
 // Exists 检查用户是否存在
 func (r *UserRepositoryImpl) Exists(ctx context.Context, id valueobject.UserID) (bool, error) {
 	var count int64
+	// ✅ 显式指定 schema
 	err := r.db.WithContext(ctx).
-		Model(&models.User{}).
+		Table("users").
 		Where("id = ?", id.String()).
 		Where("deleted_time IS NULL").
 		Count(&count).Error
@@ -125,8 +132,9 @@ func (r *UserRepositoryImpl) Exists(ctx context.Context, id valueobject.UserID) 
 
 // ExistsByEmail 检查邮箱是否已存在
 func (r *UserRepositoryImpl) ExistsByEmail(ctx context.Context, email valueobject.Email, excludeID *valueobject.UserID) (bool, error) {
+	// ✅ 显式指定 schema
 	query := r.db.WithContext(ctx).
-		Model(&models.User{}).
+		Table("users").
 		Where("email = ?", email.String()).
 		Where("deleted_time IS NULL")
 
@@ -143,7 +151,8 @@ func (r *UserRepositoryImpl) ExistsByEmail(ctx context.Context, email valueobjec
 
 // List 列出用户
 func (r *UserRepositoryImpl) List(ctx context.Context, filter repository.UserFilter) ([]*entity.User, int64, error) {
-	query := r.db.WithContext(ctx).Model(&models.User{}).
+	// ✅ 显式指定 schema
+	query := r.db.WithContext(ctx).Table("users").
 		Where("deleted_time IS NULL")
 
 	// 应用过滤条件
@@ -211,7 +220,8 @@ func (r *UserRepositoryImpl) UpdateLastSignTime(ctx context.Context, id valueobj
 
 // Count 统计用户数量
 func (r *UserRepositoryImpl) Count(ctx context.Context, filter repository.UserFilter) (int64, error) {
-	query := r.db.WithContext(ctx).Model(&models.User{}).
+	// ✅ 显式指定 schema
+	query := r.db.WithContext(ctx).Table("users").
 		Where("deleted_time IS NULL")
 
 	// 应用过滤条件

@@ -79,13 +79,34 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Success 200 {object} gin.H
 // @Router /auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
-	// 从请求头获取用户ID（需要认证中间件）
+	// 优先从认证中间件获取用户ID
 	userID := c.GetString("user_id")
+
+	// 如果没有通过中间件，尝试从 Authorization header 解析 token
 	if userID == "" {
-		response.Error(c, errors.ErrUnauthorized.WithDetails("未登录"))
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" {
+			// 提取 Bearer token
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				token := parts[1]
+				// 验证 token 并获取用户ID
+				claims, err := h.authService.ValidateToken(c.Request.Context(), token)
+				if err == nil && claims != nil {
+					userID = claims.UserID
+				}
+			}
+		}
+	}
+
+	// 如果还是没有用户ID，说明未登录
+	if userID == "" {
+		// 即使未登录，也返回成功（客户端可能只是想清除本地状态）
+		response.Success(c, nil, "登出成功")
 		return
 	}
 
+	// 执行登出操作
 	if err := h.authService.Logout(c.Request.Context(), userID); err != nil {
 		response.Error(c, err)
 		return

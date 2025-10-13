@@ -27,11 +27,6 @@ func (m *MockDBProvider) DropSchema(ctx context.Context, schemaName string) erro
 	return args.Error(0)
 }
 
-func (m *MockDBProvider) SetSearchPath(ctx context.Context, schemaName string) error {
-	args := m.Called(ctx, schemaName)
-	return args.Error(0)
-}
-
 func (m *MockDBProvider) CreatePhysicalTable(ctx context.Context, schemaName, tableName string) error {
 	args := m.Called(ctx, schemaName, tableName)
 	return args.Error(0)

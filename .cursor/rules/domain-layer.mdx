@@ -1,0 +1,738 @@
+# 领域层（Domain Layer）开发规范
+
+## 核心原则
+
+领域层是系统的核心，包含业务逻辑和业务规则：
+- **独立性**：不依赖任何外层（应用层、基础设施层、接口层）
+- **纯粹性**：只包含业务逻辑，不包含技术细节
+- **稳定性**：变化最少的层，其他层围绕它构建
+
+## 目录结构
+
+```
+internal/domain/
+├── entity/              # 实体
+│   ├── user.go
+│   ├── order.go
+│   └── product.go
+├── valueobject/         # 值对象
+│   ├── email.go
+│   ├── money.go
+│   └── address.go
+├── aggregate/           # 聚合
+│   ├── order_aggregate.go
+│   └── cart_aggregate.go
+├── repository/          # 仓储接口
+│   ├── user_repository.go
+│   └── order_repository.go
+├── service/             # 领域服务
+│   ├── pricing_service.go
+│   └── inventory_service.go
+├── event/               # 领域事件
+│   ├── user_registered.go
+│   └── order_placed.go
+├── specification/       # 规约模式
+│   └── user_specification.go
+└── errors.go           # 领域错误定义
+```
+
+## 实体（Entity）开发规范
+
+### 1. 实体定义
+```go
+// ✅ 好的做法
+package entity
+
+import (
+    "time"
+    "github.com/google/uuid"
+    "github.com/yourorg/easydb/internal/domain/valueobject"
+)
+
+// User 用户实体
+// 用户是系统的核心概念，具有唯一标识
+type User struct {
+    id          uuid.UUID              // 唯一标识（私有）
+    email       valueobject.Email      // 使用值对象
+    name        string
+    status      UserStatus
+    createdAt   time.Time
+    updatedAt   time.Time
+    version     int                    // 乐观锁版本号
+}
+
+// UserStatus 用户状态
+type UserStatus int
+
+const (
+    UserStatusPending UserStatus = iota
+    UserStatusActive
+    UserStatusSuspended
+    UserStatusDeleted
+)
+
+// NewUser 创建新用户（工厂方法）
+func NewUser(email valueobject.Email, name string) (*User, error) {
+    if name == "" {
+        return nil, ErrInvalidUserName
+    }
+    
+    return &User{
+        id:        uuid.New(),
+        email:     email,
+        name:      name,
+        status:    UserStatusPending,
+        createdAt: time.Now(),
+        updatedAt: time.Now(),
+        version:   1,
+    }, nil
+}
+
+// ID 获取用户ID（只读访问）
+func (u *User) ID() uuid.UUID {
+    return u.id
+}
+
+// Email 获取邮箱
+func (u *User) Email() valueobject.Email {
+    return u.email
+}
+
+// Activate 激活用户（业务方法）
+func (u *User) Activate() error {
+    if u.status == UserStatusActive {
+        return ErrUserAlreadyActive
+    }
+    
+    if u.status == UserStatusDeleted {
+        return ErrCannotActivateDeletedUser
+    }
+    
+    u.status = UserStatusActive
+    u.updatedAt = time.Now()
+    return nil
+}
+
+// Suspend 暂停用户
+func (u *User) Suspend(reason string) error {
+    if u.status != UserStatusActive {
+        return ErrCanOnlySuspendActiveUser
+    }
+    
+    u.status = UserStatusSuspended
+    u.updatedAt = time.Now()
+    return nil
+}
+
+// IsActive 检查用户是否活跃
+func (u *User) IsActive() bool {
+    return u.status == UserStatusActive
+}
+
+// ❌ 坏的做法
+type User struct {
+    ID        string `json:"id" db:"id"`           // 不要使用标签
+    Email     string `json:"email" db:"email"`     // 不要暴露技术细节
+    Password  string `json:"-" db:"password_hash"` // 不要使用ORM/JSON标签
+    CreatedAt time.Time `json:"created_at"`
+}
+
+func (u *User) SetEmail(email string) {  // 不要使用简单的setter
+    u.Email = email
+}
+```
+
+### 2. 实体行为
+```go
+// ✅ 将业务逻辑封装在实体中
+type Order struct {
+    id          uuid.UUID
+    userID      uuid.UUID
+    items       []OrderItem
+    totalAmount valueobject.Money
+    status      OrderStatus
+}
+
+// AddItem 添加订单项（包含业务规则）
+func (o *Order) AddItem(product Product, quantity int) error {
+    // 业务规则：只有待处理的订单才能添加商品
+    if o.status != OrderStatusPending {
+        return ErrCannotModifyOrder
+    }
+    
+    // 业务规则：数量必须大于0
+    if quantity <= 0 {
+        return ErrInvalidQuantity
+    }
+    
+    // 业务规则：检查是否已存在该商品
+    for i, item := range o.items {
+        if item.ProductID() == product.ID() {
+            // 增加数量而不是添加新项
+            o.items[i] = item.IncreaseQuantity(quantity)
+            o.recalculateTotal()
+            return nil
+        }
+    }
+    
+    // 添加新商品项
+    item := NewOrderItem(product, quantity)
+    o.items = append(o.items, item)
+    o.recalculateTotal()
+    
+    return nil
+}
+
+// recalculateTotal 重新计算总金额（私有方法）
+func (o *Order) recalculateTotal() {
+    total := valueobject.NewMoney(0, "CNY")
+    for _, item := range o.items {
+        total = total.Add(item.Subtotal())
+    }
+    o.totalAmount = total
+}
+
+// ❌ 坏的做法 - 贫血模型
+type Order struct {
+    ID     string
+    Items  []OrderItem  // 公开字段
+    Total  float64
+}
+
+// 业务逻辑在服务层，实体只是数据容器
+```
+
+## 值对象（Value Object）开发规范
+
+### 1. 值对象定义
+```go
+// ✅ 好的做法
+package valueobject
+
+import (
+    "fmt"
+    "regexp"
+    "strings"
+)
+
+// Email 邮箱值对象
+// 值对象特性：
+// 1. 不可变（Immutable）
+// 2. 通过值比较相等性
+// 3. 无标识符
+type Email struct {
+    value string  // 私有字段，确保不可变
+}
+
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+
+// NewEmail 创建邮箱值对象（工厂方法包含验证）
+func NewEmail(value string) (Email, error) {
+    normalized := strings.ToLower(strings.TrimSpace(value))
+    
+    if !emailRegex.MatchString(normalized) {
+        return Email{}, ErrInvalidEmailFormat
+    }
+    
+    return Email{value: normalized}, nil
+}
+
+// String 获取邮箱字符串值
+func (e Email) String() string {
+    return e.value
+}
+
+// Equals 比较两个邮箱是否相等
+func (e Email) Equals(other Email) bool {
+    return e.value == other.value
+}
+
+// Domain 获取邮箱域名
+func (e Email) Domain() string {
+    parts := strings.Split(e.value, "@")
+    if len(parts) == 2 {
+        return parts[1]
+    }
+    return ""
+}
+```
+
+### 2. 复杂值对象示例
+```go
+// Money 金额值对象
+type Money struct {
+    amount   int64  // 使用整数存储（分）避免浮点数精度问题
+    currency string
+}
+
+// NewMoney 创建金额值对象
+func NewMoney(amount int64, currency string) Money {
+    return Money{
+        amount:   amount,
+        currency: strings.ToUpper(currency),
+    }
+}
+
+// Amount 获取金额（分）
+func (m Money) Amount() int64 {
+    return m.amount
+}
+
+// Currency 获取货币
+func (m Money) Currency() string {
+    return m.currency
+}
+
+// Add 加法（返回新对象，保持不可变性）
+func (m Money) Add(other Money) Money {
+    if m.currency != other.currency {
+        panic("cannot add money with different currencies")
+    }
+    return Money{
+        amount:   m.amount + other.amount,
+        currency: m.currency,
+    }
+}
+
+// Multiply 乘法
+func (m Money) Multiply(multiplier int) Money {
+    return Money{
+        amount:   m.amount * int64(multiplier),
+        currency: m.currency,
+    }
+}
+
+// Equals 比较
+func (m Money) Equals(other Money) bool {
+    return m.amount == other.amount && m.currency == other.currency
+}
+
+// GreaterThan 大于比较
+func (m Money) GreaterThan(other Money) bool {
+    if m.currency != other.currency {
+        panic("cannot compare money with different currencies")
+    }
+    return m.amount > other.amount
+}
+
+// String 格式化输出
+func (m Money) String() string {
+    yuan := float64(m.amount) / 100.0
+    return fmt.Sprintf("%.2f %s", yuan, m.currency)
+}
+```
+
+### 3. 地址值对象
+```go
+// Address 地址值对象
+type Address struct {
+    country  string
+    province string
+    city     string
+    street   string
+    zipCode  string
+}
+
+// NewAddress 创建地址
+func NewAddress(country, province, city, street, zipCode string) (Address, error) {
+    if country == "" || province == "" || city == "" || street == "" {
+        return Address{}, ErrInvalidAddress
+    }
+    
+    if !isValidZipCode(zipCode) {
+        return Address{}, ErrInvalidZipCode
+    }
+    
+    return Address{
+        country:  country,
+        province: province,
+        city:     city,
+        street:   street,
+        zipCode:  zipCode,
+    }, nil
+}
+
+// FullAddress 获取完整地址
+func (a Address) FullAddress() string {
+    return fmt.Sprintf("%s %s %s %s %s", 
+        a.country, a.province, a.city, a.street, a.zipCode)
+}
+
+// Equals 比较地址
+func (a Address) Equals(other Address) bool {
+    return a.country == other.country &&
+        a.province == other.province &&
+        a.city == other.city &&
+        a.street == other.street &&
+        a.zipCode == other.zipCode
+}
+```
+
+## 聚合（Aggregate）开发规范
+
+### 1. 聚合根定义
+```go
+// ✅ 好的做法
+package aggregate
+
+import (
+    "github.com/yourorg/easydb/internal/domain/entity"
+    "github.com/yourorg/easydb/internal/domain/valueobject"
+    "github.com/yourorg/easydb/internal/domain/event"
+)
+
+// OrderAggregate 订单聚合根
+// 聚合根职责：
+// 1. 维护聚合内对象的一致性
+// 2. 对外提供统一接口
+// 3. 管理聚合内的生命周期
+type OrderAggregate struct {
+    order         *entity.Order           // 聚合根实体
+    items         []*entity.OrderItem     // 聚合内实体
+    shippingInfo  *valueobject.Address    // 聚合内值对象
+    domainEvents  []event.DomainEvent     // 领域事件
+}
+
+// NewOrderAggregate 创建订单聚合
+func NewOrderAggregate(userID uuid.UUID, shippingAddr valueobject.Address) *OrderAggregate {
+    order := entity.NewOrder(userID)
+    
+    agg := &OrderAggregate{
+        order:        order,
+        items:        make([]*entity.OrderItem, 0),
+        shippingInfo: &shippingAddr,
+        domainEvents: make([]event.DomainEvent, 0),
+    }
+    
+    // 添加领域事件
+    agg.addDomainEvent(event.NewOrderCreated(order.ID(), userID))
+    
+    return agg
+}
+
+// AddItem 添加订单项（通过聚合根操作）
+func (a *OrderAggregate) AddItem(product *entity.Product, quantity int) error {
+    // 验证业务规则
+    if !a.order.CanAddItem() {
+        return ErrCannotAddItemToOrder
+    }
+    
+    // 检查重复
+    for _, item := range a.items {
+        if item.ProductID() == product.ID() {
+            return item.IncreaseQuantity(quantity)
+        }
+    }
+    
+    // 创建订单项
+    item := entity.NewOrderItem(product, quantity)
+    a.items = append(a.items, item)
+    
+    // 更新订单总额
+    a.order.RecalculateTotal(a.items)
+    
+    // 发布领域事件
+    a.addDomainEvent(event.NewItemAdded(a.order.ID(), product.ID(), quantity))
+    
+    return nil
+}
+
+// PlaceOrder 下单
+func (a *OrderAggregate) PlaceOrder() error {
+    // 验证订单可以下单
+    if len(a.items) == 0 {
+        return ErrEmptyOrder
+    }
+    
+    if a.shippingInfo == nil {
+        return ErrMissingShippingInfo
+    }
+    
+    // 改变订单状态
+    if err := a.order.Place(); err != nil {
+        return err
+    }
+    
+    // 发布订单已下单事件
+    a.addDomainEvent(event.NewOrderPlaced(
+        a.order.ID(),
+        a.order.UserID(),
+        a.order.TotalAmount(),
+    ))
+    
+    return nil
+}
+
+// DomainEvents 获取领域事件
+func (a *OrderAggregate) DomainEvents() []event.DomainEvent {
+    return a.domainEvents
+}
+
+// ClearDomainEvents 清空领域事件
+func (a *OrderAggregate) ClearDomainEvents() {
+    a.domainEvents = make([]event.DomainEvent, 0)
+}
+
+// addDomainEvent 添加领域事件（私有方法）
+func (a *OrderAggregate) addDomainEvent(event event.DomainEvent) {
+    a.domainEvents = append(a.domainEvents, event)
+}
+
+// Order 获取订单（只读）
+func (a *OrderAggregate) Order() *entity.Order {
+    return a.order
+}
+
+// Items 获取订单项（返回副本，避免外部修改）
+func (a *OrderAggregate) Items() []*entity.OrderItem {
+    items := make([]*entity.OrderItem, len(a.items))
+    copy(items, a.items)
+    return items
+}
+```
+
+## 仓储接口（Repository）开发规范
+
+```go
+// ✅ 好的做法
+package repository
+
+import (
+    "context"
+    "github.com/google/uuid"
+    "github.com/yourorg/easydb/internal/domain/entity"
+    "github.com/yourorg/easydb/internal/domain/valueobject"
+)
+
+// UserRepository 用户仓储接口
+// 仓储接口定义在领域层，实现在基础设施层
+type UserRepository interface {
+    // Save 保存用户（新增或更新）
+    Save(ctx context.Context, user *entity.User) error
+    
+    // FindByID 根据ID查找用户
+    FindByID(ctx context.Context, id uuid.UUID) (*entity.User, error)
+    
+    // FindByEmail 根据邮箱查找用户
+    FindByEmail(ctx context.Context, email valueobject.Email) (*entity.User, error)
+    
+    // Delete 删除用户
+    Delete(ctx context.Context, id uuid.UUID) error
+    
+    // Exists 检查用户是否存在
+    Exists(ctx context.Context, id uuid.UUID) (bool, error)
+    
+    // NextID 生成下一个ID
+    NextID() uuid.UUID
+}
+
+// OrderRepository 订单仓储
+type OrderRepository interface {
+    // Save 保存订单聚合
+    Save(ctx context.Context, order *aggregate.OrderAggregate) error
+    
+    // FindByID 查找订单聚合
+    FindByID(ctx context.Context, id uuid.UUID) (*aggregate.OrderAggregate, error)
+    
+    // FindByUserID 查找用户的所有订单
+    FindByUserID(ctx context.Context, userID uuid.UUID) ([]*aggregate.OrderAggregate, error)
+    
+    // FindByStatus 根据状态查找订单
+    FindByStatus(ctx context.Context, status entity.OrderStatus) ([]*aggregate.OrderAggregate, error)
+}
+
+// ❌ 坏的做法 - 仓储接口包含太多查询方法
+type BadUserRepository interface {
+    FindByID(id string) (*User, error)
+    FindByEmail(email string) (*User, error)
+    FindByPhone(phone string) (*User, error)
+    FindByNameLike(name string) ([]*User, error)
+    FindByCreatedBetween(start, end time.Time) ([]*User, error)
+    FindByStatusAndRole(status, role string) ([]*User, error)
+    // ... 太多特定查询方法
+    // 这些复杂查询应该在应用层使用查询服务
+}
+```
+
+## 领域服务（Domain Service）开发规范
+
+```go
+// ✅ 好的做法
+package service
+
+import (
+    "context"
+    "github.com/yourorg/easydb/internal/domain/entity"
+    "github.com/yourorg/easydb/internal/domain/valueobject"
+)
+
+// PricingService 定价领域服务
+// 领域服务用于：
+// 1. 跨多个聚合的业务逻辑
+// 2. 不自然属于任何实体的业务操作
+type PricingService interface {
+    // CalculateOrderPrice 计算订单价格
+    CalculateOrderPrice(ctx context.Context, order *entity.Order, user *entity.User) (valueobject.Money, error)
+}
+
+type pricingService struct {
+    discountRules []DiscountRule
+}
+
+// NewPricingService 创建定价服务
+func NewPricingService(discountRules []DiscountRule) PricingService {
+    return &pricingService{
+        discountRules: discountRules,
+    }
+}
+
+// CalculateOrderPrice 计算订单价格
+func (s *pricingService) CalculateOrderPrice(
+    ctx context.Context,
+    order *entity.Order,
+    user *entity.User,
+) (valueobject.Money, error) {
+    basePrice := order.BasePrice()
+    
+    // 应用折扣规则
+    for _, rule := range s.discountRules {
+        if rule.IsApplicable(user, order) {
+            basePrice = rule.Apply(basePrice)
+        }
+    }
+    
+    return basePrice, nil
+}
+
+// DiscountRule 折扣规则接口
+type DiscountRule interface {
+    IsApplicable(user *entity.User, order *entity.Order) bool
+    Apply(price valueobject.Money) valueobject.Money
+}
+```
+
+## 领域事件（Domain Event）开发规范
+
+```go
+// ✅ 好的做法
+package event
+
+import (
+    "time"
+    "github.com/google/uuid"
+    "github.com/yourorg/easydb/internal/domain/valueobject"
+)
+
+// DomainEvent 领域事件接口
+type DomainEvent interface {
+    // EventID 事件ID
+    EventID() string
+    
+    // EventType 事件类型
+    EventType() string
+    
+    // OccurredAt 发生时间
+    OccurredAt() time.Time
+    
+    // AggregateID 聚合根ID
+    AggregateID() uuid.UUID
+}
+
+// BaseDomainEvent 基础领域事件
+type BaseDomainEvent struct {
+    eventID     string
+    eventType   string
+    occurredAt  time.Time
+    aggregateID uuid.UUID
+}
+
+func newBaseDomainEvent(eventType string, aggregateID uuid.UUID) BaseDomainEvent {
+    return BaseDomainEvent{
+        eventID:     uuid.New().String(),
+        eventType:   eventType,
+        occurredAt:  time.Now(),
+        aggregateID: aggregateID,
+    }
+}
+
+func (e BaseDomainEvent) EventID() string       { return e.eventID }
+func (e BaseDomainEvent) EventType() string     { return e.eventType }
+func (e BaseDomainEvent) OccurredAt() time.Time { return e.occurredAt }
+func (e BaseDomainEvent) AggregateID() uuid.UUID { return e.aggregateID }
+
+// UserRegistered 用户注册事件
+type UserRegistered struct {
+    BaseDomainEvent
+    userID uuid.UUID
+    email  valueobject.Email
+}
+
+// NewUserRegistered 创建用户注册事件
+func NewUserRegistered(userID uuid.UUID, email valueobject.Email) *UserRegistered {
+    return &UserRegistered{
+        BaseDomainEvent: newBaseDomainEvent("user.registered", userID),
+        userID:          userID,
+        email:           email,
+    }
+}
+
+func (e *UserRegistered) UserID() uuid.UUID           { return e.userID }
+func (e *UserRegistered) Email() valueobject.Email    { return e.email }
+
+// OrderPlaced 订单已下单事件
+type OrderPlaced struct {
+    BaseDomainEvent
+    orderID     uuid.UUID
+    userID      uuid.UUID
+    totalAmount valueobject.Money
+}
+
+func NewOrderPlaced(orderID, userID uuid.UUID, totalAmount valueobject.Money) *OrderPlaced {
+    return &OrderPlaced{
+        BaseDomainEvent: newBaseDomainEvent("order.placed", orderID),
+        orderID:         orderID,
+        userID:          userID,
+        totalAmount:     totalAmount,
+    }
+}
+```
+
+## 领域错误定义
+
+```go
+// ✅ 好的做法
+package domain
+
+import "errors"
+
+// 领域错误使用哨兵错误模式
+var (
+    // User errors
+    ErrUserNotFound          = errors.New("user not found")
+    ErrInvalidUserName       = errors.New("invalid user name")
+    ErrUserAlreadyActive     = errors.New("user already active")
+    ErrCannotActivateDeletedUser = errors.New("cannot activate deleted user")
+    
+    // Order errors
+    ErrOrderNotFound         = errors.New("order not found")
+    ErrCannotModifyOrder     = errors.New("cannot modify order in current status")
+    ErrInvalidQuantity       = errors.New("quantity must be greater than 0")
+    ErrEmptyOrder           = errors.New("order must contain at least one item")
+    
+    // ValueObject errors
+    ErrInvalidEmailFormat    = errors.New("invalid email format")
+    ErrInvalidAddress        = errors.New("invalid address")
+    ErrInvalidZipCode        = errors.New("invalid zip code")
+)
+```
+
+## 最佳实践总结
+
+1. **保持领域层纯净**：不要引入任何技术框架依赖
+2. **丰富领域模型**：将业务逻辑放在实体和值对象中，避免贫血模型
+3. **使用值对象**：用值对象封装简单概念，提高类型安全
+4. **明确聚合边界**：一个事务只修改一个聚合
+5. **通过聚合根访问**：外部只能通过聚合根访问聚合内对象
+6. **使用领域事件**：通过事件解耦聚合间的依赖
+7. **接口在领域层**：仓储等接口定义在领域层，实现在基础设施层
+

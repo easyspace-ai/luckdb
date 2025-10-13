@@ -3,7 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
-	"strconv"
+
 	"github.com/easyspace-ai/luckdb/server/internal/application/dto"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/base/entity"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/base/repository"
@@ -231,47 +231,20 @@ func (s *BaseService) DeleteBase(ctx context.Context, baseID string) error {
 }
 
 // ListBases 获取Base列表（严格遵守：返回AppError）
-func (s *BaseService) ListBases(ctx context.Context, spaceID, page, limit string) ([]*dto.BaseResponse, *dto.PaginationResponse, error) {
-	// 1. 解析分页参数
-	pageNum, err := strconv.Atoi(page)
-	if err != nil || pageNum < 1 {
-		pageNum = 1
-	}
-
-	limitNum, err := strconv.Atoi(limit)
-	if err != nil || limitNum < 1 {
-		limitNum = 20
-	}
-	if limitNum > 100 {
-		limitNum = 100 // 最大100条
-	}
-
-	offset := (pageNum - 1) * limitNum
-
-	// 2. 查询数据
-	bases, total, err := s.repo.List(ctx, spaceID, offset, limitNum)
+func (s *BaseService) ListBases(ctx context.Context, spaceID string) ([]*dto.BaseResponse, error) {
+	// 查询指定空间下的所有 Base（不分页）
+	bases, err := s.repo.FindBySpaceID(ctx, spaceID)
 	if err != nil {
-		return nil, nil, errors.ErrDatabaseQuery.WithDetails(err.Error())
+		return nil, errors.ErrDatabaseQuery.WithDetails(err.Error())
 	}
 
-	// 3. 转换为DTO
+	// 转换为 DTO
 	items := make([]*dto.BaseResponse, len(bases))
 	for i, base := range bases {
 		items[i] = s.toDTO(base)
 	}
 
-	// 4. 构建分页信息
-	totalPages := int((total + int64(limitNum) - 1) / int64(limitNum))
-	pagination := &dto.PaginationResponse{
-		Total:       total,
-		Page:        pageNum,
-		PageSize:    limitNum,
-		TotalPages:  totalPages,
-		HasNext:     pageNum < totalPages,
-		HasPrevious: pageNum > 1,
-	}
-
-	return items, pagination, nil
+	return items, nil
 }
 
 // toDTO 实体转DTO（私有方法）

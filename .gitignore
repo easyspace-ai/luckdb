@@ -1,55 +1,45 @@
-# Dependencies
+# 依赖目录
 node_modules/
-.pnp
-.pnp.js
+/dist
+/build
 
-# Testing
-coverage/
+# 日志文件
 *.log
-.nyc_output
+logs/
+*.log.*
 
-# Production
-dist/
-build/
-.next/
-out/
-
-# Misc
+# 临时文件
 .DS_Store
-*.pem
-.env*.local
-.vscode/*
-!.vscode/settings.json
-!.vscode/extensions.json
-.idea/
-
-# Turbo
-.turbo
-
-# Go
-server/bin/
-server/vendor/
-server/*.exe
-server/*.test
-server/*.out
-server/logs/*.log
-server/tmp/
-server/easydb
-server/luckdb
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-*.bak
+.env
+.env.local
+.env.*.local
 *.swp
+*.swo
 *~
 
-# OS
-Thumbs.db
+# IDE
+.vscode/
+.idea/
+*.iml
 
+# 构建输出
+/server/easydb
+/server/bin/
+
+# 测试输出
+coverage/
+.nyc_output/
+test-results/
+
+# 警告：禁止在根目录创建文档文件！
+# 所有文档应该在 book/ 目录下
+# 例外：README.md, LICENSE, .cursorrules* 等配置文件
+/*.md
+!README.md
+!LICENSE.md
+!CONTRIBUTING.md
+
+# 临时数据
+*.tmp
+*.bak
+*.old

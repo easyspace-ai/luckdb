@@ -62,7 +62,9 @@ func (r *TableRepositoryImpl) GetByID(ctx context.Context, id string) (*entity.T
 func (r *TableRepositoryImpl) GetTableByID(ctx context.Context, id string) (*entity.Table, error) {
 	var dbTable models.Table
 
+	// ✅ 显式指定 schema
 	err := r.db.WithContext(ctx).
+		Table("table_meta").
 		Where("id = ?", id).
 		Where("deleted_time IS NULL").
 		First(&dbTable).Error
@@ -81,7 +83,9 @@ func (r *TableRepositoryImpl) GetTableByID(ctx context.Context, id string) (*ent
 func (r *TableRepositoryImpl) ListByBaseID(ctx context.Context, baseID string) ([]*entity.Table, error) {
 	var dbTables []*models.Table
 
+	// ✅ 显式指定 schema
 	err := r.db.WithContext(ctx).
+		Table("table_meta").
 		Where("base_id = ?", baseID).
 		Where("deleted_time IS NULL").
 		Order("created_time DESC").
@@ -114,8 +118,9 @@ func (r *TableRepositoryImpl) Update(ctx context.Context, table *entity.Table) e
 // Count 统计表格数量
 func (r *TableRepositoryImpl) Count(ctx context.Context, baseID string) (int64, error) {
 	var count int64
+	// ✅ 显式指定 schema
 	err := r.db.WithContext(ctx).
-		Model(&models.Table{}).
+		Table("table_meta").
 		Where("base_id = ?", baseID).
 		Where("deleted_time IS NULL").
 		Count(&count).Error
@@ -126,8 +131,9 @@ func (r *TableRepositoryImpl) Count(ctx context.Context, baseID string) (int64, 
 // Exists 检查表格是否存在
 func (r *TableRepositoryImpl) Exists(ctx context.Context, id string) (bool, error) {
 	var count int64
+	// ✅ 显式指定 schema
 	err := r.db.WithContext(ctx).
-		Model(&models.Table{}).
+		Table("table_meta").
 		Where("id = ?", id).
 		Where("deleted_time IS NULL").
 		Count(&count).Error

@@ -1,0 +1,248 @@
+# 基础设施层（Infrastructure Layer）开发规范
+
+## 核心原则
+
+基础设施层提供技术实现细节：
+- **实现领域接口**：实现领域层定义的仓储、服务接口
+- **技术细节封装**：隔离数据库、缓存、消息队列等技术细节
+- **依赖领域层**：依赖领域层接口，实现具体技术方案
+- **可替换性**：可以轻松替换技术实现而不影响业务逻辑
+
+## 目录结构
+
+```
+internal/infrastructure/
+├── persistence/         # 持久化实现
+│   ├── postgres/        # PostgreSQL实现
+│   │   ├── user_repository.go
+│   │   ├── order_repository.go
+│   │   ├── mapper.go
+│   │   └── transaction.go
+│   ├── mysql/           # MySQL实现
+│   └── mongodb/         # MongoDB实现
+├── cache/               # 缓存实现
+│   ├── redis/
+│   │   ├── cache.go
+│   │   └── user_cache.go
+│   └── memory/
+│       └── cache.go
+├── message/             # 消息队列
+│   ├── kafka/
+│   ├── rabbitmq/
+│   └── nats/
+├── external/            # 外部服务
+│   ├── email/
+│   │   ├── sendgrid.go
+│   │   └── smtp.go
+│   └── payment/
+│       └── stripe.go
+├── config/              # 配置
+│   └── config.go
+└── eventbus/            # 事件总线实现
+    └── eventbus.go
+```
+
+## 仓储实现示例
+
+### PostgreSQL 仓储实现
+```go
+package postgres
+
+import (
+    "context"
+    "database/sql"
+    "fmt"
+    
+    "github.com/google/uuid"
+    "github.com/yourorg/easydb/internal/domain/entity"
+    "github.com/yourorg/easydb/internal/domain/repository"
+)
+
+// UserRepository PostgreSQL用户仓储实现
+type UserRepository struct {
+    db     *sql.DB
+    mapper *UserMapper
+}
+
+// NewUserRepository 创建用户仓储
+func NewUserRepository(db *sql.DB) repository.UserRepository {
+    return &UserRepository{
+        db:     db,
+        mapper: NewUserMapper(),
+    }
+}
+
+// Save 保存用户（新增或更新）
+func (r *UserRepository) Save(ctx context.Context, user *entity.User) error {
+    // 转换为数据库模型
+    dbUser := r.mapper.ToDBModel(user)
+    
+    // 使用UPSERT语句
+    query := `
+        INSERT INTO users (id, email, name, status, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (id) DO UPDATE SET
+            name = EXCLUDED.name,
+            status = EXCLUDED.status,
+            updated_at = EXCLUDED.updated_at
+    `
+    
+    _, err := r.db.ExecContext(ctx, query,
+        dbUser.ID,
+        dbUser.Email,
+        dbUser.Name,
+        dbUser.Status,
+        dbUser.CreatedAt,
+        dbUser.UpdatedAt,
+    )
+    
+    return err
+}
+
+// FindByID 根据ID查找用户
+func (r *UserRepository) FindByID(ctx context.Context, id uuid.UUID) (*entity.User, error) {
+    query := `
+        SELECT id, email, name, status, created_at, updated_at
+        FROM users
+        WHERE id = $1
+    `
+    
+    var dbUser UserDBModel
+    err := r.db.QueryRowContext(ctx, query, id).Scan(
+        &dbUser.ID,
+        &dbUser.Email,
+        &dbUser.Name,
+        &dbUser.Status,
+        &dbUser.CreatedAt,
+        &dbUser.UpdatedAt,
+    )
+    
+    if err == sql.ErrNoRows {
+        return nil, repository.ErrUserNotFound
+    }
+    
+    if err != nil {
+        return nil, fmt.Errorf("failed to find user: %w", err)
+    }
+    
+    // 转换为领域对象
+    user, err := r.mapper.ToDomainEntity(&dbUser)
+    if err != nil {
+        return nil, fmt.Errorf("failed to map to domain entity: %w", err)
+    }
+    
+    return user, nil
+}
+```
+
+### 数据库模型与映射器
+```go
+// UserDBModel 用户数据库模型
+type UserDBModel struct {
+    ID        string
+    Email     string
+    Name      string
+    Status    string
+    CreatedAt time.Time
+    UpdatedAt time.Time
+}
+
+// UserMapper 用户映射器
+type UserMapper struct{}
+
+// ToDomainEntity 数据库模型转领域实体
+func (m *UserMapper) ToDomainEntity(dbUser *UserDBModel) (*entity.User, error) {
+    id, err := uuid.Parse(dbUser.ID)
+    if err != nil {
+        return nil, err
+    }
+    
+    email, err := valueobject.NewEmail(dbUser.Email)
+    if err != nil {
+        return nil, err
+    }
+    
+    return entity.ReconstructUser(id, email, dbUser.Name, dbUser.Status), nil
+}
+
+// ToDBModel 领域实体转数据库模型
+func (m *UserMapper) ToDBModel(user *entity.User) *UserDBModel {
+    return &UserDBModel{
+        ID:        user.ID().String(),
+        Email:     user.Email().String(),
+        Name:      user.Name(),
+        Status:    user.Status().String(),
+        CreatedAt: user.CreatedAt(),
+        UpdatedAt: user.UpdatedAt(),
+    }
+}
+```
+
+## 缓存实现
+
+### Redis缓存
+```go
+package redis
+
+import (
+    "context"
+    "encoding/json"
+    "time"
+    
+    "github.com/redis/go-redis/v9"
+)
+
+// Cache Redis缓存实现
+type Cache struct {
+    client *redis.Client
+    prefix string
+    ttl    time.Duration
+}
+
+// NewCache 创建缓存
+func NewCache(client *redis.Client, prefix string, ttl time.Duration) *Cache {
+    return &Cache{
+        client: client,
+        prefix: prefix,
+        ttl:    ttl,
+    }
+}
+
+// Get 获取缓存
+func (c *Cache) Get(ctx context.Context, key string, value interface{}) error {
+    fullKey := c.prefix + ":" + key
+    
+    data, err := c.client.Get(ctx, fullKey).Bytes()
+    if err == redis.Nil {
+        return ErrCacheMiss
+    }
+    if err != nil {
+        return err
+    }
+    
+    return json.Unmarshal(data, value)
+}
+
+// Set 设置缓存
+func (c *Cache) Set(ctx context.Context, key string, value interface{}) error {
+    fullKey := c.prefix + ":" + key
+    
+    data, err := json.Marshal(value)
+    if err != nil {
+        return err
+    }
+    
+    return c.client.Set(ctx, fullKey, data, c.ttl).Err()
+}
+```
+
+## 最佳实践
+
+1. **分离数据模型**：数据库模型与领域模型分离
+2. **使用映射器**：专门的映射器负责转换
+3. **事务管理**：通过UnitOfWork管理事务
+4. **缓存策略**：合理使用缓存减轻数据库压力
+5. **错误包装**：包装底层错误，提供有意义的信息
+6. **连接池管理**：合理配置数据库连接池
+7. **异步事件**：事件处理异步化，避免阻塞主流程
+8. **配置外部化**：配置与代码分离

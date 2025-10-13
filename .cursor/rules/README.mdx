@@ -1,0 +1,141 @@
+# Cursor Rules - DDD Golang 项目开发规范
+
+## 概述
+
+本目录包含了一套完整的Golang领域驱动设计(DDD)项目开发规范，旨在帮助开发者构建标准、规范、强大的企业级应用。
+
+## 规范文件列表
+
+### 1. [ddd-architecture.mdx](./ddd-architecture.mdx)
+**DDD 领域驱动设计架构规范**
+- DDD核心原则和概念
+- 分层架构设计（领域层、应用层、基础设施层、接口层）
+- 目录结构规范
+- 聚合、实体、值对象、仓储模式
+
+### 2. [golang-standards.mdx](./golang-standards.mdx)
+**Golang 代码标准与最佳实践**
+- 代码格式化和风格规范
+- 命名规范（包、变量、函数、接口）
+- 错误处理模式
+- 并发编程（Goroutine、Channel、Context）
+
+### 3. [domain-layer.mdx](./domain-layer.mdx)
+**领域层开发规范**
+- 实体(Entity)开发规范和示例
+- 值对象(Value Object)设计模式
+- 聚合(Aggregate)构建方法
+- 领域服务(Domain Service)实现
+
+### 4. [application-layer.mdx](./application-layer.mdx)
+**应用层开发规范**
+- CQRS模式（命令与查询分离）
+- 应用服务(Application Service)实现
+- DTO(数据传输对象)转换
+- 事务管理(Unit of Work)
+
+### 5. [infrastructure-layer.mdx](./infrastructure-layer.mdx)
+**基础设施层开发规范**
+- 仓储实现（PostgreSQL、MySQL、MongoDB）
+- 缓存实现（Redis、内存缓存）
+- 事件总线实现
+- 外部服务集成
+
+### 6. [interface-layer.mdx](./interface-layer.mdx)
+**接口层开发规范**
+- HTTP接口实现（RESTful API）
+- 请求和响应模型
+- 中间件（认证、日志、错误恢复、CORS）
+- gRPC接口实现
+
+### 7. [testing-standards.mdx](./testing-standards.mdx)
+**测试标准规范**
+- 测试金字塔（单元测试、集成测试、E2E测试）
+- 领域层单元测试
+- 应用层测试（使用Mock）
+- 测试覆盖率要求
+
+### 8. [api-design.mdx](./api-design.mdx)
+**API 设计规范**
+- RESTful API设计原则
+- HTTP方法和状态码使用
+- 请求和响应格式
+- 认证授权和限流
+
+### 9. [project-structure.mdx](./project-structure.mdx)
+**项目结构规范**
+- 标准项目目录结构
+- 依赖注入容器
+- Makefile和配置文件
+- README模板
+
+## 如何使用这些规范
+
+### 1. 作为开发参考
+在开发过程中，遇到设计或实现问题时，参考相应的规范文件：
+- 设计实体时 → 查看 `domain-layer.mdx`
+- 实现API时 → 查看 `api-design.mdx` 和 `interface-layer.mdx`
+- 编写测试时 → 查看 `testing-standards.mdx`
+
+### 2. 与Cursor AI配合
+这些规范文件会被Cursor AI自动读取，在你编写代码时：
+- AI会根据规范提供建议
+- 自动生成符合规范的代码
+- 指出不符合规范的地方
+
+### 3. 团队协作
+- 新成员入职时学习这些规范
+- Code Review时作为检查标准
+- 定期更新和完善规范
+
+## 核心设计原则
+
+### 1. 依赖方向
+```
+接口层 → 应用层 → 领域层 ← 基础设施层
+```
+- 领域层是核心，不依赖任何外层
+- 所有层都可以依赖领域层
+- 基础设施层实现领域层定义的接口
+
+### 2. 关注点分离
+- **领域层**：只包含业务逻辑，无技术细节
+- **应用层**：协调领域对象，管理事务
+- **基础设施层**：实现技术细节
+- **接口层**：处理外部请求
+
+### 3. 测试优先
+- 领域层：丰富的单元测试
+- 应用层：使用Mock的单元测试
+- 基础设施层：集成测试
+- 接口层：API测试
+
+## 常见问题
+
+### Q: 什么时候使用领域服务？
+A: 当业务逻辑不自然属于任何一个实体时，或需要协调多个聚合时使用领域服务。
+
+### Q: 实体和值对象的区别是什么？
+A: 实体有唯一标识符且可变，值对象无标识符且不可变。
+
+### Q: 如何避免贫血模型？
+A: 将业务逻辑放在实体和值对象中，而不是放在服务层。实体应该有行为方法，而不仅仅是getter/setter。
+
+### Q: 什么时候需要聚合？
+A: 当多个实体需要作为一个整体保持一致性时，应该将它们组织成一个聚合。
+
+## 参考资料
+
+### 书籍
+- **Domain-Driven Design** by Eric Evans
+- **Implementing Domain-Driven Design** by Vaughn Vernon
+- **Clean Architecture** by Robert C. Martin
+
+### 在线资源
+- [Effective Go](https://golang.org/doc/effective_go)
+- [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
+- [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
+
+---
+
+**开始使用这些规范，构建优秀的Golang DDD项目！** 🚀

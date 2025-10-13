@@ -1,0 +1,516 @@
+# LuckDB 文档生成规范
+
+## 一、文档组织规则（必须严格遵守）
+
+### 1.1 文档存放位置
+
+**所有新创建的文档文件必须存放在项目根目录的 `book/` 文件夹的子目录中。**
+
+✅ **正确的文档路径结构：**
+
+```
+book/
+├── tasks/                          # 任务相关文档
+│   ├── task-001-sdk-migration/    # 任务1：SDK迁移
+│   │   ├── README.md
+│   │   ├── progress.md
+│   │   └── summary.md
+│   ├── task-002-api-refactor/     # 任务2：API重构
+│   │   ├── README.md
+│   │   └── implementation.md
+│   └── task-003-testing/          # 任务3：测试
+│       └── test-plan.md
+├── architecture/                   # 架构设计文档
+│   ├── database-design/
+│   │   ├── schema.md
+│   │   └── migrations.md
+│   ├── api-design/
+│   │   └── restful-api.md
+│   └── system-architecture/
+│       └── overview.md
+├── features/                       # 功能文档
+│   ├── authentication/
+│   │   └── oauth2.md
+│   ├── realtime-collaboration/
+│   │   └── websocket.md
+│   └── data-validation/
+│       └── rules.md
+├── guides/                         # 开发指南
+│   ├── getting-started/
+│   │   └── setup.md
+│   ├── api-usage/
+│   │   └── examples.md
+│   └── deployment/
+│       └── production.md
+├── analysis/                       # 分析报告
+│   ├── performance/
+│   │   └── benchmark.md
+│   ├── security/
+│   │   └── audit.md
+│   └── comparison/
+│       └── competitors.md
+└── testing/                        # 测试文档
+    ├── unit-tests/
+    │   └── coverage.md
+    ├── integration-tests/
+    │   └── scenarios.md
+    └── e2e-tests/
+        └── workflow.md
+```
+
+### 1.2 禁止的文档存放位置
+
+❌ **严禁在以下位置创建文档文件：**
+
+- ❌ 项目根目录（除了 README.md 和核心配置文件）
+- ❌ `server/` 目录的根目录
+- ❌ `packages/` 目录的根目录
+- ❌ `apps/` 目录的根目录
+- ❌ 任何代码目录的根目录
+
+**示例（错误的做法）：**
+
+```
+❌ /PROJECT_SUMMARY.md              # 错误：在项目根目录
+❌ /server/API_DESIGN.md            # 错误：在 server 根目录
+❌ /packages/SDK_MIGRATION.md       # 错误：在 packages 根目录
+❌ /TASK_COMPLETE.md                # 错误：在项目根目录
+```
+
+**正确的做法：**
+
+```
+✅ /book/tasks/sdk-migration/summary.md           # 正确：在 book 的任务子目录中
+✅ /book/architecture/api-design/restful-api.md   # 正确：在 book 的架构子目录中
+✅ /book/guides/getting-started/setup.md          # 正确：在 book 的指南子目录中
+```
+
+### 1.3 文档命名规范
+
+#### 目录命名
+
+- 使用**小写字母**和**短横线**分隔单词
+- 使用**描述性的名称**，清晰表达目录用途
+- 遵循**单一职责原则**，一个目录只包含一类相关文档
+
+**正确示例：**
+```
+✅ task-001-sdk-migration/
+✅ database-design/
+✅ getting-started/
+✅ performance-optimization/
+✅ websocket-implementation/
+```
+
+**错误示例：**
+```
+❌ Task1/                    # 不使用大写
+❌ sdk_migration/            # 不使用下划线
+❌ task/                     # 不够具体
+❌ misc/                     # 过于模糊
+❌ temp/                     # 临时目录不应存在
+```
+
+#### 文件命名
+
+- Markdown 文件使用 `.md` 扩展名
+- 主文档使用 `README.md` 作为目录索引
+- 其他文档使用**描述性名称**
+- 使用**小写字母**和**短横线**
+
+**正确示例：**
+```
+✅ README.md
+✅ implementation-guide.md
+✅ api-reference.md
+✅ migration-steps.md
+✅ test-results.md
+```
+
+**错误示例：**
+```
+❌ SUMMARY.MD                # 不使用全大写
+❌ Implementation_Guide.md   # 不使用下划线和大写
+❌ api.md                    # 不够具体
+❌ temp.md                   # 临时文件
+❌ test1.md                  # 使用数字编号不清晰
+```
+
+### 1.4 任务文档组织规范
+
+每个任务必须有独立的文件夹，包含以下文件：
+
+```
+book/tasks/task-XXX-description/
+├── README.md              # 任务概述和索引
+├── requirements.md        # 需求说明（可选）
+├── design.md             # 设计方案（可选）
+├── implementation.md      # 实施步骤（可选）
+├── progress.md           # 进度跟踪（可选）
+├── testing.md            # 测试计划和结果（可选）
+└── summary.md            # 完成总结（必需）
+```
+
+**任务编号规则：**
+- 使用三位数字编号：`001`, `002`, `003` ...
+- 编号后跟简短描述：`task-001-sdk-migration`
+- 按时间顺序递增
+
+### 1.5 文档内容规范
+
+#### README.md 文件要求
+
+每个文档目录必须包含 `README.md` 作为索引文件：
+
+```markdown
+# [任务/功能/主题名称]
+
+## 概述
+简要描述本目录包含的文档内容。
+
+## 文档列表
+
+- [文档1](./file1.md) - 简短说明
+- [文档2](./file2.md) - 简短说明
+- [文档3](./file3.md) - 简短说明
+
+## 相关链接
+
+- 相关任务
+- 参考文档
+- 外部资源
+
+## 更新记录
+
+- 2024-01-15: 初始版本
+- 2024-01-20: 添加实施文档
+```
+
+#### 文档头部信息
+
+每个文档文件应包含标准的头部信息：
+
+```markdown
+# 文档标题
+
+> **创建时间**: 2024-01-15
+> **作者**: AI Assistant
+> **状态**: 进行中 / 已完成 / 已归档
+> **相关任务**: task-001-sdk-migration
+
+## 目录
+
+- [章节1](#章节1)
+- [章节2](#章节2)
+- [章节3](#章节3)
+
+---
+
+[文档正文开始...]
+```
+
+## 二、AI Assistant 创建文档规范
+
+### 2.1 创建新文档时的步骤
+
+当 AI Assistant 需要创建文档时，必须按照以下步骤进行：
+
+1. **确定文档类别**
+   - 判断文档属于哪个类别（任务、架构、功能、指南、分析、测试等）
+
+2. **创建或使用已有目录**
+   - 检查 `book/[category]/` 下是否已有合适的子目录
+   - 如果没有，创建新的子目录
+   - 目录名称必须遵循命名规范
+
+3. **创建文档文件**
+   - 在确定的目录下创建 Markdown 文件
+   - 文件名必须遵循命名规范
+   - 包含标准的文档头部信息
+
+4. **更新目录索引**
+   - 如果是新目录，创建 `README.md` 索引文件
+   - 如果是已有目录，更新 `README.md` 添加新文档链接
+
+### 2.2 文档创建示例
+
+**场景**: 完成 SDK 迁移任务，需要创建总结文档
+
+**步骤1**: 确定类别 → `tasks`
+
+**步骤2**: 创建目录结构
+```bash
+mkdir -p book/tasks/task-001-sdk-migration
+```
+
+**步骤3**: 创建文档文件
+
+`book/tasks/task-001-sdk-migration/README.md`:
+```markdown
+# 任务001: SDK 迁移到 LuckDB
+
+## 概述
+将 teable-sdk 完整迁移到 luckdb 项目中，包括品牌更新和功能适配。
+
+## 文档列表
+
+- [summary.md](./summary.md) - 迁移完成总结
+
+## 任务状态
+
+- **状态**: 已完成
+- **开始时间**: 2024-01-15
+- **完成时间**: 2024-01-15
+
+## 相关链接
+
+- 源 SDK: `/Users/leven/space/easy/easydb/packages/teable-sdk`
+- 目标位置: `/Users/leven/space/easy/luckdb/packages/sdk`
+```
+
+`book/tasks/task-001-sdk-migration/summary.md`:
+```markdown
+# SDK 迁移完成总结
+
+> **创建时间**: 2024-01-15
+> **作者**: AI Assistant
+> **状态**: 已完成
+> **相关任务**: task-001-sdk-migration
+
+## 任务概述
+
+将 teable-sdk 完整迁移到 luckdb 项目...
+
+[详细内容...]
+```
+
+### 2.3 禁止的做法
+
+❌ **严禁以下操作：**
+
+1. **不要在项目根目录创建文档**
+   ```
+   ❌ write("/PROJECT_ROOT/TASK_COMPLETE.md")
+   ✅ write("/PROJECT_ROOT/book/tasks/task-001/summary.md")
+   ```
+
+2. **不要在代码目录创建文档**
+   ```
+   ❌ write("/PROJECT_ROOT/server/API_DESIGN.md")
+   ✅ write("/PROJECT_ROOT/book/architecture/api-design/restful-api.md")
+   ```
+
+3. **不要创建临时文档文件**
+   ```
+   ❌ book/temp/temp.md
+   ❌ book/draft/draft.md
+   ❌ book/test/test.md
+   ```
+
+4. **不要跳过目录结构直接创建文件**
+   ```
+   ❌ book/task-summary.md              # 错误：应该在子目录中
+   ✅ book/tasks/task-001/summary.md    # 正确：在任务子目录中
+   ```
+
+## 三、文档清理规范
+
+### 3.1 定期清理
+
+项目根目录和代码目录中的文档文件应定期清理：
+
+1. **识别错误位置的文档**
+   - 扫描项目根目录
+   - 扫描 `server/`、`packages/`、`apps/` 等代码目录
+
+2. **迁移文档到正确位置**
+   - 将文档移动到 `book/` 对应的子目录
+   - 更新相关链接和引用
+
+3. **删除重复文档**
+   - 检查是否有重复内容
+   - 保留最新和最完整的版本
+
+### 3.2 清理检查清单
+
+在提交代码前，检查以下事项：
+
+- [ ] 项目根目录没有额外的 `.md` 文件（除了 README.md 等核心文件）
+- [ ] `server/` 目录没有文档文件
+- [ ] `packages/` 目录没有文档文件
+- [ ] 所有文档都在 `book/` 的子目录中
+- [ ] 每个文档目录都有 `README.md` 索引文件
+- [ ] 文档命名符合规范
+- [ ] 文档内容完整，包含标准头部信息
+
+## 四、文档类别说明
+
+### 4.1 tasks/ - 任务文档
+
+记录具体开发任务的文档，包括：
+
+- 需求说明
+- 设计方案
+- 实施步骤
+- 进度跟踪
+- 测试结果
+- 完成总结
+
+**适用场景**: 具体的开发任务、功能实现、问题修复等
+
+### 4.2 architecture/ - 架构文档
+
+记录系统架构设计的文档，包括：
+
+- 系统架构图
+- 数据库设计
+- API 设计
+- 模块划分
+- 技术选型
+
+**适用场景**: 系统设计、架构演进、技术决策等
+
+### 4.3 features/ - 功能文档
+
+记录具体功能的文档，包括：
+
+- 功能说明
+- 使用指南
+- API 文档
+- 配置说明
+- 常见问题
+
+**适用场景**: 功能介绍、使用说明、API 参考等
+
+### 4.4 guides/ - 开发指南
+
+记录开发相关的指南文档，包括：
+
+- 环境搭建
+- 开发规范
+- 最佳实践
+- 部署指南
+- 故障排查
+
+**适用场景**: 团队协作、新人入职、开发流程等
+
+### 4.5 analysis/ - 分析报告
+
+记录分析和评估的文档，包括：
+
+- 性能分析
+- 安全审计
+- 竞品对比
+- 技术调研
+- 数据分析
+
+**适用场景**: 技术评估、性能优化、安全审计等
+
+### 4.6 testing/ - 测试文档
+
+记录测试相关的文档，包括：
+
+- 测试计划
+- 测试用例
+- 测试报告
+- 覆盖率分析
+- 性能测试
+
+**适用场景**: 单元测试、集成测试、E2E 测试等
+
+## 五、文档审查清单
+
+在创建或更新文档时，请确认以下事项：
+
+### 5.1 位置检查
+
+- [ ] 文档位于 `book/` 目录下
+- [ ] 文档在正确的类别子目录中
+- [ ] 文档有独立的任务/主题文件夹（如适用）
+- [ ] 不在项目根目录或代码目录中
+
+### 5.2 命名检查
+
+- [ ] 目录名使用小写字母和短横线
+- [ ] 文件名使用小写字母和短横线
+- [ ] 名称具有描述性和清晰度
+- [ ] 任务编号格式正确（如适用）
+
+### 5.3 内容检查
+
+- [ ] 包含文档头部信息
+- [ ] 有清晰的标题和章节
+- [ ] 内容完整和准确
+- [ ] 代码示例正确
+- [ ] 链接有效
+
+### 5.4 索引检查
+
+- [ ] 目录包含 `README.md` 索引文件
+- [ ] 新文档已添加到索引中
+- [ ] 索引信息准确和最新
+
+## 六、示例工作流
+
+### 示例1: 完成一个新功能实现
+
+1. 创建任务目录
+   ```bash
+   mkdir -p book/tasks/task-005-realtime-sync
+   ```
+
+2. 创建索引文件
+   ```markdown
+   # book/tasks/task-005-realtime-sync/README.md
+   
+   # 任务005: 实时同步功能实现
+   
+   ## 文档列表
+   - [design.md](./design.md) - 设计方案
+   - [implementation.md](./implementation.md) - 实施文档
+   - [testing.md](./testing.md) - 测试报告
+   - [summary.md](./summary.md) - 完成总结
+   ```
+
+3. 创建各个文档文件
+   - `design.md`: 记录设计方案
+   - `implementation.md`: 记录实施过程
+   - `testing.md`: 记录测试结果
+   - `summary.md`: 记录完成总结
+
+### 示例2: 编写 API 设计文档
+
+1. 创建架构文档目录（如不存在）
+   ```bash
+   mkdir -p book/architecture/api-design
+   ```
+
+2. 创建或更新 README.md
+   ```markdown
+   # API 设计文档
+   
+   ## 文档列表
+   - [restful-api.md](./restful-api.md) - RESTful API 设计规范
+   - [websocket-api.md](./websocket-api.md) - WebSocket API 设计
+   - [error-handling.md](./error-handling.md) - 错误处理规范
+   ```
+
+3. 创建具体的 API 文档
+   - `restful-api.md`: RESTful API 规范
+   - `websocket-api.md`: WebSocket API 规范
+   - `error-handling.md`: 错误处理规范
+
+---
+
+## 总结
+
+**核心原则：**
+
+1. ✅ **所有文档必须在 `book/` 目录下**
+2. ✅ **每个任务/主题有独立的子目录**
+3. ✅ **使用清晰和规范的命名**
+4. ✅ **维护完整的目录索引**
+5. ❌ **严禁在项目根目录或代码目录创建文档**
+
+**记住：保持项目结构整洁，文档归档有序！**
+

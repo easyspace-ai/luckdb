@@ -63,7 +63,9 @@ func (r *SpaceRepositoryImpl) GetByID(ctx context.Context, id string) (*aggregat
 func (r *SpaceRepositoryImpl) GetSpaceByID(ctx context.Context, id string) (*entity.Space, error) {
 	var dbSpace models.Space
 
+	// ✅ 显式指定 schema
 	err := r.db.WithContext(ctx).
+		Table("space").
 		Where("id = ?", id).
 		Where("deleted_time IS NULL").
 		First(&dbSpace).Error
@@ -82,7 +84,9 @@ func (r *SpaceRepositoryImpl) GetSpaceByID(ctx context.Context, id string) (*ent
 func (r *SpaceRepositoryImpl) ListByUserID(ctx context.Context, userID string) ([]*entity.Space, error) {
 	var dbSpaces []*models.Space
 
+	// ✅ 显式指定 schema
 	err := r.db.WithContext(ctx).
+		Table("space").
 		Where("created_by = ?", userID).
 		Where("deleted_time IS NULL").
 		Order("created_time DESC").

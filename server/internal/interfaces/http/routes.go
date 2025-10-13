@@ -210,23 +210,32 @@ func setupRecordRoutes(rg *gin.RouterGroup, cont *container.Container) {
 		cont.RecordRepository(),   // ✅ 添加
 	)
 
-	// 表格下的记录
+	// 表格下的记录（对齐 Teable 架构：所有记录操作都需要 tableId）
 	tables := rg.Group("/tables")
 	{
+		// 列表和创建
 		tables.GET("/:tableId/records", handler.ListRecords)
 		tables.POST("/:tableId/records", handler.CreateRecord)
 		tables.POST("/:tableId/records/batch", handler.BatchCreateRecords)
+
+		// 单条记录操作（需要 tableId 和 recordId）
+		tables.GET("/:tableId/records/:recordId", handler.GetRecord)
+		tables.PATCH("/:tableId/records/:recordId", handler.UpdateRecord) // ✅ 对齐 Teable
+		tables.DELETE("/:tableId/records/:recordId", handler.DeleteRecord)
+
+		// 批量操作
+		tables.PATCH("/:tableId/records/batch", handler.BatchUpdateRecords)
+		tables.DELETE("/:tableId/records/batch", handler.BatchDeleteRecords)
 	}
 
-	// 记录路由
+	// 记录路由（保留旧路由以兼容，但标记为废弃）
+	// ⚠️ 废弃：建议使用 /api/v1/tables/:tableId/records/:recordId
 	records := rg.Group("/records")
 	{
 		records.GET("/:recordId", handler.GetRecord)
-		records.PATCH("/:recordId", handler.UpdateRecord) // ✅ 部分更新使用PATCH
+		records.PATCH("/:recordId", handler.UpdateRecord)
 		records.DELETE("/:recordId", handler.DeleteRecord)
-
-		// 批量操作
-		records.PATCH("/batch", handler.BatchUpdateRecords) // ✅ 批量部分更新
+		records.PATCH("/batch", handler.BatchUpdateRecords)
 		records.DELETE("/batch", handler.BatchDeleteRecords)
 	}
 }
