@@ -264,7 +264,7 @@ async function performanceTests() {
     
     // 获取所有记录
     const allRecords = await sdk.listRecords({ tableId: table.id, limit: 200 });
-    const recordsToUpdate = allRecords.data.slice(0, 50);
+    const recordsToUpdate = allRecords.data.list.slice(0, 50);
     
     await measurePerformance(
       '批量更新50条记录',
