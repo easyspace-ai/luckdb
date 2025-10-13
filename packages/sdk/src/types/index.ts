@@ -254,16 +254,23 @@ export type FieldType =
   // 基础类型
   | 'singleLineText'      // 单行文本
   | 'longText'            // 长文本
+  | 'text'                // 文本（通用）
   | 'number'              // 数字
   | 'singleSelect'        // 单选
   | 'multipleSelects'     // 多选
+  | 'select'              // 选择（通用）
+  | 'multipleSelect'      // 多选（别名）
   | 'date'                // 日期
+  | 'datetime'            // 日期时间
   | 'checkbox'            // 复选框
+  | 'boolean'             // 布尔值
   | 'url'                 // 链接
   | 'email'               // 邮箱
-  | 'phoneNumber'         // 电话
+  | 'phone'               // 电话
   | 'attachment'          // 附件
   | 'rating'              // 评分
+  | 'user'                // 用户
+  | 'button'              // 按钮
   // 关联类型
   | 'link'                // 关联记录
   | 'formula'             // 公式

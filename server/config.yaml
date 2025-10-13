@@ -18,8 +18,8 @@ database:
   password: "luckdb"
   name: "luckdb_dev"
   ssl_mode: "disable"
-  max_idle_conns: 10
-  max_open_conns: 100
+  max_idle_conns: 25     # ✅ 优化：10 -> 25
+  max_open_conns: 200    # ✅ 优化：100 -> 200
   conn_max_lifetime: "1h"
   log_level: "info"  # 显示所有SQL查询
 

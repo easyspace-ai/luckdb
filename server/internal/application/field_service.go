@@ -202,8 +202,9 @@ func (s *FieldService) CreateField(ctx context.Context, req dto.CreateFieldReque
 		tableID := table.ID().String()
 		dbFieldName := field.DBFieldName().String() // 例如：field_fld_xxx
 
-		// 8.2 映射字段类型到数据库类型
-		dbType := s.dbProvider.MapFieldTypeToDBType(req.Type)
+		// 8.2 使用Field Entity已确定的数据库类型
+		// Field Entity中的determineDBFieldType已经处理了类型映射
+		dbType := field.DBFieldType()
 
 		logger.Info("正在为字段创建物理表列",
 			logger.String("field_id", field.ID().String()),
@@ -228,6 +229,40 @@ func (s *FieldService) CreateField(ctx context.Context, req dto.CreateFieldReque
 				logger.ErrorField(err))
 			return nil, pkgerrors.ErrDatabaseOperation.WithDetails(
 				fmt.Sprintf("创建物理表列失败: %v", err))
+		}
+
+		// 8.5 为 JSONB 字段自动创建 GIN 索引
+		if dbType == "JSONB" {
+			indexName := fmt.Sprintf("idx_%s_%s_gin",
+				strings.ReplaceAll(baseID, "-", "_"),
+				strings.ReplaceAll(field.ID().String(), "-", "_"))
+
+			fullTableName := fmt.Sprintf("\"%s\".\"%s\"", baseID, tableID)
+			createIndexSQL := fmt.Sprintf(
+				`CREATE INDEX IF NOT EXISTS %s ON %s USING GIN (%s jsonb_path_ops)`,
+				indexName,
+				fullTableName,
+				dbFieldName,
+			)
+
+			logger.Info("创建 JSONB GIN 索引",
+				logger.String("field_id", field.ID().String()),
+				logger.String("field_name", field.Name().String()),
+				logger.String("index_name", indexName))
+
+			// 获取底层数据库连接
+			if pgProvider, ok := s.dbProvider.(*database.PostgresProvider); ok {
+				db := pgProvider.GetDB()
+				if err := db.WithContext(ctx).Exec(createIndexSQL).Error; err != nil {
+					logger.Warn("创建 JSONB GIN 索引失败（不影响字段创建）",
+						logger.String("field_id", field.ID().String()),
+						logger.ErrorField(err))
+				} else {
+					logger.Info("✅ JSONB GIN 索引创建成功",
+						logger.String("field_id", field.ID().String()),
+						logger.String("index_name", indexName))
+				}
+			}
 		}
 
 		logger.Info("✅ 物理表列创建成功",

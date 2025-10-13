@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
+
+	"github.com/easyspace-ai/luckdb/server/pkg/logger"
 )
 
 // PostgresProvider PostgreSQL数据库提供者
@@ -20,6 +22,11 @@ func NewPostgresProvider(db *gorm.DB) *PostgresProvider {
 	return &PostgresProvider{
 		db: db,
 	}
+}
+
+// GetDB 获取底层的 GORM DB 实例
+func (p *PostgresProvider) GetDB() *gorm.DB {
+	return p.db
 }
 
 // ==================== Schema管理 ====================
@@ -76,16 +83,39 @@ func (p *PostgresProvider) CreatePhysicalTable(ctx context.Context, schemaName, 
 		return fmt.Errorf("创建物理表失败: %w", err)
 	}
 
-	// 创建__id唯一索引
-	indexName := fmt.Sprintf("%s_%s__id_unique", schemaName, tableName)
-	createIndexSQL := fmt.Sprintf(
-		"CREATE UNIQUE INDEX %s ON %s (__id)",
-		p.quoteIdentifier(indexName),
-		fullTableName,
-	)
+	// 创建系统字段索引
+	systemIndexes := []struct {
+		suffix  string
+		columns string
+		unique  bool
+	}{
+		{"__id_unique", "__id", true},
+		{"__created_time", "__created_time", false},
+		{"__last_modified_time", "__last_modified_time", false},
+		{"__created_by", "__created_by", false},
+		{"__version", "__version", false},
+	}
 
-	if err := p.db.WithContext(ctx).Exec(createIndexSQL).Error; err != nil {
-		return fmt.Errorf("创建唯一索引失败: %w", err)
+	for _, idx := range systemIndexes {
+		indexType := "INDEX"
+		if idx.unique {
+			indexType = "UNIQUE INDEX"
+		}
+
+		indexName := fmt.Sprintf("%s_%s_%s", schemaName, tableName, idx.suffix)
+		createIndexSQL := fmt.Sprintf(
+			"CREATE %s IF NOT EXISTS %s ON %s (%s)",
+			indexType,
+			p.quoteIdentifier(indexName),
+			fullTableName,
+			idx.columns,
+		)
+
+		if err := p.db.WithContext(ctx).Exec(createIndexSQL).Error; err != nil {
+			logger.Warn("创建系统字段索引失败或已存在",
+				logger.String("index", indexName),
+				logger.ErrorField(err))
+		}
 	}
 
 	return nil

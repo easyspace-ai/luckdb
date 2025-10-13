@@ -14,6 +14,9 @@ func SetupRoutes(router *gin.Engine, cont *container.Container) {
 	// API v1路由组
 	v1 := router.Group("/api/v1")
 
+	// 监控端点（无需认证）
+	setupMonitoringRoutes(v1, cont)
+
 	// 认证相关路由（无需JWT中间件）
 	setupAuthRoutes(v1, cont)
 
@@ -339,4 +342,14 @@ func setupWebSocketRoutes(router *gin.Engine, cont *container.Container) {
 
 	// WebSocket 路由
 	router.GET("/ws", handler.HandleWebSocket) // WebSocket 连接入口
+}
+
+// setupMonitoringRoutes 设置监控路由
+func setupMonitoringRoutes(rg *gin.RouterGroup, cont *container.Container) {
+	handler := NewMonitoringHandler(cont.DB())
+
+	monitoring := rg.Group("/monitoring")
+	{
+		monitoring.GET("/db-stats", handler.GetDBStats)
+	}
 }

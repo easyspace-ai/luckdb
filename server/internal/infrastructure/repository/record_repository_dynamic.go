@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	fieldEntity "github.com/easyspace-ai/luckdb/server/internal/domain/fields/entity"
@@ -302,6 +304,7 @@ func (r *RecordRepositoryDynamic) Save(ctx context.Context, record *entity.Recor
 
 	// 用户字段（field_id -> db_field_name）
 	recordData := record.Data()
+
 	for _, field := range fields {
 		fieldID := field.ID().String()
 		dbFieldName := field.DBFieldName().String()
@@ -311,6 +314,7 @@ func (r *RecordRepositoryDynamic) Save(ctx context.Context, record *entity.Recor
 
 		// 转换值（根据字段类型）
 		convertedValue := r.convertValueForDB(field, value)
+
 		data[dbFieldName] = convertedValue
 	}
 
@@ -663,13 +667,38 @@ func (r *RecordRepositoryDynamic) convertValueForDB(field *fieldEntity.Field, va
 	}
 
 	fieldType := field.Type().String()
+	dbFieldType := field.DBFieldType() // 获取数据库字段类型
 
+	// ✅ 关键修复：根据数据库字段类型判断，而不是应用层字段类型
+	// 参考 GORM 官方文档：https://gorm.io/docs/data_types
+	if dbFieldType == "JSONB" || dbFieldType == "JSON" {
+		// 如果值已经是 datatypes.JSON，直接返回
+		if _, ok := value.(datatypes.JSON); ok {
+			return value
+		}
+
+		// 如果值已经是字符串，假设它是JSON格式，包装为 datatypes.JSON
+		if str, ok := value.(string); ok {
+			return datatypes.JSON(str)
+		}
+
+		// 否则，序列化为JSON并包装为 datatypes.JSON
+		jsonData, err := json.Marshal(value)
+		if err != nil {
+			logger.Error("序列化字段值为JSON失败",
+				logger.String("field_id", field.ID().String()),
+				logger.String("field_name", field.Name().String()),
+				logger.String("field_type", fieldType),
+				logger.ErrorField(err))
+			return nil
+		}
+
+		// 返回 datatypes.JSON 类型，GORM 会正确处理
+		return datatypes.JSON(jsonData)
+	}
+
+	// 其他类型根据应用层字段类型处理
 	switch fieldType {
-	case "multipleSelect", "user", "attachment", "link", "lookup":
-		// JSONB 类型：需要序列化为 JSON
-		// GORM 会自动处理
-		return value
-
 	case "checkbox":
 		// 布尔类型
 		if b, ok := value.(bool); ok {
@@ -704,8 +733,41 @@ func (r *RecordRepositoryDynamic) convertValueFromDB(field *fieldEntity.Field, v
 
 	switch fieldType {
 	case "multipleSelect", "user", "attachment", "link", "lookup":
-		// JSONB 类型：GORM 已自动反序列化
-		return value
+		// ✅ JSONB 类型：需要从JSON反序列化
+		// GORM 可能返回 []byte 或 string 类型的 JSON 数据
+		var result interface{}
+
+		switch v := value.(type) {
+		case []byte:
+			if err := json.Unmarshal(v, &result); err != nil {
+				logger.Error("从JSON反序列化字段值失败",
+					logger.String("field_id", field.ID().String()),
+					logger.String("field_type", fieldType),
+					logger.ErrorField(err))
+				return nil
+			}
+		case string:
+			if err := json.Unmarshal([]byte(v), &result); err != nil {
+				logger.Error("从JSON反序列化字段值失败",
+					logger.String("field_id", field.ID().String()),
+					logger.String("field_type", fieldType),
+					logger.ErrorField(err))
+				return nil
+			}
+		case datatypes.JSON:
+			if err := json.Unmarshal(v, &result); err != nil {
+				logger.Error("从JSON反序列化字段值失败",
+					logger.String("field_id", field.ID().String()),
+					logger.String("field_type", fieldType),
+					logger.ErrorField(err))
+				return nil
+			}
+		default:
+			// 如果 GORM 已经反序列化了，直接返回
+			return value
+		}
+
+		return result
 
 	case "checkbox":
 		// 布尔类型

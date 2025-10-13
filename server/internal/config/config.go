@@ -186,8 +186,8 @@ func setDefaults() {
 	viper.SetDefault("database.password", "")
 	viper.SetDefault("database.name", "easytable")
 	viper.SetDefault("database.ssl_mode", "disable")
-	viper.SetDefault("database.max_idle_conns", 10)
-	viper.SetDefault("database.max_open_conns", 100)
+	viper.SetDefault("database.max_idle_conns", 25)
+	viper.SetDefault("database.max_open_conns", 200)
 	viper.SetDefault("database.conn_max_lifetime", "1h")
 	viper.SetDefault("database.log_level", "info")
 

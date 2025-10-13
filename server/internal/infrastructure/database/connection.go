@@ -57,6 +57,8 @@ func NewConnection(cfg config.DatabaseConfig) (*Connection, error) {
 			SingularTable: false,
 			NoLowerCase:   false,
 		},
+		PrepareStmt:     true, // 启用预编译语句缓存
+		CreateBatchSize: 1000, // 全局批量创建大小
 	}
 
 	// 连接数据库
@@ -75,6 +77,7 @@ func NewConnection(cfg config.DatabaseConfig) (*Connection, error) {
 	sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
 	sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
 	sqlDB.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+	sqlDB.SetConnMaxIdleTime(10 * time.Minute) // 空闲连接最大存活时间
 
 	// 测试连接
 	if err := sqlDB.Ping(); err != nil {
