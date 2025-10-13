@@ -144,25 +144,25 @@ export class HttpClient {
     switch (status) {
       case 401:
         // 401000 系列: 认证相关
-        return new AuthenticationError(message);
+        return new AuthenticationError(message, status);
       case 403:
         // 403000 系列: 权限相关
-        return new AuthorizationError(message);
+        return new AuthorizationError(message, status);
       case 404:
         // 404000 系列: 资源不存在
-        return new NotFoundError(message);
+        return new NotFoundError(message, status);
       case 400:
         // 400000 系列: 请求参数错误
-        return new ValidationError(message, errorDetails);
+        return new ValidationError(message, errorDetails, status);
       case 429:
         // 429000 系列: 请求频率限制
-        return new RateLimitError(message);
+        return new RateLimitError(message, status);
       case 500:
       case 502:
       case 503:
       case 504:
         // 500000 系列: 服务器错误
-        return new ServerError(message);
+        return new ServerError(message, status);
       default:
         return new LuckDBError(message, code, status, errorDetails);
     }

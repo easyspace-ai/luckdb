@@ -269,7 +269,6 @@ func (r *RecordRepositoryDynamic) Save(ctx context.Context, record *entity.Recor
 	fullTableName := r.dbProvider.GenerateTableName(baseID, tableID)
 
 	// 5. ✅ 检查记录是否已存在（用于判断INSERT还是UPDATE）
-	var existingVersion int64
 	var count int64
 	err = r.db.WithContext(ctx).
 		Table(fullTableName).
@@ -281,25 +280,6 @@ func (r *RecordRepositoryDynamic) Save(ctx context.Context, record *entity.Recor
 	}
 
 	isNewRecord := count == 0
-
-	// 如果记录存在，获取当前版本号
-	if !isNewRecord {
-		err = r.db.WithContext(ctx).
-			Table(fullTableName).
-			Select("__version").
-			Where("__id = ?", record.ID().String()).
-			Scan(&existingVersion).Error
-		if err != nil {
-			return fmt.Errorf("获取记录版本号失败: %w", err)
-		}
-	}
-
-	logger.Info("检查记录是否存在",
-		logger.String("record_id", record.ID().String()),
-		logger.Bool("is_new", isNewRecord),
-		logger.Int64("count", count),
-		logger.Int64("existing_version", existingVersion),
-		logger.Int64("entity_version", record.Version().Value()))
 
 	// 构建数据
 	data := make(map[string]interface{})
@@ -315,8 +295,9 @@ func (r *RecordRepositoryDynamic) Save(ctx context.Context, record *entity.Recor
 		data["__created_time"] = record.CreatedAt()
 		data["__version"] = record.Version().Value() // 使用entity的版本，通常是1
 	} else {
-		// ✅ 更新记录：乐观锁 - 版本号递增
-		data["__version"] = gorm.Expr("__version + 1")
+		// ✅ 更新记录：直接设置Entity已递增的版本号
+		// 注意：record.Update()已经递增了版本，这里直接设置新版本
+		data["__version"] = record.Version().Value()
 	}
 
 	// 用户字段（field_id -> db_field_name）
@@ -342,15 +323,17 @@ func (r *RecordRepositoryDynamic) Save(ctx context.Context, record *entity.Recor
 			Table(fullTableName).
 			Create(data)
 	} else {
-		// ✅ 更新记录：乐观锁 - WHERE __version = ?
-		// 注意：record.Update() 已经递增了版本，所以要用 version-1 做检查
-		currentVersion := record.Version().Value()
-		checkVersion := currentVersion - 1 // 使用旧版本做乐观锁检查
+		// ✅ 更新记录：乐观锁检查
+		// Entity的版本已经递增，使用 version - 1 作为WHERE条件
+		// 直接SET为新版本（不再使用SQL表达式递增）
+		currentVersion := record.Version().Value() // 新版本（已递增）
+		checkVersion := currentVersion - 1         // 检查版本（旧版本）
+
 		result = r.db.WithContext(ctx).
 			Table(fullTableName).
 			Where("__id = ?", record.ID().String()).
-			Where("__version = ?", checkVersion).
-			Updates(data)
+			Where("__version = ?", checkVersion). // WHERE __version = 旧版本
+			Updates(data)                         // SET __version = 新版本（直接设置，不再递增）
 	}
 
 	// 7. ✅ 处理错误（约束错误友好提示）
@@ -364,14 +347,13 @@ func (r *RecordRepositoryDynamic) Save(ctx context.Context, record *entity.Recor
 	if !isNewRecord && result.RowsAffected == 0 {
 		logger.Warn("记录版本冲突",
 			logger.String("record_id", record.ID().String()),
-			logger.Int64("expected_version", record.Version().Value()),
-			logger.Int64("actual_version", existingVersion))
+			logger.Int64("expected_version", record.Version().Value()-1))
 
 		return errors.ErrConflict.WithDetails(map[string]interface{}{
 			"type":             "version_conflict",
 			"message":          "记录已被其他用户修改，请刷新后重试",
 			"record_id":        record.ID().String(),
-			"expected_version": record.Version().Value(),
+			"expected_version": record.Version().Value() - 1,
 		})
 	}
 

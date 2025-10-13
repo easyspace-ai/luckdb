@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/easyspace-ai/luckdb/server/internal/application/dto"
+	tableRepo "github.com/easyspace-ai/luckdb/server/internal/domain/table/repository"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/view/entity"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/view/repository"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/view/valueobject"
@@ -14,13 +15,15 @@ import (
 
 // ViewService 视图应用服务
 type ViewService struct {
-	viewRepo repository.ViewRepository
+	viewRepo  repository.ViewRepository
+	tableRepo tableRepo.TableRepository // ✅ 添加表仓储，用于检查表存在性
 }
 
 // NewViewService 创建视图服务
-func NewViewService(viewRepo repository.ViewRepository) *ViewService {
+func NewViewService(viewRepo repository.ViewRepository, tableRepo tableRepo.TableRepository) *ViewService {
 	return &ViewService{
-		viewRepo: viewRepo,
+		viewRepo:  viewRepo,
+		tableRepo: tableRepo,
 	}
 }
 
@@ -30,6 +33,17 @@ func (s *ViewService) CreateView(
 	req dto.CreateViewRequest,
 	userID string,
 ) (*dto.ViewResponse, error) {
+	// 0. ✅ 检查表是否存在
+	table, err := s.tableRepo.GetByID(ctx, req.TableID)
+	if err != nil {
+		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查找表失败: %v", err))
+	}
+	if table == nil {
+		return nil, pkgerrors.ErrTableNotFound.WithDetails(map[string]interface{}{
+			"table_id": req.TableID,
+		})
+	}
+
 	// 1. 验证视图类型
 	viewType, err := valueobject.NewViewType(req.Type)
 	if err != nil {

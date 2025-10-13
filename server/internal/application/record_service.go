@@ -9,6 +9,7 @@ import (
 	"github.com/easyspace-ai/luckdb/server/internal/domain/record/entity"
 	recordRepo "github.com/easyspace-ai/luckdb/server/internal/domain/record/repository"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/record/valueobject"
+	tableRepo "github.com/easyspace-ai/luckdb/server/internal/domain/table/repository"
 	infraRepository "github.com/easyspace-ai/luckdb/server/internal/infrastructure/repository"
 	"github.com/easyspace-ai/luckdb/server/pkg/database"
 	pkgerrors "github.com/easyspace-ai/luckdb/server/pkg/errors"
@@ -35,9 +36,10 @@ import (
 type RecordService struct {
 	recordRepo         recordRepo.RecordRepository
 	fieldRepo          repository.FieldRepository
-	calculationService *CalculationService // ✨ 计算引擎
-	broadcaster        Broadcaster         // ✨ WebSocket广播器
-	typecastService    *TypecastService    // ✅ Phase 2: 类型转换和验证
+	tableRepo          tableRepo.TableRepository // ✅ 添加表仓储，用于检查表存在性
+	calculationService *CalculationService       // ✨ 计算引擎
+	broadcaster        Broadcaster               // ✨ WebSocket广播器
+	typecastService    *TypecastService          // ✅ Phase 2: 类型转换和验证
 }
 
 // Broadcaster WebSocket广播器接口
@@ -51,6 +53,7 @@ type Broadcaster interface {
 func NewRecordService(
 	recordRepo recordRepo.RecordRepository,
 	fieldRepo repository.FieldRepository,
+	tableRepo tableRepo.TableRepository,
 	calculationService *CalculationService,
 	broadcaster Broadcaster,
 	typecastService *TypecastService,
@@ -58,6 +61,7 @@ func NewRecordService(
 	return &RecordService{
 		recordRepo:         recordRepo,
 		fieldRepo:          fieldRepo,
+		tableRepo:          tableRepo,
 		calculationService: calculationService,
 		broadcaster:        broadcaster,
 		typecastService:    typecastService,
@@ -79,18 +83,30 @@ func NewRecordService(
 //   - 计算失败回滚整个事务
 //   - 事务成功后才发布 WebSocket 事件
 func (s *RecordService) CreateRecord(ctx context.Context, req dto.CreateRecordRequest, userID string) (*dto.RecordResponse, error) {
+	// ✅ 在事务前检查表是否存在
+	table, err := s.tableRepo.GetByID(ctx, req.TableID)
+	if err != nil {
+		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查找表失败: %v", err))
+	}
+	if table == nil {
+		return nil, pkgerrors.ErrTableNotFound.WithDetails(map[string]interface{}{
+			"table_id": req.TableID,
+		})
+	}
+
 	var record *entity.Record
 	var finalFields map[string]interface{}
 
 	// ✅ 在事务中执行所有操作
-	err := database.Transaction(ctx, s.recordRepo.(*infraRepository.RecordRepositoryDynamic).GetDB(), nil, func(txCtx context.Context) error {
+	err = database.Transaction(ctx, s.recordRepo.(*infraRepository.RecordRepositoryDynamic).GetDB(), nil, func(txCtx context.Context) error {
 		// 1. 数据验证和类型转换
 		var validatedData map[string]interface{}
 		if s.typecastService != nil {
 			var err error
-			validatedData, err = s.typecastService.ValidateAndTypecastRecord(txCtx, req.TableID, req.Data, true)
+			// ✅ 使用严格模式（typecast=false）进行验证，确保字段存在性和数据类型正确
+			validatedData, err = s.typecastService.ValidateAndTypecastRecord(txCtx, req.TableID, req.Data, false)
 			if err != nil {
-				return pkgerrors.ErrValidationFailed.WithDetails(fmt.Sprintf("数据验证失败: %v", err))
+				return err // 直接返回错误，保留具体的错误类型
 			}
 		} else {
 			validatedData = req.Data
@@ -194,11 +210,22 @@ func (s *RecordService) GetRecord(ctx context.Context, recordID string) (*dto.Re
 //   - 计算失败回滚整个事务
 //   - 事务成功后才发布 WebSocket 事件
 func (s *RecordService) UpdateRecord(ctx context.Context, tableID, recordID string, req dto.UpdateRecordRequest, userID string) (*dto.RecordResponse, error) {
+	// ✅ 在事务前检查表是否存在
+	table, err := s.tableRepo.GetByID(ctx, tableID)
+	if err != nil {
+		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查找表失败: %v", err))
+	}
+	if table == nil {
+		return nil, pkgerrors.ErrTableNotFound.WithDetails(map[string]interface{}{
+			"table_id": tableID,
+		})
+	}
+
 	var record *entity.Record
 	var finalFields map[string]interface{}
 
 	// ✅ 在事务中执行所有操作
-	err := database.Transaction(ctx, s.recordRepo.(*infraRepository.RecordRepositoryDynamic).GetDB(), nil, func(txCtx context.Context) error {
+	err = database.Transaction(ctx, s.recordRepo.(*infraRepository.RecordRepositoryDynamic).GetDB(), nil, func(txCtx context.Context) error {
 		// 1. 查找记录（使用 tableID）
 		id := valueobject.NewRecordID(recordID)
 		var err error
@@ -211,7 +238,23 @@ func (s *RecordService) UpdateRecord(ctx context.Context, tableID, recordID stri
 		}
 		record = records[0]
 
-		// 2. 识别变化的字段（用于智能重算）
+		// ✅ 2. 乐观锁检查：如果提供了版本号，验证是否匹配
+		if req.Version != nil {
+			expectedVersion, err := valueobject.NewRecordVersion(int64(*req.Version))
+			if err != nil {
+				return pkgerrors.ErrValidationFailed.WithMessage("无效的版本号").WithDetails(map[string]interface{}{
+					"version": *req.Version,
+				})
+			}
+			if record.HasChangedSince(expectedVersion) {
+				return pkgerrors.ErrConflict.WithMessage("记录已被其他用户修改，请刷新后重试").WithDetails(map[string]interface{}{
+					"expected_version": *req.Version,
+					"current_version":  record.Version().Value(),
+				})
+			}
+		}
+
+		// 3. 识别变化的字段（用于智能重算）
 		oldData := record.Data().ToMap()
 		changedFieldIDs := s.identifyChangedFields(oldData, req.Data)
 

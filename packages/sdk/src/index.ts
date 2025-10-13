@@ -75,8 +75,10 @@ export class LuckDB {
   private recordClient: RecordClient;
   private viewClient: ViewClient;
   private collaborationClient: CollaborationClient;
+  private config: LuckDBConfig; // ✅ 存储配置用于调试
 
   constructor(config: LuckDBConfig) {
+    this.config = config; // ✅ 保存配置
     // 初始化 HTTP 客户端
     this.httpClient = new HttpClient(config);
 
@@ -370,9 +372,46 @@ export class LuckDB {
 
   /**
    * 更新记录
+   * @param options - 可选参数，如 version（用于乐观锁）或 data（更新数据）
    */
-  public async updateRecord(tableId: string, recordId: string, updates: JsonObject): Promise<Record> {
-    return this.recordClient.update(tableId, recordId, { data: updates });
+  public async updateRecord(
+    tableId: string, 
+    recordId: string, 
+    updates: JsonObject | { data: JsonObject; version?: number },
+    options?: { version?: number }
+  ): Promise<Record> {
+    // 兼容两种调用方式：
+    // 1. updateRecord(tableId, recordId, { field: value })
+    // 2. updateRecord(tableId, recordId, { data: {...}, version: 1 })
+    // 3. updateRecord(tableId, recordId, { field: value }, { version: 1 })
+    
+    let request: { data: JsonObject; version?: number };
+    
+    if ('data' in updates && updates.data) {
+      // 方式2：传递完整的 UpdateRecordRequest 对象
+      request = updates as { data: JsonObject; version?: number };
+      if (this.config.debug) {
+        console.log('[updateRecord] 方式2: 完整对象', { version: request.version });
+      }
+    } else {
+      // 方式1或3：updates 是纯数据对象
+      request = { 
+        data: updates as JsonObject,
+        version: options?.version
+      };
+      if (this.config.debug) {
+        console.log('[updateRecord] 方式1/3: 纯数据+options', { 
+          hasOptions: !!options, 
+          version: options?.version 
+        });
+      }
+    }
+    
+    if (this.config.debug) {
+      console.log('[updateRecord] 最终请求', { version: request.version });
+    }
+    
+    return this.recordClient.update(tableId, recordId, request);
   }
 
   /**
@@ -626,6 +665,9 @@ export class LuckDB {
 }
 
 // ==================== 导出所有类型和类 ====================
+
+// 别名导出（向后兼容）
+export { LuckDB as LuckDBSDK };
 
 export {
   // 核心类

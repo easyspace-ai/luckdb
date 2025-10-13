@@ -8,6 +8,7 @@ var (
 	ErrTableNotFound            = errors.New("table not found")
 	ErrTableNameEmpty           = errors.New("table name cannot be empty")
 	ErrTableNameTooLong         = errors.New("table name too long (max 100 characters)")
+	ErrTableNameInvalid         = errors.New("table name contains invalid characters")
 	ErrTableNameNotUnique       = errors.New("table name already exists in this base")
 	ErrCannotModifyDeletedTable = errors.New("cannot modify deleted table")
 	ErrTableAlreadyDeleted      = errors.New("table is already deleted")

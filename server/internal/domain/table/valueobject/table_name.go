@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/easyspace-ai/luckdb/server/internal/domain/table"
+	"github.com/easyspace-ai/luckdb/server/pkg/utils"
 )
 
 const (
@@ -64,6 +65,11 @@ func validateTableName(name string) error {
 	// 检查长度
 	if len(name) > MaxTableNameLength {
 		return table.ErrTableNameTooLong
+	}
+
+	// 检查 SQL 注入
+	if utils.ContainsSQLInjection(name) {
+		return table.ErrTableNameInvalid
 	}
 
 	return nil

@@ -5,6 +5,7 @@ import (
 	"unicode"
 
 	"github.com/easyspace-ai/luckdb/server/internal/domain/fields"
+	"github.com/easyspace-ai/luckdb/server/pkg/utils"
 )
 
 const (
@@ -65,6 +66,15 @@ func validateFieldName(name string) error {
 	// 检查长度
 	if len(name) > MaxFieldNameLength {
 		return fields.ErrFieldNameTooLong
+	}
+
+	// 检查 SQL 注入
+	if utils.ContainsSQLInjection(name) {
+		return fields.NewDomainError(
+			"INVALID_FIELD_NAME",
+			"field name contains invalid characters",
+			nil,
+		)
 	}
 
 	// 检查是否包含有效字符（字母、数字、下划线、中文）

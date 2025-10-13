@@ -17,6 +17,7 @@ export function getSDK(): LuckDB {
     sdkInstance = new LuckDB({
       baseUrl: config.apiUrl,
       debug: config.debug,
+      disableProxy: true, // 禁用代理，避免本地代理干扰
     });
   }
   return sdkInstance;

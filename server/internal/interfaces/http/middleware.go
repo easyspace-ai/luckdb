@@ -70,28 +70,36 @@ func convertBindError(err error) error {
 	if validationErrors, ok := err.(validator.ValidationErrors); ok {
 		// 收集所有字段的验证错误
 		fieldErrors := make([]map[string]string, 0, len(validationErrors))
-		
+		var firstErrorMsg string
+
 		for _, fieldErr := range validationErrors {
 			fieldName := fieldErr.Field()
+			// ✅ 转换为小写JSON字段名（Name → name）
+			jsonFieldName := strings.ToLower(string(fieldName[0])) + fieldName[1:]
 			tag := fieldErr.Tag()
 			param := fieldErr.Param()
-			
-			// 根据验证标签生成错误信息
-			message := getValidationErrorMessage(fieldName, tag, param)
-			
+
+			// 根据验证标签生成错误信息（使用JSON字段名）
+			message := getValidationErrorMessage(jsonFieldName, tag, param)
+
+			if firstErrorMsg == "" {
+				firstErrorMsg = message // ✅ 保存第一个错误消息
+			}
+
 			fieldErrors = append(fieldErrors, map[string]string{
 				"field":   fieldName,
 				"tag":     tag,
 				"message": message,
 			})
 		}
-		
-		return errors.ErrValidationFailed.WithDetails(map[string]interface{}{
-			"errors":  fieldErrors,
-			"message": fmt.Sprintf("输入验证失败，共 %d 个字段错误", len(fieldErrors)),
+
+		// ✅ 使用第一个字段的错误作为主消息，更友好
+		return errors.ErrValidationFailed.WithMessage(firstErrorMsg).WithDetails(map[string]interface{}{
+			"errors": fieldErrors,
+			"count":  len(fieldErrors),
 		})
 	}
-	
+
 	// JSON 解析错误
 	if strings.Contains(err.Error(), "json") || strings.Contains(err.Error(), "unmarshal") {
 		return errors.ErrInvalidFormat.WithDetails(map[string]interface{}{
@@ -99,7 +107,7 @@ func convertBindError(err error) error {
 			"message": "JSON 格式不正确",
 		})
 	}
-	
+
 	// 其他绑定错误
 	return errors.ErrInvalidRequest.WithDetails(map[string]interface{}{
 		"error": err.Error(),

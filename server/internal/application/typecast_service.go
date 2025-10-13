@@ -68,9 +68,19 @@ func (s *TypecastService) ValidateAndTypecastRecord(
 		if !exists {
 			field, exists = fieldMapByName[fieldKey]
 			if !exists {
-				logger.Warn("字段不存在，跳过",
-					logger.String("field_key", fieldKey))
-				continue
+				// ✅ 字段不存在的处理
+				if typecast {
+					// 宽松模式：跳过不存在的字段
+					logger.Warn("字段不存在，跳过",
+						logger.String("field_key", fieldKey))
+					continue
+				} else {
+					// 严格模式：返回错误
+					return nil, errors.ErrFieldNotFound.WithDetails(map[string]interface{}{
+						"field_key": fieldKey,
+						"table_id":  tableID,
+					})
+				}
 			}
 		}
 
@@ -189,9 +199,9 @@ func (s *TypecastService) convertValidationError(
 	// 类型不匹配
 	case strings.Contains(errMsg, "必须是") || strings.Contains(errMsg, "类型"):
 		return errors.ErrFieldTypeMismatch.WithDetails(map[string]interface{}{
-			"field":        fieldName,
-			"expected":     fieldType,
-			"value":        value,
+			"field":         fieldName,
+			"expected":      fieldType,
+			"value":         value,
 			"originalError": errMsg,
 		})
 

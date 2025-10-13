@@ -16,19 +16,19 @@ const (
 	// 4xx 客户端错误
 	CodeBadRequest       = 400002
 	CodeValidationFailed = 400001
-	
+
 	// 新增: 数据验证相关 (400xxx)
-	CodeInvalidFieldValue  = 400101 // 字段值无效
-	CodeInvalidFieldType   = 400102 // 字段类型无效
-	CodeFieldRequired      = 400103 // 必填字段缺失
-	CodeFieldTooLong       = 400104 // 字段过长
-	CodeFieldOutOfRange    = 400105 // 字段超出范围
-	CodeInvalidEmail       = 400106 // 无效邮箱
-	CodeInvalidURL         = 400107 // 无效URL
-	CodeInvalidPhone       = 400108 // 无效手机号
-	CodeDuplicateValue     = 400109 // 重复值
-	CodeInvalidPattern     = 400110 // 格式不匹配
-	CodeFieldNotExists     = 400111 // 字段不存在于表中
+	CodeInvalidFieldValue = 400101 // 字段值无效
+	CodeInvalidFieldType  = 400102 // 字段类型无效
+	CodeFieldRequired     = 400103 // 必填字段缺失
+	CodeFieldTooLong      = 400104 // 字段过长
+	CodeFieldOutOfRange   = 400105 // 字段超出范围
+	CodeInvalidEmail      = 400106 // 无效邮箱
+	CodeInvalidURL        = 400107 // 无效URL
+	CodeInvalidPhone      = 400108 // 无效手机号
+	CodeDuplicateValue    = 400109 // 重复值
+	CodeInvalidPattern    = 400110 // 格式不匹配
+	CodeFieldNotExists    = 400111 // 字段不存在于表中
 
 	CodeUnauthorized       = 401000
 	CodeInvalidToken       = 401001
@@ -44,15 +44,15 @@ const (
 	CodeBaseNotFound   = 404301
 	CodeTableNotFound  = 404401
 	CodeFieldNotFound  = 404501
-	CodeRecordNotFound  = 404601
+	CodeRecordNotFound = 404601
 	CodeViewNotFound   = 404701
 
-	CodeConflict   = 409001
+	CodeConflict = 409001
 	// 新增: 资源冲突细分 (409xxx)
 	CodeDuplicateField  = 409101 // 字段名重复
 	CodeDuplicateRecord = 409102 // 记录重复
 	CodeDuplicateView   = 409103 // 视图名重复
-	
+
 	CodeTooManyReq = 429001
 )
 
@@ -161,28 +161,28 @@ var stringToNumeric = map[string]int{
 	"TASK_FAILED":            CodeTaskFailed,
 
 	// 验证
-	"REQUIRED_FIELD":       CodeBadRequest,
-	"INVALID_FORMAT":       CodeBadRequest,
-	"INVALID_VALUE":        CodeBadRequest,
-	"RESOURCE_EXISTS":      CodeConflict,
-	
+	"REQUIRED_FIELD":  CodeBadRequest,
+	"INVALID_FORMAT":  CodeBadRequest,
+	"INVALID_VALUE":   CodeBadRequest,
+	"RESOURCE_EXISTS": CodeConflict,
+
 	// 新增: 验证错误
-	"FIELD_REQUIRED":       CodeFieldRequired,
-	"INVALID_FIELD_VALUE":  CodeInvalidFieldValue,
-	"FIELD_TYPE_MISMATCH":  CodeInvalidFieldType,
-	"FIELD_TOO_LONG":       CodeFieldTooLong,
-	"FIELD_OUT_OF_RANGE":   CodeFieldOutOfRange,
-	"INVALID_EMAIL":        CodeInvalidEmail,
-	"INVALID_URL":          CodeInvalidURL,
-	"INVALID_PHONE":        CodeInvalidPhone,
-	"DUPLICATE_VALUE":      CodeDuplicateValue,
-	"INVALID_PATTERN":      CodeInvalidPattern,
-	"FIELD_NOT_EXISTS":     CodeFieldNotExists,
-	
+	"FIELD_REQUIRED":      CodeFieldRequired,
+	"INVALID_FIELD_VALUE": CodeInvalidFieldValue,
+	"FIELD_TYPE_MISMATCH": CodeInvalidFieldType,
+	"FIELD_TOO_LONG":      CodeFieldTooLong,
+	"FIELD_OUT_OF_RANGE":  CodeFieldOutOfRange,
+	"INVALID_EMAIL":       CodeInvalidEmail,
+	"INVALID_URL":         CodeInvalidURL,
+	"INVALID_PHONE":       CodeInvalidPhone,
+	"DUPLICATE_VALUE":     CodeDuplicateValue,
+	"INVALID_PATTERN":     CodeInvalidPattern,
+	"FIELD_NOT_EXISTS":    CodeFieldNotExists,
+
 	// 新增: 资源冲突
-	"DUPLICATE_FIELD":      CodeDuplicateField,
-	"DUPLICATE_RECORD":     CodeDuplicateRecord,
-	"DUPLICATE_VIEW":       CodeDuplicateView,
+	"DUPLICATE_FIELD":  CodeDuplicateField,
+	"DUPLICATE_RECORD": CodeDuplicateRecord,
+	"DUPLICATE_VIEW":   CodeDuplicateView,
 
 	// 业务
 	"OPERATION_NOT_ALLOWED": CodeForbidden,

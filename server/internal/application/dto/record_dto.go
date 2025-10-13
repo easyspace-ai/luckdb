@@ -14,7 +14,8 @@ type CreateRecordRequest struct {
 
 // UpdateRecordRequest 更新记录请求
 type UpdateRecordRequest struct {
-	Data map[string]interface{} `json:"data" binding:"required"`
+	Data    map[string]interface{} `json:"data" binding:"required"`
+	Version *int                   `json:"version"` // ✅ 可选的版本号，用于乐观锁
 }
 
 // BatchCreateRecordRequest 批量创建记录请求（对齐原版）

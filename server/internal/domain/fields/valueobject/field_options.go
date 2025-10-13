@@ -91,6 +91,10 @@ type NumberOptions struct {
 	Format     string `json:"format,omitempty"`      // decimal, percent, currency
 	Currency   string `json:"currency,omitempty"`    // USD, CNY, EUR, etc.
 	ShowCommas bool   `json:"show_commas,omitempty"` // 是否显示千分位
+	Min        *int   `json:"min,omitempty"`         // 最小值（仍保留，用于兼容）
+	Max        *int   `json:"max,omitempty"`         // 最大值（仍保留，用于兼容）
+	MinValue   *int   `json:"minValue,omitempty"`    // 最小值（API使用camelCase）
+	MaxValue   *int   `json:"maxValue,omitempty"`    // 最大值（API使用camelCase）
 }
 
 // DateOptions 日期字段选项

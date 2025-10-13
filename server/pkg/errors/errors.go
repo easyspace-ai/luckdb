@@ -98,7 +98,7 @@ var (
 	ErrTableNotAccessible = New("TABLE_NOT_ACCESSIBLE", "无权访问此表格", http.StatusForbidden)
 
 	// 字段相关错误
-	ErrFieldNotFound    = New("FIELD_NOT_FOUND", "字段不存在", http.StatusNotFound)
+	ErrFieldNotFound    = New("FIELD_NOT_FOUND", "字段不存在", http.StatusBadRequest) // ✅ 改为400，因为这是输入验证错误
 	ErrFieldExists      = New("FIELD_EXISTS", "字段已存在", http.StatusConflict)
 	ErrInvalidFieldType = New("INVALID_FIELD_TYPE", "无效的字段类型", http.StatusBadRequest)
 	ErrFieldInUse       = New("FIELD_IN_USE", "字段正在使用中", http.StatusConflict)
@@ -147,24 +147,24 @@ var (
 	ErrInvalidValue     = New("INVALID_VALUE", "数据值不正确", http.StatusBadRequest)
 	ErrInvalidRequest   = New("INVALID_REQUEST", "请求参数错误", http.StatusBadRequest)
 	ErrResourceExists   = New("RESOURCE_EXISTS", "资源已存在", http.StatusConflict)
-	
+
 	// 新增: 字段验证错误
-	ErrFieldRequired      = New("FIELD_REQUIRED", "必填字段不能为空", http.StatusBadRequest)
-	ErrInvalidFieldValue  = New("INVALID_FIELD_VALUE", "字段值无效", http.StatusBadRequest)
-	ErrFieldTypeMismatch  = New("FIELD_TYPE_MISMATCH", "字段值类型不匹配", http.StatusBadRequest)
-	ErrFieldTooLong       = New("FIELD_TOO_LONG", "字段长度超出限制", http.StatusBadRequest)
-	ErrFieldOutOfRange    = New("FIELD_OUT_OF_RANGE", "字段值超出范围", http.StatusBadRequest)
-	ErrInvalidEmail       = New("INVALID_EMAIL", "邮箱格式不正确", http.StatusBadRequest)
-	ErrInvalidURL         = New("INVALID_URL", "URL格式不正确", http.StatusBadRequest)
-	ErrInvalidPhone       = New("INVALID_PHONE", "手机号格式不正确", http.StatusBadRequest)
-	ErrDuplicateValue     = New("DUPLICATE_VALUE", "字段值重复", http.StatusBadRequest)
-	ErrInvalidPattern     = New("INVALID_PATTERN", "格式不匹配", http.StatusBadRequest)
-	ErrFieldNotExists     = New("FIELD_NOT_EXISTS", "字段不存在", http.StatusBadRequest)
-	
+	ErrFieldRequired     = New("FIELD_REQUIRED", "必填字段不能为空", http.StatusBadRequest)
+	ErrInvalidFieldValue = New("INVALID_FIELD_VALUE", "字段值无效", http.StatusBadRequest)
+	ErrFieldTypeMismatch = New("FIELD_TYPE_MISMATCH", "字段值类型不匹配", http.StatusBadRequest)
+	ErrFieldTooLong      = New("FIELD_TOO_LONG", "字段长度超出限制", http.StatusBadRequest)
+	ErrFieldOutOfRange   = New("FIELD_OUT_OF_RANGE", "字段值超出范围", http.StatusBadRequest)
+	ErrInvalidEmail      = New("INVALID_EMAIL", "邮箱格式不正确", http.StatusBadRequest)
+	ErrInvalidURL        = New("INVALID_URL", "URL格式不正确", http.StatusBadRequest)
+	ErrInvalidPhone      = New("INVALID_PHONE", "手机号格式不正确", http.StatusBadRequest)
+	ErrDuplicateValue    = New("DUPLICATE_VALUE", "字段值重复", http.StatusBadRequest)
+	ErrInvalidPattern    = New("INVALID_PATTERN", "格式不匹配", http.StatusBadRequest)
+	ErrFieldNotExists    = New("FIELD_NOT_EXISTS", "字段不存在", http.StatusBadRequest)
+
 	// 新增: 资源冲突错误
-	ErrDuplicateField     = New("DUPLICATE_FIELD", "字段名已存在", http.StatusConflict)
-	ErrDuplicateRecord    = New("DUPLICATE_RECORD", "记录已存在", http.StatusConflict)
-	ErrDuplicateView      = New("DUPLICATE_VIEW", "视图名已存在", http.StatusConflict)
+	ErrDuplicateField  = New("DUPLICATE_FIELD", "字段名已存在", http.StatusConflict)
+	ErrDuplicateRecord = New("DUPLICATE_RECORD", "记录已存在", http.StatusConflict)
+	ErrDuplicateView   = New("DUPLICATE_VIEW", "视图名已存在", http.StatusConflict)
 
 	// 业务逻辑错误
 	ErrOperationNotAllowed = New("OPERATION_NOT_ALLOWED", "不允许此操作", http.StatusForbidden)

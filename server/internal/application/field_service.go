@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/easyspace-ai/luckdb/server/internal/application/dto"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/calculation/dependency"
@@ -67,22 +68,43 @@ func (s *FieldService) CreateField(ctx context.Context, req dto.CreateFieldReque
 		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("检查字段名称失败: %v", err))
 	}
 	if exists {
-		return nil, pkgerrors.ErrConflict.WithDetails("字段名称已存在")
+		return nil, pkgerrors.ErrConflict.WithMessage(fmt.Sprintf("字段名 '%s' 已存在", req.Name))
 	}
 
 	// 3. 根据类型使用工厂创建字段（保留原始类型名称）
 	var field *entity.Field
 	switch req.Type {
 	case "number":
-		// 从 Options 中提取 precision
-		var precision *int
+		// 从 Options 中提取 precision, minValue, maxValue
+		var precision, minValue, maxValue *int
 		if req.Options != nil {
 			if p, ok := req.Options["precision"].(float64); ok {
 				precisionInt := int(p)
 				precision = &precisionInt
 			}
+			if min, ok := req.Options["minValue"].(float64); ok {
+				minInt := int(min)
+				minValue = &minInt
+			}
+			if max, ok := req.Options["maxValue"].(float64); ok {
+				maxInt := int(max)
+				maxValue = &maxInt
+			}
 		}
 		field, err = s.fieldFactory.CreateNumberField(req.TableID, req.Name, userID, precision)
+		// ✅ 设置 min/max 值
+		if err == nil && (minValue != nil || maxValue != nil) {
+			options := field.Options()
+			if options == nil {
+				options = valueobject.NewFieldOptions()
+			}
+			if options.Number == nil {
+				options.Number = &valueobject.NumberOptions{}
+			}
+			options.Number.MinValue = minValue
+			options.Number.MaxValue = maxValue
+			field.UpdateOptions(options)
+		}
 
 	case "singleSelect":
 		// 解析 choices
@@ -127,18 +149,18 @@ func (s *FieldService) CreateField(ctx context.Context, req dto.CreateFieldReque
 			logger.String("type", req.Type),
 			logger.ErrorField(err),
 		)
+		// 检查是否为字段类型无效错误
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "invalid field type") || strings.Contains(errMsg, "不支持的字段类型") {
+			return nil, pkgerrors.ErrInvalidFieldType.WithDetails(map[string]interface{}{
+				"type":  req.Type,
+				"error": errMsg,
+			})
+		}
 		return nil, pkgerrors.ErrInternalServer.WithDetails(fmt.Sprintf("创建字段失败: %v", err))
 	}
 
-	// 4. 设置 Options（如果有的话，参考原版会 JSON.stringify options）
-	if req.Options != nil && len(req.Options) > 0 {
-		options := valueobject.NewFieldOptions()
-		// 将 map[string]interface{} 转换为 FieldOptions
-		// 这里简化处理，实际应该根据字段类型做详细转换
-		field.UpdateOptions(options)
-	}
-
-	// 5. 设置可选属性
+	// 4. 设置可选属性
 	if req.Required {
 		field.SetRequired(true)
 	}
