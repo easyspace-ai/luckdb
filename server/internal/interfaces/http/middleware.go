@@ -1,9 +1,11 @@
 package http
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 
 	"github.com/easyspace-ai/luckdb/server/internal/application"
 	"github.com/easyspace-ai/luckdb/server/pkg/authctx"
@@ -50,5 +52,92 @@ func JWTAuthMiddleware(authService *application.AuthService) gin.HandlerFunc {
 		c.Set("is_admin", claims.IsAdmin)
 
 		c.Next()
+	}
+}
+
+// ValidateBindJSON 统一的JSON绑定和验证辅助函数
+// 用于替代直接调用 ShouldBindJSON，提供更详细的错误信息
+func ValidateBindJSON(c *gin.Context, obj interface{}) error {
+	if err := c.ShouldBindJSON(obj); err != nil {
+		return convertBindError(err)
+	}
+	return nil
+}
+
+// convertBindError 将 Gin 的绑定错误转换为 AppError
+func convertBindError(err error) error {
+	// 检查是否为验证错误
+	if validationErrors, ok := err.(validator.ValidationErrors); ok {
+		// 收集所有字段的验证错误
+		fieldErrors := make([]map[string]string, 0, len(validationErrors))
+		
+		for _, fieldErr := range validationErrors {
+			fieldName := fieldErr.Field()
+			tag := fieldErr.Tag()
+			param := fieldErr.Param()
+			
+			// 根据验证标签生成错误信息
+			message := getValidationErrorMessage(fieldName, tag, param)
+			
+			fieldErrors = append(fieldErrors, map[string]string{
+				"field":   fieldName,
+				"tag":     tag,
+				"message": message,
+			})
+		}
+		
+		return errors.ErrValidationFailed.WithDetails(map[string]interface{}{
+			"errors":  fieldErrors,
+			"message": fmt.Sprintf("输入验证失败，共 %d 个字段错误", len(fieldErrors)),
+		})
+	}
+	
+	// JSON 解析错误
+	if strings.Contains(err.Error(), "json") || strings.Contains(err.Error(), "unmarshal") {
+		return errors.ErrInvalidFormat.WithDetails(map[string]interface{}{
+			"error":   err.Error(),
+			"message": "JSON 格式不正确",
+		})
+	}
+	
+	// 其他绑定错误
+	return errors.ErrInvalidRequest.WithDetails(map[string]interface{}{
+		"error": err.Error(),
+	})
+}
+
+// getValidationErrorMessage 根据验证标签生成友好的错误信息
+func getValidationErrorMessage(field, tag, param string) string {
+	switch tag {
+	case "required":
+		return fmt.Sprintf("字段 %s 是必填的", field)
+	case "email":
+		return fmt.Sprintf("字段 %s 必须是有效的邮箱地址", field)
+	case "url":
+		return fmt.Sprintf("字段 %s 必须是有效的URL", field)
+	case "min":
+		return fmt.Sprintf("字段 %s 的最小值为 %s", field, param)
+	case "max":
+		return fmt.Sprintf("字段 %s 的最大值为 %s", field, param)
+	case "len":
+		return fmt.Sprintf("字段 %s 的长度必须为 %s", field, param)
+	case "gte":
+		return fmt.Sprintf("字段 %s 必须大于或等于 %s", field, param)
+	case "lte":
+		return fmt.Sprintf("字段 %s 必须小于或等于 %s", field, param)
+	case "gt":
+		return fmt.Sprintf("字段 %s 必须大于 %s", field, param)
+	case "lt":
+		return fmt.Sprintf("字段 %s 必须小于 %s", field, param)
+	case "oneof":
+		return fmt.Sprintf("字段 %s 必须是以下值之一: %s", field, param)
+	case "uuid":
+		return fmt.Sprintf("字段 %s 必须是有效的UUID", field)
+	case "alphanum":
+		return fmt.Sprintf("字段 %s 只能包含字母和数字", field)
+	case "numeric":
+		return fmt.Sprintf("字段 %s 必须是数字", field)
+	default:
+		return fmt.Sprintf("字段 %s 验证失败 (%s)", field, tag)
 	}
 }
