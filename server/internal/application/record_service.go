@@ -96,19 +96,24 @@ func (s *RecordService) CreateRecord(ctx context.Context, req dto.CreateRecordRe
 			validatedData = req.Data
 		}
 
-		// 2. 创建记录数据值对象
+		// 2. 验证必填字段
+		if err := s.validateRequiredFields(txCtx, req.TableID, validatedData); err != nil {
+			return err
+		}
+
+		// 3. 创建记录数据值对象
 		recordData, err := valueobject.NewRecordData(validatedData)
 		if err != nil {
 			return pkgerrors.ErrValidationFailed.WithDetails(fmt.Sprintf("记录数据无效: %v", err))
 		}
 
-		// 3. 创建记录实体
+		// 4. 创建记录实体
 		record, err = entity.NewRecord(req.TableID, recordData, userID)
 		if err != nil {
 			return pkgerrors.ErrInternalServer.WithDetails(fmt.Sprintf("创建记录实体失败: %v", err))
 		}
 
-		// 4. 保存记录（在事务中）
+		// 5. 保存记录（在事务中）
 		if err := s.recordRepo.Save(txCtx, record); err != nil {
 			return pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("保存记录失败: %v", err))
 		}
@@ -117,7 +122,7 @@ func (s *RecordService) CreateRecord(ctx context.Context, req dto.CreateRecordRe
 			logger.String("record_id", record.ID().String()),
 			logger.String("table_id", req.TableID))
 
-		// 5. ✨ 自动计算虚拟字段（在事务内）
+		// 6. ✨ 自动计算虚拟字段（在事务内）
 		if s.calculationService != nil {
 			if err := s.calculationService.CalculateRecordFields(txCtx, record); err != nil {
 				logger.Error("虚拟字段计算失败（回滚事务）",
@@ -129,7 +134,7 @@ func (s *RecordService) CreateRecord(ctx context.Context, req dto.CreateRecordRe
 				logger.String("record_id", record.ID().String()))
 		}
 
-		// 6. ✅ 收集事件（不立即发送）
+		// 7. ✅ 收集事件（不立即发送）
 		finalFields = record.Data().ToMap()
 		event := &database.RecordEvent{
 			EventType: "record.create",
@@ -140,7 +145,7 @@ func (s *RecordService) CreateRecord(ctx context.Context, req dto.CreateRecordRe
 		}
 		database.AddEventToTx(txCtx, event)
 
-		// 7. ✨ 添加事务提交后回调（发布 WebSocket 事件）
+		// 8. ✨ 添加事务提交后回调（发布 WebSocket 事件）
 		database.AddTxCallback(txCtx, func() {
 			s.publishRecordEvent(event)
 		})
@@ -272,6 +277,57 @@ func (s *RecordService) UpdateRecord(ctx context.Context, tableID, recordID stri
 		logger.String("record_id", recordID))
 
 	return dto.FromRecordEntity(record), nil
+}
+
+// validateRequiredFields 验证必填字段
+// 返回 nil 表示验证通过，返回 AppError 表示验证失败
+func (s *RecordService) validateRequiredFields(ctx context.Context, tableID string, data map[string]interface{}) error {
+	// 1. 获取表的所有字段
+	fields, err := s.fieldRepo.FindByTableID(ctx, tableID)
+	if err != nil {
+		return pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("获取字段列表失败: %v", err))
+	}
+
+	// 2. 检查每个必填字段
+	missingFields := make([]map[string]string, 0)
+	for _, field := range fields {
+		// 跳过计算字段（只读，不需要用户提供）
+		if field.IsComputed() {
+			continue
+		}
+
+		// 检查是否为必填字段
+		if !field.IsRequired() {
+			continue
+		}
+
+		fieldID := field.ID().String()
+		fieldName := field.Name().String()
+
+		// 检查字段是否在数据中
+		value, exists := data[fieldID]
+		if !exists {
+			// 尝试通过字段名查找
+			value, exists = data[fieldName]
+		}
+
+		// 检查值是否为空
+		if !exists || value == nil || value == "" {
+			missingFields = append(missingFields, map[string]string{
+				"id":   fieldID,
+				"name": fieldName,
+			})
+		}
+	}
+
+	if len(missingFields) > 0 {
+		return pkgerrors.ErrFieldRequired.WithDetails(map[string]interface{}{
+			"missing_fields": missingFields,
+			"message":        fmt.Sprintf("必填字段缺失，共 %d 个", len(missingFields)),
+		})
+	}
+
+	return nil
 }
 
 // identifyChangedFields 识别变化的字段ID列表
