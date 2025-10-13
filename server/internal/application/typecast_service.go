@@ -3,10 +3,12 @@ package application
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/easyspace-ai/luckdb/server/internal/domain/fields/entity"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/fields/repository"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/fields/validation"
+	"github.com/easyspace-ai/luckdb/server/pkg/errors"
 	"github.com/easyspace-ai/luckdb/server/pkg/logger"
 )
 
@@ -106,10 +108,8 @@ func (s *TypecastService) ValidateAndTypecastRecord(
 						logger.String("field_id", fieldID))
 				}
 			} else {
-				// 严格模式：直接返回错误
-				return nil, fmt.Errorf("字段 %s 验证失败: %w",
-					field.Name().String(),
-					validationResult.Error)
+				// 严格模式：返回具体的 AppError
+				return nil, s.convertValidationError(validationResult.Error, field, value)
 			}
 		} else {
 			result[fieldID] = validationResult.Value
@@ -139,4 +139,77 @@ func (s *TypecastService) RepairFieldValue(
 	field *entity.Field,
 ) interface{} {
 	return s.factory.RepairValue(ctx, value, field)
+}
+
+// convertValidationError 将验证错误转换为具体的 AppError
+func (s *TypecastService) convertValidationError(
+	validationErr error,
+	field *entity.Field,
+	value interface{},
+) error {
+	if validationErr == nil {
+		return nil
+	}
+
+	fieldName := field.Name().String()
+	fieldType := field.Type().String()
+	errMsg := validationErr.Error()
+
+	// 根据字段类型和错误消息返回具体的 AppError
+	switch {
+	// 邮箱相关
+	case fieldType == "email" && strings.Contains(errMsg, "邮箱"):
+		return errors.ErrInvalidEmail.WithDetails(map[string]interface{}{
+			"field": fieldName,
+			"value": value,
+		})
+
+	// URL相关
+	case fieldType == "url" && strings.Contains(errMsg, "URL"):
+		return errors.ErrInvalidURL.WithDetails(map[string]interface{}{
+			"field": fieldName,
+			"value": value,
+		})
+
+	// 电话相关
+	case fieldType == "phone" && strings.Contains(errMsg, "电话"):
+		return errors.ErrInvalidPhone.WithDetails(map[string]interface{}{
+			"field": fieldName,
+			"value": value,
+		})
+
+	// 数字超出范围
+	case (fieldType == "rating" || fieldType == "number") && strings.Contains(errMsg, "范围"):
+		return errors.ErrFieldOutOfRange.WithDetails(map[string]interface{}{
+			"field": fieldName,
+			"value": value,
+			"error": errMsg,
+		})
+
+	// 类型不匹配
+	case strings.Contains(errMsg, "必须是") || strings.Contains(errMsg, "类型"):
+		return errors.ErrInvalidFieldType.WithDetails(map[string]interface{}{
+			"field":        fieldName,
+			"expected":     fieldType,
+			"value":        value,
+			"originalError": errMsg,
+		})
+
+	// 格式不匹配
+	case strings.Contains(errMsg, "格式") || strings.Contains(errMsg, "无效"):
+		return errors.ErrInvalidPattern.WithDetails(map[string]interface{}{
+			"field": fieldName,
+			"type":  fieldType,
+			"value": value,
+			"error": errMsg,
+		})
+
+	// 默认：返回通用字段值无效错误
+	default:
+		return errors.ErrInvalidFieldValue.WithDetails(map[string]interface{}{
+			"field": fieldName,
+			"value": value,
+			"error": errMsg,
+		})
+	}
 }
