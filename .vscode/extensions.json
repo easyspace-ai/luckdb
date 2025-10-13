@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "golang.go",
+    "bradlc.vscode-tailwindcss",
+    "ms-azuretools.vscode-docker",
+    "eamodio.gitlens",
+    "ms-vscode.makefile-tools"
+  ]
+}
+

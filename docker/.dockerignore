@@ -1,0 +1,46 @@
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+.pnpm-debug.log
+
+# Next.js
+.next
+out
+build
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs
+
+# Testing
+coverage
+.nyc_output
+
+# Go
+server/bin
+server/vendor
+server/*.exe
+server/*.test
+server/*.out
+server/logs
+server/tmp
+
+# Misc
+.env.local
+.env*.local
+

@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: luckdb-postgres
+    environment:
+      POSTGRES_DB: luckdb
+      POSTGRES_USER: luckdb
+      POSTGRES_PASSWORD: luckdb_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - luckdb-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U luckdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: luckdb-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - luckdb-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.server
+    container_name: luckdb-server
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=luckdb
+      - DB_USER=luckdb
+      - DB_PASSWORD=luckdb_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=your-secret-key-change-in-production
+      - LOG_LEVEL=info
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - luckdb-network
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+    container_name: luckdb-web
+    environment:
+      - NEXT_PUBLIC_API_URL=http://server:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+    networks:
+      - luckdb-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  luckdb-network:
+    driver: bridge
+

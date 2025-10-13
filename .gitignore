@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+*.log
+.nyc_output
+
+# Production
+dist/
+build/
+.next/
+out/
+
+# Misc
+.DS_Store
+*.pem
+.env*.local
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# Turbo
+.turbo
+
+# Go
+server/bin/
+server/vendor/
+server/*.exe
+server/*.test
+server/*.out
+server/logs/*.log
+server/tmp/
+server/easydb
+server/luckdb
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*~
+
+# OS
+Thumbs.db
+
