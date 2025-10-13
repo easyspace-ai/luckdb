@@ -9,6 +9,7 @@ import (
 	"github.com/easyspace-ai/luckdb/server/internal/domain/record/entity"
 	recordRepo "github.com/easyspace-ai/luckdb/server/internal/domain/record/repository"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/record/valueobject"
+	tableRepo "github.com/easyspace-ai/luckdb/server/internal/domain/table/repository"
 	infraRepository "github.com/easyspace-ai/luckdb/server/internal/infrastructure/repository"
 	"github.com/easyspace-ai/luckdb/server/pkg/database"
 	pkgerrors "github.com/easyspace-ai/luckdb/server/pkg/errors"
@@ -35,9 +36,10 @@ import (
 type RecordService struct {
 	recordRepo         recordRepo.RecordRepository
 	fieldRepo          repository.FieldRepository
-	calculationService *CalculationService // ✨ 计算引擎
-	broadcaster        Broadcaster         // ✨ WebSocket广播器
-	typecastService    *TypecastService    // ✅ Phase 2: 类型转换和验证
+	tableRepo          tableRepo.TableRepository // ✅ 添加表仓储，用于检查表存在性
+	calculationService *CalculationService       // ✨ 计算引擎
+	broadcaster        Broadcaster               // ✨ WebSocket广播器
+	typecastService    *TypecastService          // ✅ Phase 2: 类型转换和验证
 }
 
 // Broadcaster WebSocket广播器接口
@@ -51,6 +53,7 @@ type Broadcaster interface {
 func NewRecordService(
 	recordRepo recordRepo.RecordRepository,
 	fieldRepo repository.FieldRepository,
+	tableRepo tableRepo.TableRepository,
 	calculationService *CalculationService,
 	broadcaster Broadcaster,
 	typecastService *TypecastService,
@@ -58,6 +61,7 @@ func NewRecordService(
 	return &RecordService{
 		recordRepo:         recordRepo,
 		fieldRepo:          fieldRepo,
+		tableRepo:          tableRepo,
 		calculationService: calculationService,
 		broadcaster:        broadcaster,
 		typecastService:    typecastService,
@@ -79,36 +83,53 @@ func NewRecordService(
 //   - 计算失败回滚整个事务
 //   - 事务成功后才发布 WebSocket 事件
 func (s *RecordService) CreateRecord(ctx context.Context, req dto.CreateRecordRequest, userID string) (*dto.RecordResponse, error) {
+	// ✅ 在事务前检查表是否存在
+	table, err := s.tableRepo.GetByID(ctx, req.TableID)
+	if err != nil {
+		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查找表失败: %v", err))
+	}
+	if table == nil {
+		return nil, pkgerrors.ErrTableNotFound.WithDetails(map[string]interface{}{
+			"table_id": req.TableID,
+		})
+	}
+
 	var record *entity.Record
 	var finalFields map[string]interface{}
 
 	// ✅ 在事务中执行所有操作
-	err := database.Transaction(ctx, s.recordRepo.(*infraRepository.RecordRepositoryDynamic).GetDB(), nil, func(txCtx context.Context) error {
+	err = database.Transaction(ctx, s.recordRepo.(*infraRepository.RecordRepositoryDynamic).GetDB(), nil, func(txCtx context.Context) error {
 		// 1. 数据验证和类型转换
 		var validatedData map[string]interface{}
 		if s.typecastService != nil {
 			var err error
-			validatedData, err = s.typecastService.ValidateAndTypecastRecord(txCtx, req.TableID, req.Data, true)
+			// ✅ 使用严格模式（typecast=false）进行验证，确保字段存在性和数据类型正确
+			validatedData, err = s.typecastService.ValidateAndTypecastRecord(txCtx, req.TableID, req.Data, false)
 			if err != nil {
-				return pkgerrors.ErrValidationFailed.WithDetails(fmt.Sprintf("数据验证失败: %v", err))
+				return err // 直接返回错误，保留具体的错误类型
 			}
 		} else {
 			validatedData = req.Data
 		}
 
-		// 2. 创建记录数据值对象
+		// 2. 验证必填字段
+		if err := s.validateRequiredFields(txCtx, req.TableID, validatedData); err != nil {
+			return err
+		}
+
+		// 3. 创建记录数据值对象
 		recordData, err := valueobject.NewRecordData(validatedData)
 		if err != nil {
 			return pkgerrors.ErrValidationFailed.WithDetails(fmt.Sprintf("记录数据无效: %v", err))
 		}
 
-		// 3. 创建记录实体
+		// 4. 创建记录实体
 		record, err = entity.NewRecord(req.TableID, recordData, userID)
 		if err != nil {
 			return pkgerrors.ErrInternalServer.WithDetails(fmt.Sprintf("创建记录实体失败: %v", err))
 		}
 
-		// 4. 保存记录（在事务中）
+		// 5. 保存记录（在事务中）
 		if err := s.recordRepo.Save(txCtx, record); err != nil {
 			return pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("保存记录失败: %v", err))
 		}
@@ -117,7 +138,7 @@ func (s *RecordService) CreateRecord(ctx context.Context, req dto.CreateRecordRe
 			logger.String("record_id", record.ID().String()),
 			logger.String("table_id", req.TableID))
 
-		// 5. ✨ 自动计算虚拟字段（在事务内）
+		// 6. ✨ 自动计算虚拟字段（在事务内）
 		if s.calculationService != nil {
 			if err := s.calculationService.CalculateRecordFields(txCtx, record); err != nil {
 				logger.Error("虚拟字段计算失败（回滚事务）",
@@ -129,7 +150,7 @@ func (s *RecordService) CreateRecord(ctx context.Context, req dto.CreateRecordRe
 				logger.String("record_id", record.ID().String()))
 		}
 
-		// 6. ✅ 收集事件（不立即发送）
+		// 7. ✅ 收集事件（不立即发送）
 		finalFields = record.Data().ToMap()
 		event := &database.RecordEvent{
 			EventType: "record.create",
@@ -140,7 +161,7 @@ func (s *RecordService) CreateRecord(ctx context.Context, req dto.CreateRecordRe
 		}
 		database.AddEventToTx(txCtx, event)
 
-		// 7. ✨ 添加事务提交后回调（发布 WebSocket 事件）
+		// 8. ✨ 添加事务提交后回调（发布 WebSocket 事件）
 		database.AddTxCallback(txCtx, func() {
 			s.publishRecordEvent(event)
 		})
@@ -189,11 +210,22 @@ func (s *RecordService) GetRecord(ctx context.Context, recordID string) (*dto.Re
 //   - 计算失败回滚整个事务
 //   - 事务成功后才发布 WebSocket 事件
 func (s *RecordService) UpdateRecord(ctx context.Context, tableID, recordID string, req dto.UpdateRecordRequest, userID string) (*dto.RecordResponse, error) {
+	// ✅ 在事务前检查表是否存在
+	table, err := s.tableRepo.GetByID(ctx, tableID)
+	if err != nil {
+		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查找表失败: %v", err))
+	}
+	if table == nil {
+		return nil, pkgerrors.ErrTableNotFound.WithDetails(map[string]interface{}{
+			"table_id": tableID,
+		})
+	}
+
 	var record *entity.Record
 	var finalFields map[string]interface{}
 
 	// ✅ 在事务中执行所有操作
-	err := database.Transaction(ctx, s.recordRepo.(*infraRepository.RecordRepositoryDynamic).GetDB(), nil, func(txCtx context.Context) error {
+	err = database.Transaction(ctx, s.recordRepo.(*infraRepository.RecordRepositoryDynamic).GetDB(), nil, func(txCtx context.Context) error {
 		// 1. 查找记录（使用 tableID）
 		id := valueobject.NewRecordID(recordID)
 		var err error
@@ -206,7 +238,23 @@ func (s *RecordService) UpdateRecord(ctx context.Context, tableID, recordID stri
 		}
 		record = records[0]
 
-		// 2. 识别变化的字段（用于智能重算）
+		// ✅ 2. 乐观锁检查：如果提供了版本号，验证是否匹配
+		if req.Version != nil {
+			expectedVersion, err := valueobject.NewRecordVersion(int64(*req.Version))
+			if err != nil {
+				return pkgerrors.ErrValidationFailed.WithMessage("无效的版本号").WithDetails(map[string]interface{}{
+					"version": *req.Version,
+				})
+			}
+			if record.HasChangedSince(expectedVersion) {
+				return pkgerrors.ErrConflict.WithMessage("记录已被其他用户修改，请刷新后重试").WithDetails(map[string]interface{}{
+					"expected_version": *req.Version,
+					"current_version":  record.Version().Value(),
+				})
+			}
+		}
+
+		// 3. 识别变化的字段（用于智能重算）
 		oldData := record.Data().ToMap()
 		changedFieldIDs := s.identifyChangedFields(oldData, req.Data)
 
@@ -272,6 +320,57 @@ func (s *RecordService) UpdateRecord(ctx context.Context, tableID, recordID stri
 		logger.String("record_id", recordID))
 
 	return dto.FromRecordEntity(record), nil
+}
+
+// validateRequiredFields 验证必填字段
+// 返回 nil 表示验证通过，返回 AppError 表示验证失败
+func (s *RecordService) validateRequiredFields(ctx context.Context, tableID string, data map[string]interface{}) error {
+	// 1. 获取表的所有字段
+	fields, err := s.fieldRepo.FindByTableID(ctx, tableID)
+	if err != nil {
+		return pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("获取字段列表失败: %v", err))
+	}
+
+	// 2. 检查每个必填字段
+	missingFields := make([]map[string]string, 0)
+	for _, field := range fields {
+		// 跳过计算字段（只读，不需要用户提供）
+		if field.IsComputed() {
+			continue
+		}
+
+		// 检查是否为必填字段
+		if !field.IsRequired() {
+			continue
+		}
+
+		fieldID := field.ID().String()
+		fieldName := field.Name().String()
+
+		// 检查字段是否在数据中
+		value, exists := data[fieldID]
+		if !exists {
+			// 尝试通过字段名查找
+			value, exists = data[fieldName]
+		}
+
+		// 检查值是否为空
+		if !exists || value == nil || value == "" {
+			missingFields = append(missingFields, map[string]string{
+				"id":   fieldID,
+				"name": fieldName,
+			})
+		}
+	}
+
+	if len(missingFields) > 0 {
+		return pkgerrors.ErrFieldRequired.WithDetails(map[string]interface{}{
+			"missing_fields": missingFields,
+			"message":        fmt.Sprintf("必填字段缺失，共 %d 个", len(missingFields)),
+		})
+	}
+
+	return nil
 }
 
 // identifyChangedFields 识别变化的字段ID列表

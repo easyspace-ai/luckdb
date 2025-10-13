@@ -24,8 +24,8 @@ func NewSpaceHandler(spaceService *application.SpaceService) *SpaceHandler {
 // CreateSpace 创建空间
 func (h *SpaceHandler) CreateSpace(c *gin.Context) {
 	var req dto.CreateSpaceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, errors.ErrBadRequest.WithDetails(err.Error()))
+	if err := ValidateBindJSON(c, &req); err != nil {
+		response.Error(c, err) // ✅ ValidateBindJSON 已返回详细的 AppError
 		return
 	}
 
@@ -62,8 +62,8 @@ func (h *SpaceHandler) UpdateSpace(c *gin.Context) {
 	spaceID := c.Param("spaceId")
 
 	var req dto.UpdateSpaceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, errors.ErrBadRequest.WithDetails(err.Error()))
+	if err := ValidateBindJSON(c, &req); err != nil {
+		response.Error(c, err) // ✅ ValidateBindJSON 已返回详细的 AppError
 		return
 	}
 

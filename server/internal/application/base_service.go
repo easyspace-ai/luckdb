@@ -7,6 +7,7 @@ import (
 	"github.com/easyspace-ai/luckdb/server/internal/application/dto"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/base/entity"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/base/repository"
+	spaceRepository "github.com/easyspace-ai/luckdb/server/internal/domain/space/repository"
 	"github.com/easyspace-ai/luckdb/server/internal/infrastructure/database"
 	"github.com/easyspace-ai/luckdb/server/pkg/errors"
 	"github.com/easyspace-ai/luckdb/server/pkg/logger"
@@ -18,13 +19,15 @@ import (
 // 集成完全动态表架构：每个Base独立Schema
 type BaseService struct {
 	repo       repository.BaseRepository
-	dbProvider database.DBProvider // ✅ 数据库提供者（Schema管理）
+	spaceRepo  spaceRepository.SpaceRepository // 用于检查父空间是否存在
+	dbProvider database.DBProvider             // ✅ 数据库提供者（Schema管理）
 }
 
 // NewBaseService 创建Base服务
-func NewBaseService(repo repository.BaseRepository, dbProvider database.DBProvider) *BaseService {
+func NewBaseService(repo repository.BaseRepository, spaceRepo spaceRepository.SpaceRepository, dbProvider database.DBProvider) *BaseService {
 	return &BaseService{
 		repo:       repo,
+		spaceRepo:  spaceRepo,
 		dbProvider: dbProvider,
 	}
 }
@@ -48,7 +51,16 @@ func (s *BaseService) CreateBase(ctx context.Context, req dto.CreateBaseRequest,
 		})
 	}
 
-	// 2. 权限检查
+	// 2. 检查父空间是否存在
+	space, err := s.spaceRepo.GetSpaceByID(ctx, req.SpaceID)
+	if err != nil {
+		return nil, errors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查找父空间失败: %v", err))
+	}
+	if space == nil {
+		return nil, errors.ErrSpaceNotFound.WithDetails(fmt.Sprintf("父空间不存在: %s", req.SpaceID))
+	}
+
+	// 3. 权限检查
 	// TODO: 实现权限检查逻辑
 	// 需要检查：
 	//   - 用户是否是Space的成员（member/owner/admin）
@@ -58,13 +70,13 @@ func (s *BaseService) CreateBase(ctx context.Context, req dto.CreateBaseRequest,
 	//   - 如果无权限，返回errors.ErrForbidden.WithDetails("无权限在该Space创建Base")
 	// 暂时跳过权限检查，所有用户都可以创建
 
-	// 3. 创建Base实体
+	// 4. 创建Base实体
 	base, err := entity.NewBase(req.Name, req.Icon, req.SpaceID, userID)
 	if err != nil {
 		return nil, errors.ErrBadRequest.WithDetails(err.Error())
 	}
 
-	// 4. ✅ 创建独立的PostgreSQL Schema（完全动态表架构）
+	// 5. ✅ 创建独立的PostgreSQL Schema（完全动态表架构）
 	// 参考旧系统：const sqlList = this.dbProvider.createSchema(base.id);
 	if s.dbProvider.SupportsSchema() {
 		logger.Info("正在为Base创建独立Schema",
@@ -84,7 +96,7 @@ func (s *BaseService) CreateBase(ctx context.Context, req dto.CreateBaseRequest,
 			logger.String("schema_name", base.ID))
 	}
 
-	// 5. 持久化Base元数据
+	// 6. 持久化Base元数据
 	if err := s.repo.Create(ctx, base); err != nil {
 		// ❌ 回滚：删除已创建的Schema
 		if s.dbProvider.SupportsSchema() {
@@ -102,7 +114,7 @@ func (s *BaseService) CreateBase(ctx context.Context, req dto.CreateBaseRequest,
 		logger.String("base_name", base.Name),
 		logger.String("schema_name", base.ID))
 
-	// 6. 返回DTO
+	// 7. 返回DTO
 	return s.toDTO(base), nil
 }
 

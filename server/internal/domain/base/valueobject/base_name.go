@@ -1,6 +1,9 @@
 package valueobject
 
-import "errors"
+import (
+	"errors"
+	"github.com/easyspace-ai/luckdb/server/pkg/utils"
+)
 
 // BaseName Base名称值对象
 type BaseName struct {
@@ -15,6 +18,11 @@ func NewBaseName(name string) (*BaseName, error) {
 
 	if len(name) > 100 {
 		return nil, errors.New("base name too long (max 100 chars)")
+	}
+
+	// 检查 SQL 注入
+	if utils.ContainsSQLInjection(name) {
+		return nil, errors.New("base name contains invalid characters")
 	}
 
 	return &BaseName{value: name}, nil

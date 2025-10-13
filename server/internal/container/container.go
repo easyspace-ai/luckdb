@@ -216,7 +216,7 @@ func (c *Container) initServices() {
 
 	// 核心业务服务
 	c.spaceService = application.NewSpaceService(c.spaceRepository)
-	c.baseService = application.NewBaseService(c.baseRepository, c.dbProvider) // ✅ 注入DBProvider
+	c.baseService = application.NewBaseService(c.baseRepository, c.spaceRepository, c.dbProvider) // ✅ 注入DBProvider + SpaceRepository
 
 	// ✅ 先初始化 FieldService，然后传递给 TableService (暂时传nil，待实现broadcaster)
 	c.fieldService = application.NewFieldService(
@@ -247,12 +247,13 @@ func (c *Container) initServices() {
 	c.recordService = application.NewRecordService(
 		c.recordRepository,
 		c.fieldRepository,
+		c.tableRepository,    // ✅ 注入表仓储，用于检查表存在性
 		c.calculationService, // 注入计算服务 ✨
 		nil,                  // broadcaster (待实现)
 		typecastService,      // ✅ 注入验证服务
 	)
 
-	c.viewService = application.NewViewService(c.viewRepository)
+	c.viewService = application.NewViewService(c.viewRepository, c.tableRepository)
 }
 
 // initWebSocketService 初始化 WebSocket 服务

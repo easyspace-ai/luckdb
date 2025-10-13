@@ -376,6 +376,7 @@ export interface CreateRecordRequest {
 
 export interface UpdateRecordRequest {
   data: JsonObject;
+  version?: number; // ✅ 可选的版本号，用于乐观锁
 }
 
 /**
@@ -754,38 +755,38 @@ export class LuckDBError extends Error {
 }
 
 export class AuthenticationError extends LuckDBError {
-  constructor(message: string = 'Authentication failed') {
-    super(message, 'AUTH_ERROR', 401);
+  constructor(message: string = 'Authentication failed', status: number = 401) {
+    super(message, 'AUTH_ERROR', status);
   }
 }
 
 export class AuthorizationError extends LuckDBError {
-  constructor(message: string = 'Insufficient permissions') {
-    super(message, 'AUTHZ_ERROR', 403);
+  constructor(message: string = 'Insufficient permissions', status: number = 403) {
+    super(message, 'AUTHZ_ERROR', status);
   }
 }
 
 export class NotFoundError extends LuckDBError {
-  constructor(message: string = 'Resource not found') {
-    super(message, 'NOT_FOUND', 404);
+  constructor(message: string = 'Resource not found', status: number = 404) {
+    super(message, 'NOT_FOUND', status);
   }
 }
 
 export class ValidationError extends LuckDBError {
-  constructor(message: string, details?: any) {
-    super(message, 'VALIDATION_ERROR', 422, details);
+  constructor(message: string, details?: any, status: number = 400) {
+    super(message, 'VALIDATION_ERROR', status, details);
   }
 }
 
 export class RateLimitError extends LuckDBError {
-  constructor(message: string = 'Rate limit exceeded') {
-    super(message, 'RATE_LIMIT', 429);
+  constructor(message: string = 'Rate limit exceeded', status: number = 429) {
+    super(message, 'RATE_LIMIT', status);
   }
 }
 
 export class ServerError extends LuckDBError {
-  constructor(message: string = 'Internal server error') {
-    super(message, 'SERVER_ERROR', 500);
+  constructor(message: string = 'Internal server error', status: number = 500) {
+    super(message, 'SERVER_ERROR', status);
   }
 }
 

@@ -118,7 +118,16 @@ func (s *SpaceService) UpdateSpace(ctx context.Context, spaceID string, req dto.
 
 // DeleteSpace 删除空间
 func (s *SpaceService) DeleteSpace(ctx context.Context, spaceID string) error {
-	// 删除空间
+	// 1. 检查空间是否存在
+	space, err := s.spaceRepo.GetSpaceByID(ctx, spaceID)
+	if err != nil {
+		return pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查找空间失败: %v", err))
+	}
+	if space == nil {
+		return pkgerrors.ErrSpaceNotFound.WithDetails(fmt.Sprintf("空间不存在: %s", spaceID))
+	}
+
+	// 2. 删除空间
 	if err := s.spaceRepo.Delete(ctx, spaceID); err != nil {
 		return pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("删除空间失败: %v", err))
 	}

@@ -139,19 +139,59 @@ func (v *NumberValidator) ValidateCell(ctx context.Context, value interface{}, f
 		return Success(nil)
 	}
 
+	var num float64
 	switch v := value.(type) {
-	case float64, float32, int, int32, int64:
-		return Success(v)
+	case float64:
+		num = v
+	case float32:
+		num = float64(v)
+	case int:
+		num = float64(v)
+	case int32:
+		num = float64(v)
+	case int64:
+		num = float64(v)
 	case string:
 		// 尝试从字符串解析
-		num, err := strconv.ParseFloat(v, 64)
+		parsedNum, err := strconv.ParseFloat(v, 64)
 		if err != nil {
 			return Failure(NewValidationError(field.Name().String(), "无效的数字格式", value))
 		}
-		return Success(num)
+		num = parsedNum
 	default:
 		return Failure(NewValidationError(field.Name().String(), "必须是数字类型", value))
 	}
+
+	// ✅ 检查数字范围（从字段的 options 中获取）
+	options := field.Options()
+	if options != nil && options.Number != nil {
+		// 优先使用 MinValue/MaxValue（camelCase），回退到 Min/Max
+		minVal := options.Number.MinValue
+		if minVal == nil {
+			minVal = options.Number.Min
+		}
+		maxVal := options.Number.MaxValue
+		if maxVal == nil {
+			maxVal = options.Number.Max
+		}
+
+		if minVal != nil && num < float64(*minVal) {
+			return Failure(NewValidationError(
+				field.Name().String(),
+				fmt.Sprintf("数字必须大于等于 %d", *minVal),
+				value,
+			))
+		}
+		if maxVal != nil && num > float64(*maxVal) {
+			return Failure(NewValidationError(
+				field.Name().String(),
+				fmt.Sprintf("数字必须小于等于 %d", *maxVal),
+				value,
+			))
+		}
+	}
+
+	return Success(num)
 }
 
 func (v *NumberValidator) Repair(ctx context.Context, value interface{}, field *entity.Field) interface{} {
