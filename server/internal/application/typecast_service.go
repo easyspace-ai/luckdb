@@ -188,7 +188,7 @@ func (s *TypecastService) convertValidationError(
 
 	// 类型不匹配
 	case strings.Contains(errMsg, "必须是") || strings.Contains(errMsg, "类型"):
-		return errors.ErrInvalidFieldType.WithDetails(map[string]interface{}{
+		return errors.ErrFieldTypeMismatch.WithDetails(map[string]interface{}{
 			"field":        fieldName,
 			"expected":     fieldType,
 			"value":        value,

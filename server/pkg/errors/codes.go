@@ -169,7 +169,7 @@ var stringToNumeric = map[string]int{
 	// 新增: 验证错误
 	"FIELD_REQUIRED":       CodeFieldRequired,
 	"INVALID_FIELD_VALUE":  CodeInvalidFieldValue,
-	"INVALID_FIELD_TYPE":   CodeInvalidFieldType,
+	"FIELD_TYPE_MISMATCH":  CodeInvalidFieldType,
 	"FIELD_TOO_LONG":       CodeFieldTooLong,
 	"FIELD_OUT_OF_RANGE":   CodeFieldOutOfRange,
 	"INVALID_EMAIL":        CodeInvalidEmail,

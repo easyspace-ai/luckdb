@@ -151,7 +151,7 @@ var (
 	// 新增: 字段验证错误
 	ErrFieldRequired      = New("FIELD_REQUIRED", "必填字段不能为空", http.StatusBadRequest)
 	ErrInvalidFieldValue  = New("INVALID_FIELD_VALUE", "字段值无效", http.StatusBadRequest)
-	ErrInvalidFieldType   = New("INVALID_FIELD_TYPE", "字段类型不匹配", http.StatusBadRequest)
+	ErrFieldTypeMismatch  = New("FIELD_TYPE_MISMATCH", "字段值类型不匹配", http.StatusBadRequest)
 	ErrFieldTooLong       = New("FIELD_TOO_LONG", "字段长度超出限制", http.StatusBadRequest)
 	ErrFieldOutOfRange    = New("FIELD_OUT_OF_RANGE", "字段值超出范围", http.StatusBadRequest)
 	ErrInvalidEmail       = New("INVALID_EMAIL", "邮箱格式不正确", http.StatusBadRequest)
