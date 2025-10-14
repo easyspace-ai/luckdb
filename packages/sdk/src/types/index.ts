@@ -223,6 +223,7 @@ export interface Table extends BaseEntity {
   baseId: string;          // camelCase
   name: string;
   description?: string;
+  defaultViewId?: string;  // ✅ 默认视图ID（由后端自动创建）
   icon?: string;
   dbTableName?: string;    // camelCase
   version: number;

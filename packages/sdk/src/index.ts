@@ -612,6 +612,27 @@ export class LuckDB {
     }
   }
 
+  /**
+   * 设置访问令牌
+   */
+  public setAccessToken(token: string): void {
+    this.httpClient.setAccessToken(token);
+  }
+
+  /**
+   * 设置刷新令牌
+   */
+  public setRefreshToken(token: string): void {
+    this.httpClient.setRefreshToken(token);
+  }
+
+  /**
+   * 清除所有令牌
+   */
+  public clearTokens(): void {
+    this.httpClient.clearTokens();
+  }
+
   // ==================== 客户端访问器 ====================
 
   /**

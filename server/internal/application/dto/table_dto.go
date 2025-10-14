@@ -32,16 +32,17 @@ type TableListFilter struct {
 
 // TableResponse 表响应
 type TableResponse struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	BaseID      string    `json:"baseId"`
-	FieldCount  int       `json:"fieldCount"`
-	RecordCount int64     `json:"recordCount"`
-	CreatedBy   string    `json:"createdBy"`
-	UpdatedBy   string    `json:"updatedBy"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID            string    `json:"id"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description"`
+	BaseID        string    `json:"baseId"`
+	DefaultViewID *string   `json:"defaultViewId,omitempty"` // ✅ 默认视图ID（可选）
+	FieldCount    int       `json:"fieldCount"`
+	RecordCount   int64     `json:"recordCount"`
+	CreatedBy     string    `json:"createdBy"`
+	UpdatedBy     string    `json:"updatedBy"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
 // TableListResponse 表列表响应

@@ -218,7 +218,10 @@ func (c *Container) initServices() {
 	c.spaceService = application.NewSpaceService(c.spaceRepository)
 	c.baseService = application.NewBaseService(c.baseRepository, c.spaceRepository, c.dbProvider) // ✅ 注入DBProvider + SpaceRepository
 
-	// ✅ 先初始化 FieldService，然后传递给 TableService (暂时传nil，待实现broadcaster)
+	// ✅ 先初始化 ViewService（独立服务，不依赖其他服务）
+	c.viewService = application.NewViewService(c.viewRepository, c.tableRepository)
+
+	// ✅ 初始化 FieldService (暂时传nil，待实现broadcaster)
 	c.fieldService = application.NewFieldService(
 		c.fieldRepository,
 		nil,               // depGraphRepo（待实现）
@@ -226,7 +229,16 @@ func (c *Container) initServices() {
 		c.tableRepository, // ✅ 注入TableRepository
 		c.dbProvider,      // ✅ 注入DBProvider
 	)
-	c.tableService = application.NewTableService(c.tableRepository, c.baseRepository, c.spaceRepository, c.fieldService, c.dbProvider) // ✅ 注入DBProvider
+
+	// ✅ 初始化 TableService（依赖 FieldService 和 ViewService）
+	c.tableService = application.NewTableService(
+		c.tableRepository,
+		c.baseRepository,
+		c.spaceRepository,
+		c.fieldService,
+		c.viewService, // ✅ 注入ViewService
+		c.dbProvider,  // ✅ 注入DBProvider
+	)
 
 	// ✨ WebSocket 服务初始化（在 CalculationService 之前）
 	c.initWebSocketService()
@@ -252,8 +264,6 @@ func (c *Container) initServices() {
 		nil,                  // broadcaster (待实现)
 		typecastService,      // ✅ 注入验证服务
 	)
-
-	c.viewService = application.NewViewService(c.viewRepository, c.tableRepository)
 }
 
 // initWebSocketService 初始化 WebSocket 服务

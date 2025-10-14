@@ -23,6 +23,7 @@ type TableService struct {
 	baseRepo     baseRepo.BaseRepository
 	spaceRepo    repository.SpaceRepository
 	fieldService *FieldService       // ✅ 添加字段服务依赖
+	viewService  *ViewService        // ✅ 添加视图服务依赖
 	dbProvider   database.DBProvider // ✅ 数据库提供者（物理表管理）
 }
 
@@ -32,6 +33,7 @@ func NewTableService(
 	baseRepo baseRepo.BaseRepository,
 	spaceRepo repository.SpaceRepository,
 	fieldService *FieldService,
+	viewService *ViewService,
 	dbProvider database.DBProvider,
 ) *TableService {
 	return &TableService{
@@ -39,6 +41,7 @@ func NewTableService(
 		baseRepo:     baseRepo,
 		spaceRepo:    spaceRepo,
 		fieldService: fieldService, // ✅ 注入字段服务
+		viewService:  viewService,  // ✅ 注入视图服务
 		dbProvider:   dbProvider,   // ✅ 注入数据库提供者
 	}
 }
@@ -143,13 +146,42 @@ func (s *TableService) CreateTable(ctx context.Context, req dto.CreateTableReque
 		}
 	}
 
-	logger.Info("✅ 表格创建成功（含物理表）",
+	// 8. ✅ 自动创建默认视图 "Grid view"（参考 Teable）
+	var defaultViewID *string
+	if s.viewService != nil {
+		defaultViewReq := dto.CreateViewRequest{
+			TableID:     table.ID().String(),
+			Name:        "Grid view",
+			Type:        "grid",
+			Description: "",
+		}
+
+		// 创建默认视图，如果失败仅记录日志，不影响表格创建
+		if viewResp, err := s.viewService.CreateView(ctx, defaultViewReq, userID); err != nil {
+			logger.Warn("创建默认视图失败",
+				logger.String("table_id", table.ID().String()),
+				logger.ErrorField(err),
+			)
+		} else {
+			defaultViewID = &viewResp.ID
+			logger.Info("✅ 默认视图创建成功",
+				logger.String("table_id", table.ID().String()),
+				logger.String("view_id", viewResp.ID),
+				logger.String("view_name", "Grid view"),
+			)
+		}
+	}
+
+	logger.Info("✅ 表格创建成功（含物理表、默认字段、默认视图）",
 		logger.String("table_id", table.ID().String()),
 		logger.String("base_id", req.BaseID),
 		logger.String("name", tableName.String()),
 		logger.String("db_table_name", dbTableName))
 
-	return dto.FromTableEntity(table), nil
+	// 返回响应，包含 defaultViewId
+	response := dto.FromTableEntity(table)
+	response.DefaultViewID = defaultViewID
+	return response, nil
 }
 
 // GetTable 获取表格详情
@@ -162,7 +194,18 @@ func (s *TableService) GetTable(ctx context.Context, tableID string) (*dto.Table
 		return nil, pkgerrors.ErrNotFound.WithDetails("表格不存在")
 	}
 
-	return dto.FromTableEntity(table), nil
+	// 构建响应
+	response := dto.FromTableEntity(table)
+
+	// ✅ 获取默认视图（第一个视图）
+	if s.viewService != nil {
+		views, err := s.viewService.ListViewsByTable(ctx, tableID)
+		if err == nil && len(views) > 0 {
+			response.DefaultViewID = &views[0].ID
+		}
+	}
+
+	return response, nil
 }
 
 // UpdateTable 更新表格
@@ -256,7 +299,17 @@ func (s *TableService) ListTables(ctx context.Context, baseID string) ([]*dto.Ta
 
 	tableList := make([]*dto.TableResponse, 0, len(tables))
 	for _, table := range tables {
-		tableList = append(tableList, dto.FromTableEntity(table))
+		response := dto.FromTableEntity(table)
+
+		// ✅ 获取默认视图（第一个视图）
+		if s.viewService != nil {
+			views, err := s.viewService.ListViewsByTable(ctx, table.ID().String())
+			if err == nil && len(views) > 0 {
+				response.DefaultViewID = &views[0].ID
+			}
+		}
+
+		tableList = append(tableList, response)
 	}
 
 	return tableList, nil
