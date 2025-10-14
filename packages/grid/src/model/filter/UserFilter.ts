@@ -5,14 +5,14 @@
 
 import { BaseFilter, type IFilterConfig } from './BaseFilter';
 import type { Field } from '../field/Field';
-import type { Record } from '../record/Record';
+import type { RecordModel } from '../record/Record';
 
 export class UserFilter extends BaseFilter {
   constructor(field: Field, config: IFilterConfig) {
     super(field, config);
   }
 
-  match(record: Record): boolean {
+  match(record: RecordModel): boolean {
     const { operator } = this.config;
 
     switch (operator) {
@@ -57,7 +57,7 @@ export class UserFilter extends BaseFilter {
     }
   }
 
-  private getUserIds(record: Record): string[] {
+  private getUserIds(record: RecordModel): string[] {
     const value = this.getValue(record);
     
     if (this.isEmpty(value)) return [];
@@ -79,7 +79,7 @@ export class UserFilter extends BaseFilter {
     return [String(value)];
   }
 
-  private matchIs(record: Record): boolean {
+  private matchIs(record: RecordModel): boolean {
     const userIds = this.getUserIds(record);
     const filterUserId = String(this.config.value);
     
@@ -88,7 +88,7 @@ export class UserFilter extends BaseFilter {
     return userIds.length === 1 && userIds[0] === filterUserId;
   }
 
-  private matchIsAnyOf(record: Record): boolean {
+  private matchIsAnyOf(record: RecordModel): boolean {
     const userIds = this.getUserIds(record);
     const filterUserIds = this.getFilterUserIds();
     
@@ -97,7 +97,7 @@ export class UserFilter extends BaseFilter {
     return userIds.some(id => filterUserIds.includes(id));
   }
 
-  private matchIsNoneOf(record: Record): boolean {
+  private matchIsNoneOf(record: RecordModel): boolean {
     return !this.matchIsAnyOf(record);
   }
 }

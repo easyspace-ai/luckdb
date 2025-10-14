@@ -8,17 +8,16 @@ import type { IFieldInstance } from '../field';
 
 export interface IRecordConfig {
   id: string;
-  fields: Record<string, any>;
+  fields: { [key: string]: any };
   createdTime?: string;
   lastModifiedTime?: string;
   createdBy?: string;
   lastModifiedBy?: string;
 }
 
-// Export with alias for backward compatibility
 export class RecordModel {
   public id: string;
-  public fields: Record<string, any>;
+  public fields: { [key: string]: any };
   public createdTime?: string;
   public lastModifiedTime?: string;
   public createdBy?: string;
@@ -121,4 +120,5 @@ export function createRecordInstance(record: IRecord): IRecordInstance {
 export function createRecordInstances(records: IRecord[]): IRecordInstance[] {
   return records.map(createRecordInstance);
 }
+
 

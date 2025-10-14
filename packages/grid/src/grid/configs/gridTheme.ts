@@ -20,6 +20,9 @@ export interface IGridTheme {
   fontSizeMD: number;
   fontSizeLG: number;
   fontFamily: string;
+  fontSize: number;
+  textColor: string;
+  textColorSecondary: string;
   cellBg: string;
   cellBgHovered: string;
   cellBgSelected: string;
@@ -80,6 +83,9 @@ export const gridTheme: IGridTheme = {
   fontSizeLG: 16,
   fontFamily:
     'Inter, Roboto, -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Ubuntu, noto, arial, sans-serif',
+  fontSize: 13,
+  textColor: colors.gray[900],
+  textColorSecondary: colors.gray[500],
 
   // Cell
   cellBg: colors.white,

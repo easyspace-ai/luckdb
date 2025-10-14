@@ -1,152 +1,57 @@
 /**
- * WebSocket Manager
- * Manages reconnecting WebSocket connections
+ * WebSocket Connection Manager
+ * 占位符实现 - 待完善
  */
-
 import ReconnectingWebSocket from 'reconnecting-websocket';
 
-export interface WebSocketConfig {
-  maxReconnectionDelay?: number;
-  minReconnectionDelay?: number;
-  reconnectionDelayGrowFactor?: number;
-  connectionTimeout?: number;
-  maxRetries?: number;
-  debug?: boolean;
+export interface IWebSocketConfig {
+  url?: string;
+  autoConnect?: boolean;
+  reconnect?: boolean;
+  reconnectDelay?: number;
 }
 
 export class WebSocketManager {
-  private socket: ReconnectingWebSocket | null = null;
-  private config: WebSocketConfig;
-  private listeners: Map<string, Set<(event: MessageEvent) => void>> = new Map();
+  private ws: ReconnectingWebSocket | null = null;
+  private config: IWebSocketConfig;
 
-  constructor(config: WebSocketConfig = {}) {
-    this.config = {
-      maxReconnectionDelay: 10000,
-      minReconnectionDelay: 1000,
-      reconnectionDelayGrowFactor: 1.3,
-      connectionTimeout: 4000,
-      maxRetries: Infinity,
-      debug: false,
-      ...config,
-    };
+  constructor(config: IWebSocketConfig = {}) {
+    this.config = config;
   }
 
-  /**
-   * Connect to WebSocket server
-   */
-  connect(url: string): ReconnectingWebSocket {
-    if (this.socket) {
-      this.disconnect();
+  connect(url?: string): ReconnectingWebSocket {
+    const wsUrl = url || this.config.url;
+    if (!wsUrl) {
+      throw new Error('WebSocket URL not provided');
     }
-
-    this.socket = new ReconnectingWebSocket(url, [], {
-      maxReconnectionDelay: this.config.maxReconnectionDelay,
-      minReconnectionDelay: this.config.minReconnectionDelay,
-      reconnectionDelayGrowFactor: this.config.reconnectionDelayGrowFactor,
-      connectionTimeout: this.config.connectionTimeout,
-      maxRetries: this.config.maxRetries,
-      debug: this.config.debug,
-    });
-
-    this.setupEventListeners();
-    return this.socket;
+    // 占位符实现 - 创建 ReconnectingWebSocket 实例
+    this.ws = new ReconnectingWebSocket(wsUrl);
+    return this.ws;
   }
 
-  /**
-   * Disconnect from WebSocket server
-   */
   disconnect(): void {
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
-      this.listeners.clear();
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
     }
   }
 
-  /**
-   * Send message through WebSocket
-   */
-  send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(data);
-    } else {
-      console.warn('WebSocket is not connected');
+  send(data: any): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(data));
     }
   }
 
-  /**
-   * Subscribe to WebSocket messages
-   */
-  subscribe(channel: string, callback: (event: MessageEvent) => void): () => void {
-    if (!this.listeners.has(channel)) {
-      this.listeners.set(channel, new Set());
-    }
-    this.listeners.get(channel)!.add(callback);
-
-    // Return unsubscribe function
-    return () => {
-      const channelListeners = this.listeners.get(channel);
-      if (channelListeners) {
-        channelListeners.delete(callback);
-        if (channelListeners.size === 0) {
-          this.listeners.delete(channel);
-        }
-      }
-    };
+  on(event: string, handler: Function): void {
+    // 占位符实现
   }
 
-  /**
-   * Get connection status
-   */
-  getStatus(): 'connecting' | 'connected' | 'disconnected' {
-    if (!this.socket) return 'disconnected';
-    
-    switch (this.socket.readyState) {
-      case WebSocket.CONNECTING:
-        return 'connecting';
-      case WebSocket.OPEN:
-        return 'connected';
-      default:
-        return 'disconnected';
-    }
-  }
-
-  /**
-   * Setup event listeners for WebSocket
-   */
-  private setupEventListeners(): void {
-    if (!this.socket) return;
-
-    this.socket.addEventListener('open', () => {
-      if (this.config.debug) {
-        console.log('[WebSocket] Connected');
-      }
-    });
-
-    this.socket.addEventListener('close', () => {
-      if (this.config.debug) {
-        console.log('[WebSocket] Disconnected');
-      }
-    });
-
-    this.socket.addEventListener('error', (error) => {
-      console.error('[WebSocket] Error:', error);
-    });
-
-    this.socket.addEventListener('message', (event) => {
-      // Notify all subscribers
-      this.listeners.forEach((callbacks) => {
-        callbacks.forEach((callback) => callback(event));
-      });
-    });
-  }
-
-  /**
-   * Get the underlying WebSocket instance
-   */
-  getSocket(): ReconnectingWebSocket | null {
-    return this.socket;
+  off(event: string, handler?: Function): void {
+    // 占位符实现
   }
 }
 
+export function createWebSocket(config: IWebSocketConfig): WebSocketManager {
+  return new WebSocketManager(config);
+}
 

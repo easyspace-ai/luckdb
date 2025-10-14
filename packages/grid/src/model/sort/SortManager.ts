@@ -4,7 +4,8 @@
  */
 
 import type { Field } from '../field/Field';
-import type { Record } from '../record/Record';
+import type { RecordModel } from '../record/Record';
+import { FieldType } from '@/types/field';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -25,7 +26,7 @@ export class SortManager {
   /**
    * 对记录数组进行排序
    */
-  sort(records: Record[]): Record[] {
+  sort(records: RecordModel[]): RecordModel[] {
     if (this.sortConfigs.length === 0) {
       return records; // 没有排序配置，返回原数组
     }
@@ -103,7 +104,7 @@ export class SortManager {
   /**
    * 比较两条记录的字段值
    */
-  private compare(a: Record, b: Record, config: ISortConfig): number {
+  private compare(a: RecordModel, b: RecordModel, config: ISortConfig): number {
     const field = this.fields.get(config.fieldId);
     if (!field) return 0;
 
@@ -119,36 +120,28 @@ export class SortManager {
 
     // 根据字段类型进行比较
     switch (field.type) {
-      case 'number':
-      case 'currency':
-      case 'percent':
-      case 'duration':
-      case 'rating':
+      case FieldType.Number:
+      case FieldType.Rating:
         comparison = this.compareNumbers(valueA, valueB);
         break;
       
-      case 'date':
-      case 'dateTime':
-      case 'createdTime':
-      case 'lastModifiedTime':
+      case FieldType.Date:
+      case FieldType.CreatedTime:
+      case FieldType.LastModifiedTime:
         comparison = this.compareDates(valueA, valueB);
         break;
       
-      case 'boolean':
-      case 'checkbox':
+      case FieldType.Checkbox:
         comparison = this.compareBooleans(valueA, valueB);
         break;
       
-      case 'singleSelect':
-      case 'multipleSelect':
+      case FieldType.SingleSelect:
+      case FieldType.MultipleSelect:
         comparison = this.compareSelects(valueA, valueB, field);
         break;
       
-      case 'text':
-      case 'longText':
-      case 'email':
-      case 'phone':
-      case 'url':
+      case FieldType.SingleLineText:
+      case FieldType.LongText:
       default:
         comparison = this.compareStrings(valueA, valueB);
         break;
@@ -216,7 +209,7 @@ export class SortManager {
   private compareSelects(a: unknown, b: unknown, field: Field): number {
     // 对于选择字段，按照选项定义的顺序排序
     const options = (field.options as any)?.choices || [];
-    const optionOrder = new Map(options.map((opt: any, index: number) => [opt.id || opt.name, index]));
+    const optionOrder: Map<string, number> = new Map(options.map((opt: any, index: number) => [opt.id || opt.name, index]));
 
     const getOptionIndex = (value: unknown): number => {
       if (value == null) return Infinity;
@@ -225,15 +218,17 @@ export class SortManager {
       if (Array.isArray(value)) {
         if (value.length === 0) return Infinity;
         const firstValue = value[0];
-        return optionOrder.get(firstValue) ?? Infinity;
+        const index: number | undefined = optionOrder.get(firstValue as any);
+        return (index !== undefined ? index : Infinity) as number;
       }
       
       // 单选字段
-      return optionOrder.get(value) ?? Infinity;
+      const index: number | undefined = optionOrder.get(value as any);
+      return (index !== undefined ? index : Infinity) as number;
     };
 
-    const indexA = getOptionIndex(a);
-    const indexB = getOptionIndex(b);
+    const indexA: number = getOptionIndex(a);
+    const indexB: number = getOptionIndex(b);
     
     return indexA - indexB;
   }

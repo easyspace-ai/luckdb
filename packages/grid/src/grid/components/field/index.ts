@@ -2,7 +2,6 @@
  * Field Components
  */
 
-export { FieldPropertyEditor } from './FieldPropertyEditor';
-export { FieldTypeSelector } from './FieldTypeSelector';
-
+export * from './FieldTypeSelector';
+export * from './FieldPropertyEditor';
 

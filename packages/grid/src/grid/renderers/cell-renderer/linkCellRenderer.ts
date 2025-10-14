@@ -121,7 +121,8 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
     const { ctx, rect, theme, hoverCellPosition, isActive } = props;
     const { data } = cell;
     const { x: originX, y: originY, width: originWidth, height: originHeight } = rect;
-    const [hoverX, hoverY] = hoverCellPosition || [-1, -1];
+    const hoverX = hoverCellPosition?.x ?? -1;
+    const hoverY = hoverCellPosition?.y ?? -1;
     const { fontSizeSM, cellTextColorHighlight } = theme;
 
     ctx.save();
@@ -183,7 +184,7 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
   },
   checkRegion: (cell: ILinkCell, props: ICellClickProps, _shouldCalculate?: boolean) => {
     const { hoverCellPosition, width, height, isActive, theme, activeCellBound } = props;
-    const [hoverX, originHoverY] = hoverCellPosition;
+    const { x: hoverX, y: originHoverY } = hoverCellPosition;
     const { fontSizeSM } = theme;
     const { data } = cell;
 

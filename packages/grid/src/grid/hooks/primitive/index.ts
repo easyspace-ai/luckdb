@@ -13,4 +13,4 @@ export { useResizeObserver } from './useResizeObserver';
 export { useScrollFrameRate } from './useScrollFrameRate';
 export { useSelection } from './useSelection';
 export { useVisibleRegion, getVerticalRangeInfo, getHorizontalRangeInfo } from './useVisibleRegion';
-
+export type { IVisibleRegion } from './useVisibleRegion';

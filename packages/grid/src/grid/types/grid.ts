@@ -149,7 +149,7 @@ export type ICollaborator = {
   timeStamp: number;
 }[];
 
-export type ICellPosition = [x: number, y: number];
+export type ICellPosition = IPosition;
 
 export interface IPositionWithBounds {
   bounds: IRectangle;
@@ -175,21 +175,23 @@ export enum SelectableType {
   Cell = 'cell',
 }
 
-export interface IActiveCellBound {
+export enum LinearRowType {
+  Row = 'ROW',
+  Group = 'GROUP',
+  GroupTitle = 'GROUP_TITLE',
+  AddRow = 'ADD_ROW',
+  Append = 'APPEND',
+}
+
+export interface IActiveCellBound extends IRectangle {
   rowIndex: number;
   columnIndex: number;
-  width: number;
-  height: number;
   totalHeight: number;
   scrollTop: number;
   scrollEnable: boolean;
 }
 
-export enum LinearRowType {
-  Group = 0,
-  Row = 1,
-  Append = 2,
-}
+// LinearRowType 已在上面定义
 
 export interface IGroupHeaderPoint {
   id: string;
@@ -236,6 +238,8 @@ export interface IGroupCollection {
 }
 
 export interface IColumnLoading {
+  columnId: string;
+  isLoading: boolean;
   index: number;
   progress: number;
   onCancel?: () => void;

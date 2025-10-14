@@ -2,14 +2,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 import { SessionProvider } from './session/SessionContext';
 import { AppProvider } from './app/AppContext';
-import { ConnectionProvider } from './connection/ConnectionContext';
+// import { ConnectionProvider } from './connection/ConnectionContext'; // 依赖已删除的 lib
+// import { HistoryProvider } from './history/HistoryContext'; // 依赖已删除的 lib
 import { BaseProvider } from './base/BaseContext';
 import { TableProvider } from './table/TableContext';
 import { FieldProvider } from './field/FieldContext';
-import { RecordProvider } from './record/RecordContext';
 import { ViewProvider } from './view/ViewContext';
 import { PermissionProvider } from './permission/PermissionContext';
-import { HistoryProvider } from './history/HistoryContext';
+import { ApiClient } from '@/api/client';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,6 +27,7 @@ export function AppProviders({
   viewId,
   wsUrl,
   userId,
+  apiClient,
   children
 }: {
   baseId?: string;
@@ -34,24 +35,23 @@ export function AppProviders({
   viewId?: string;
   wsUrl?: string;
   userId?: string;
+  apiClient: ApiClient;
   children: ReactNode;
 }) {
   return (
     <QueryClientProvider client={queryClient}>
       <SessionProvider>
         <AppProvider>
-          <HistoryProvider>
-            <ConnectionProvider wsUrl={wsUrl} autoConnect={!!wsUrl}>
+          {/* <HistoryProvider> - 依赖已删除的 lib */}
+            {/* <ConnectionProvider wsUrl={wsUrl} autoConnect={!!wsUrl}> - 依赖已删除的 lib */}
               {baseId ? (
-                <BaseProvider baseId={baseId}>
-                  <PermissionProvider baseId={baseId} tableId={tableId} userId={userId}>
+                <BaseProvider baseId={baseId} apiClient={apiClient}>
+                  <PermissionProvider baseId={baseId} tableId={tableId} apiClient={apiClient}>
                     {tableId ? (
-                      <TableProvider baseId={baseId} tableId={tableId}>
-                        <ViewProvider tableId={tableId} viewId={viewId}>
-                          <FieldProvider tableId={tableId}>
-                            <RecordProvider tableId={tableId} viewId={viewId}>
-                              {children}
-                            </RecordProvider>
+                      <TableProvider baseId={baseId} tableId={tableId} apiClient={apiClient}>
+                        <ViewProvider tableId={tableId} viewId={viewId} apiClient={apiClient}>
+                          <FieldProvider tableId={tableId} apiClient={apiClient}>
+                            {children}
                           </FieldProvider>
                         </ViewProvider>
                       </TableProvider>
@@ -63,11 +63,10 @@ export function AppProviders({
               ) : (
                 children
               )}
-            </ConnectionProvider>
-          </HistoryProvider>
+            {/* </ConnectionProvider> */}
+          {/* </HistoryProvider> */}
         </AppProvider>
       </SessionProvider>
     </QueryClientProvider>
   );
 }
-

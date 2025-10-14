@@ -186,7 +186,7 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
     const { data } = cell;
     const { fieldOptions } = data;
     const { hoverCellPosition, width } = props;
-    const [x, y] = hoverCellPosition;
+    const { x, y } = hoverCellPosition;
 
     const cacheKey = `${fieldOptions.label}-${width}`;
     const rect = positionCache.get(cacheKey);

@@ -3,8 +3,7 @@ import { uniqueId } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { useRafState } from 'react-use';
-import { LoadingIndicator, ColumnManagement } from '../components';
-import type { IColumnManagementRef } from '../components/column-management/ColumnManagement';
+import { LoadingIndicator, ColumnManagement, type IColumnManagementRef } from '../components';
 import { RowContextMenu, type IRowContextMenuRef } from '../components/context-menu/RowContextMenu';
 import type { IGridTheme } from '../configs';
 import { gridTheme, GRID_DEFAULT, DEFAULT_SCROLL_STATE, DEFAULT_MOUSE_STATE } from '../configs';
@@ -38,7 +37,7 @@ import {
 } from '../types/grid';
 import type { ISpriteMap, CombinedSelection, IIndicesMap } from '../managers';
 import { CoordinateManager, SpriteManager, ImageManager } from '../managers';
-import { getCellRenderer, type ICell, type IInnerCell } from '../renderers';
+import { getCellRenderer, CellType, type ICell, type IInnerCell } from '../renderers';
 import { TouchLayer } from './TouchLayer';
 import { measuredCanvas } from '../utils/core';
 
@@ -434,7 +433,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   }, [defaultRowsInfo, groupRowsInfo]);
 
   const getLinearRow = useCallback(
-    (index: number) => {
+    (index: number): ILinearRow => {
       if (!linearRows.length) {
         return (
           index >= pureRowCount
@@ -450,7 +449,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
               }
         ) as ILinearRow;
       }
-      return linearRows[index] ?? { realIndex: -2 };
+      return linearRows[index] ?? ({ type: LinearRowType.Row, realIndex: -2 } as ILinearRow);
     },
     [linearRows, pureRowCount]
   );
@@ -511,18 +510,21 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     }
 
     const cell = getCellContent([activeColumnIndex, activeRowIndex]);
-    const cellRenderer = getCellRenderer(cell.type);
+    const cellRenderer = getCellRenderer(cell.type as CellType);
     const originWidth = coordInstance.getColumnWidth(activeColumnIndex);
     const originHeight = coordInstance.getRowHeight(real2RowIndex(activeRowIndex));
 
     if (cellRenderer?.measure && measuredCanvas?.ctx != null) {
-      const { width, height, totalHeight } = cellRenderer.measure(cell as never, {
+      const measureResult = cellRenderer.measure(cell as never, {
         theme,
         ctx: measuredCanvas.ctx,
         width: originWidth,
         height: originHeight,
       });
+      const { width, height, totalHeight = height } = measureResult;
       return {
+        x: coordInstance.getColumnOffset(activeColumnIndex),
+        y: coordInstance.getRowOffset(real2RowIndex(activeRowIndex)),
         rowIndex: activeRowIndex,
         columnIndex: activeColumnIndex,
         width,
@@ -533,6 +535,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       };
     }
     return {
+      x: coordInstance.getColumnOffset(activeColumnIndex),
+      y: coordInstance.getRowOffset(real2RowIndex(activeRowIndex)),
       rowIndex: activeRowIndex,
       columnIndex: activeColumnIndex,
       width: originWidth,
@@ -570,7 +574,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const handleAppendColumnClick = useCallback(() => {
     // 如果提供了onAddColumn回调，优先使用它
     if (onAddColumn) {
-      onAddColumn();
+      onAddColumn('text', columns.length);
       return;
     }
 
@@ -715,16 +719,23 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   }, []);
 
   return (
-    <div className="size-full" style={style} ref={ref}>
+    <div 
+      ref={ref}
+      style={{ 
+        width: '100%', 
+        height: '100%', 
+        ...style 
+      }}
+    >
       <div
         data-t-grid-container
         ref={containerRef}
         tabIndex={0}
-        className="relative outline-none"
         style={{ 
           width: '100%', 
           height: '100%', 
           position: 'relative',
+          outline: 'none',
           // 防御性设计：设置最小尺寸，确保即使父容器配置错误，Grid也有基本显示
           minWidth: '200px',
           minHeight: '150px'

@@ -9,5 +9,3 @@ export { RenderLayer } from './RenderLayer';
 export { TouchLayer } from './TouchLayer';
 export { CellScroller } from './CellScroller';
 export { InfiniteScroller } from './InfiniteScroller';
-
-

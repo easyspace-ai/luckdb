@@ -248,7 +248,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     if (!editable) return { type: CellRegionType.Blank };
 
     const { scrollTop } = activeCellBound;
-    const [hoverX, hoverY] = hoverCellPosition;
+    const { x: hoverX, y: hoverY } = hoverCellPosition;
 
     const cacheKey = `${String(width)}-${displayData.join(',')}`;
     const positions = positionCache.get(cacheKey);
@@ -285,7 +285,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
 
     return { type: CellRegionType.Blank };
   },
-  onClick: (cell: ISelectCell, props: ICellClickProps, callback: ICellClickCallback) => {
+  onClick: (cell: ISelectCell, props: ICellClickProps, callback?: ICellClickCallback) => {
     const { readonly, isEditingOnClick } = cell;
     const { isActive } = props;
     const cellRegion = selectCellRenderer.checkRegion?.(cell, props, true);
@@ -293,13 +293,14 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     if (cellRegion.type === CellRegionType.Blank) {
       const editable = !readonly && isActive;
       if (editable && isEditingOnClick) {
-        return callback({ type: CellRegionType.ToggleEditing, data: null });
+        // Toggle editing mode
+        callback?.(props);
       }
       return;
     }
     if (cellRegion.type === CellRegionType.Preview) {
       return cell?.onPreview?.(cellRegion.data as string);
     }
-    callback(cellRegion);
+    callback?.(props);
   },
 };

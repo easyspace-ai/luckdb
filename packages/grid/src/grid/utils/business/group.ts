@@ -1,4 +1,9 @@
-import type { IGroupPoint } from '../../interface';
+export interface IGroupPoint {
+  id: string;
+  value: unknown;
+  depth: number;
+  [key: string]: any;
+}
 
 export interface IGroupIndexCollection {
   value: unknown;

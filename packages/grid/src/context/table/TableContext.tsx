@@ -1,6 +1,6 @@
 import { createContext, useContext, ReactNode, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useApiClient } from '@/hooks/useApiClient';
+import { ApiClient } from '@/api/client';
 import type { ITable, ICreateTableRo, IUpdateTableRo } from '@/api/types';
 
 interface ITableContext {
@@ -18,13 +18,14 @@ const TableContext = createContext<ITableContext | null>(null);
 export function TableProvider({ 
   baseId,
   tableId,
+  apiClient,
   children 
 }: { 
   baseId: string;
   tableId?: string;
+  apiClient: ApiClient;
   children: ReactNode;
 }) {
-  const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const [currentTableId, setCurrentTableId] = useState(tableId);
 

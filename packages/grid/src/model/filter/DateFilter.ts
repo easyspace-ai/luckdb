@@ -5,14 +5,14 @@
 
 import { BaseFilter, type IFilterConfig } from './BaseFilter';
 import type { Field } from '../field/Field';
-import type { Record } from '../record/Record';
+import type { RecordModel } from '../record/Record';
 
 export class DateFilter extends BaseFilter {
   constructor(field: Field, config: IFilterConfig) {
     super(field, config);
   }
 
-  match(record: Record): boolean {
+  match(record: RecordModel): boolean {
     const { operator } = this.config;
 
     switch (operator) {
@@ -121,7 +121,7 @@ export class DateFilter extends BaseFilter {
     return date.toLocaleDateString('zh-CN');
   }
 
-  private getDateValue(record: Record): Date | null {
+  private getDateValue(record: RecordModel): Date | null {
     const value = this.getValue(record);
     if (this.isEmpty(value)) return null;
     
@@ -143,7 +143,7 @@ export class DateFilter extends BaseFilter {
            date1.getDate() === date2.getDate();
   }
 
-  private matchIs(record: Record): boolean {
+  private matchIs(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     const filterValue = this.getFilterDate();
     
@@ -152,7 +152,7 @@ export class DateFilter extends BaseFilter {
     return this.isSameDay(value, filterValue);
   }
 
-  private matchIsBefore(record: Record): boolean {
+  private matchIsBefore(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     const filterValue = this.getFilterDate();
     
@@ -161,7 +161,7 @@ export class DateFilter extends BaseFilter {
     return value < filterValue;
   }
 
-  private matchIsAfter(record: Record): boolean {
+  private matchIsAfter(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     const filterValue = this.getFilterDate();
     
@@ -170,7 +170,7 @@ export class DateFilter extends BaseFilter {
     return value > filterValue;
   }
 
-  private matchIsOnOrBefore(record: Record): boolean {
+  private matchIsOnOrBefore(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     const filterValue = this.getFilterDate();
     
@@ -179,7 +179,7 @@ export class DateFilter extends BaseFilter {
     return value <= filterValue;
   }
 
-  private matchIsOnOrAfter(record: Record): boolean {
+  private matchIsOnOrAfter(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     const filterValue = this.getFilterDate();
     
@@ -188,7 +188,7 @@ export class DateFilter extends BaseFilter {
     return value >= filterValue;
   }
 
-  private matchIsBetween(record: Record): boolean {
+  private matchIsBetween(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     const { value: start, value2: end } = this.config;
     
@@ -200,7 +200,7 @@ export class DateFilter extends BaseFilter {
     return value >= startDate && value <= endDate;
   }
 
-  private matchIsToday(record: Record): boolean {
+  private matchIsToday(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     if (!value) return false;
     
@@ -208,7 +208,7 @@ export class DateFilter extends BaseFilter {
     return this.isSameDay(value, today);
   }
 
-  private matchIsTomorrow(record: Record): boolean {
+  private matchIsTomorrow(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     if (!value) return false;
     
@@ -217,7 +217,7 @@ export class DateFilter extends BaseFilter {
     return this.isSameDay(value, tomorrow);
   }
 
-  private matchIsYesterday(record: Record): boolean {
+  private matchIsYesterday(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     if (!value) return false;
     
@@ -226,7 +226,7 @@ export class DateFilter extends BaseFilter {
     return this.isSameDay(value, yesterday);
   }
 
-  private matchIsThisWeek(record: Record): boolean {
+  private matchIsThisWeek(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     if (!value) return false;
     
@@ -241,7 +241,7 @@ export class DateFilter extends BaseFilter {
     return value >= startOfWeek && value < endOfWeek;
   }
 
-  private matchIsLastWeek(record: Record): boolean {
+  private matchIsLastWeek(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     if (!value) return false;
     
@@ -256,7 +256,7 @@ export class DateFilter extends BaseFilter {
     return value >= startOfLastWeek && value < endOfLastWeek;
   }
 
-  private matchIsNextWeek(record: Record): boolean {
+  private matchIsNextWeek(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     if (!value) return false;
     
@@ -271,7 +271,7 @@ export class DateFilter extends BaseFilter {
     return value >= startOfNextWeek && value < endOfNextWeek;
   }
 
-  private matchIsThisMonth(record: Record): boolean {
+  private matchIsThisMonth(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     if (!value) return false;
     
@@ -280,7 +280,7 @@ export class DateFilter extends BaseFilter {
            value.getMonth() === now.getMonth();
   }
 
-  private matchIsLastMonth(record: Record): boolean {
+  private matchIsLastMonth(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     if (!value) return false;
     
@@ -291,7 +291,7 @@ export class DateFilter extends BaseFilter {
            value.getMonth() === lastMonth.getMonth();
   }
 
-  private matchIsNextMonth(record: Record): boolean {
+  private matchIsNextMonth(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     if (!value) return false;
     
@@ -302,7 +302,7 @@ export class DateFilter extends BaseFilter {
            value.getMonth() === nextMonth.getMonth();
   }
 
-  private matchIsThisYear(record: Record): boolean {
+  private matchIsThisYear(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     if (!value) return false;
     
@@ -310,7 +310,7 @@ export class DateFilter extends BaseFilter {
     return value.getFullYear() === now.getFullYear();
   }
 
-  private matchIsLastYear(record: Record): boolean {
+  private matchIsLastYear(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     if (!value) return false;
     
@@ -318,7 +318,7 @@ export class DateFilter extends BaseFilter {
     return value.getFullYear() === now.getFullYear() - 1;
   }
 
-  private matchIsNextYear(record: Record): boolean {
+  private matchIsNextYear(record: RecordModel): boolean {
     const value = this.getDateValue(record);
     if (!value) return false;
     

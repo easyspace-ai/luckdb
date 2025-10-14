@@ -5,8 +5,7 @@ import { useState, useRef, forwardRef, useImperativeHandle, useMemo, useLayoutEf
 import { useClickAway, useMouse } from 'react-use';
 import type { CellScrollerRef } from './CellScroller';
 import { CellScroller } from './CellScroller';
-import type { IEditorContainerProps } from '../components/editors/EditorContainer';
-export type IEditorContainerRef = any; // TODO: fix type
+import type { IEditorContainerRef } from '../components/editors';
 import { EditorContainer } from '../components/editors';
 import type { IGridTheme } from '../configs';
 
@@ -49,7 +48,7 @@ import {
   SelectableType,
 } from '../types/grid';
 import type { CoordinateManager, ImageManager, SpriteManager, CombinedSelection } from '../managers';
-import { CellRegionType, getCellRenderer } from '../renderers';
+import { CellRegionType, CellType, getCellRenderer, ICellClickCallback } from '../renderers';
 import { RenderLayer } from './RenderLayer';
 import type { IRegionData } from '../utils/core';
 import { BLANK_REGION_DATA, flatRanges, getRegionData, inRange } from '../utils/core';
@@ -281,19 +280,19 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
     if (isCellRange) {
       const cell = getCellContent([columnIndex, realIndex]);
-      const cellRenderer = getCellRenderer(cell.type);
+      const cellRenderer = getCellRenderer(cell.type as CellType);
 
       if (
-        cellRenderer.needsHoverPosition ||
-        (cellRenderer.needsHoverPositionWhenActive &&
+        cellRenderer?.needsHoverPosition ||
+        (cellRenderer?.needsHoverPositionWhenActive &&
           activeCell &&
           isEqual(activeCell, [columnIndex, realIndex]))
       ) {
         const offsetX = coordInstance.getColumnOffset(columnIndex);
-        return [
-          columnIndex < freezeColumnCount ? x - offsetX : x - offsetX + scrollLeft,
-          y - coordInstance.getRowOffset(rowIndex) + scrollTop,
-        ] as ICellPosition;
+        return {
+          x: columnIndex < freezeColumnCount ? x - offsetX : x - offsetX + scrollLeft,
+          y: y - coordInstance.getRowOffset(rowIndex) + scrollTop,
+        };
       }
     }
     return null;
@@ -453,8 +452,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       case RegionType.Cell:
       case RegionType.ActiveCell: {
         const cell = getCellContent([columnIndex, rowIndex]) as IInnerCell;
-        const cellRenderer = getCellRenderer(cell.type);
-        const onCellClick = cellRenderer.onClick;
+        const cellRenderer = getCellRenderer(cell.type as CellType);
+        const onCellClick = cellRenderer?.onClick;
         const isActive =
           isEqual(prevActiveCellRef.current, activeCell) &&
           isEqual(activeCell, [columnIndex, rowIndex]);
@@ -463,6 +462,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           onCellClick(
             cell as never,
             {
+              position: { x: mouseState.x, y: mouseState.y },
+              cell,
+              rowIndex,
+              columnIndex,
               width: coordInstance.getColumnWidth(columnIndex),
               height: coordInstance.getRowHeight(hoverRowIndex),
               theme,
@@ -470,7 +473,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
               activeCellBound,
               isActive,
             },
-            (cellRegion: ICellRegionWithData) => {
+            ((cellRegion: ICellRegionWithData) => {
               const { type, data } = cellRegion;
 
               if (type === CellRegionType.Update) {
@@ -483,7 +486,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
               if (type === CellRegionType.ToggleEditing) {
                 return setEditing(true);
               }
-            }
+            }) as unknown as ICellClickCallback
           );
         }
         return;
@@ -600,12 +603,18 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const { columnIndex, rowIndex, type } = mouseState;
     const { realIndex } = getLinearRow(rowIndex);
     const cell = getCellContent([columnIndex, realIndex]);
-    const cellRenderer = getCellRenderer(cell.type);
-    const { needsHover, needsHoverPosition, needsHoverWhenActive, needsHoverPositionWhenActive } =
-      cellRenderer;
+    const cellRenderer = getCellRenderer(cell.type as CellType);
+    const needsHover = cellRenderer?.needsHover;
+    const needsHoverPosition = cellRenderer?.needsHoverPosition;
+    const needsHoverWhenActive = cellRenderer?.needsHoverWhenActive;
+    const needsHoverPositionWhenActive = cellRenderer?.needsHoverPositionWhenActive;
     const isActive = type === RegionType.ActiveCell;
     if ((needsHoverPosition || (needsHoverPositionWhenActive && isActive)) && hoverCellPosition) {
-      const region = cellRenderer.checkRegion?.(cell as never, {
+      const region = cellRenderer?.checkRegion?.(cell as never, {
+        position: hoverCellPosition,
+        cell,
+        rowIndex,
+        columnIndex,
         width: coordInstance.getColumnWidth(columnIndex),
         height: coordInstance.getRowHeight(rowIndex),
         theme,
@@ -644,8 +653,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const onMouseMove = () => {
     const mouseState = getMouseState();
     const hoverCellPosition = getHoverCellPosition(mouseState);
-    setHoverCellPosition(() => hoverCellPosition);
-    setMouseState(() => mouseState);
+    setHoverCellPosition(hoverCellPosition);
+    setMouseState(mouseState);
     setCursorStyle(mouseState.type);
     onCellPosition(mouseState);
     if (isSelecting) onAutoScroll(mouseState);
@@ -803,7 +812,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         <div
           ref={stageRef}
           data-t-grid-stage
-          className="size-full"
+          style={{ width: '100%', height: '100%' }}
           onClick={onSmartClick}
           onMouseDown={onMouseDown}
           onMouseLeave={onMouseLeave}

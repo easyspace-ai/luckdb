@@ -10,7 +10,7 @@ export * from './SelectField';
 export * from './DateField';
 export * from './RatingField';
 export * from './LinkField';
-export * from './UserField';
+export { UserField, type IUserFieldOptions } from './UserField'; // 排除 IUser 避免与 api/types 冲突
 export * from './AttachmentField';
 export * from './FormulaField';
 export * from './RollupField';

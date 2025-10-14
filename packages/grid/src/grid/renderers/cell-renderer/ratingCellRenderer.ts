@@ -21,7 +21,8 @@ export const ratingCellRenderer: IInternalCellRenderer<IRatingCell> = {
     const { data, icon, color, max, readonly } = cell;
     const { ctx, theme, rect, hoverCellPosition, spriteManager } = props;
     const { x, y, width, height } = rect;
-    const [hoverX, hoverY] = hoverCellPosition ?? [0, 0];
+    const hoverX = hoverCellPosition?.x ?? 0;
+    const hoverY = hoverCellPosition?.y ?? 0;
     const { iconSizeXS, iconFgHighlight, cellLineColor } = theme;
 
     // 即使data为null或0，也要显示所有灰色星星
@@ -70,7 +71,7 @@ export const ratingCellRenderer: IInternalCellRenderer<IRatingCell> = {
     const { data, max, readonly } = cell;
     if (readonly) return { type: CellRegionType.Blank };
     const { hoverCellPosition, height, theme } = props;
-    const [x, y] = hoverCellPosition;
+    const { x, y } = hoverCellPosition;
     const { iconSizeXS } = theme;
     const minX = cellHorizontalPadding;
     const maxX = minX + max * (iconSizeXS + gapSize);

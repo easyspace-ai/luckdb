@@ -1,6 +1,6 @@
 import { createContext, useContext, ReactNode, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useApiClient } from '@/hooks/useApiClient';
+import { ApiClient } from '@/api/client';
 import type { IBase, ICreateBaseRo, IUpdateBaseRo } from '@/api/types';
 
 interface IBaseContext {
@@ -17,12 +17,13 @@ const BaseContext = createContext<IBaseContext | null>(null);
 
 export function BaseProvider({ 
   baseId,
+  apiClient,
   children 
 }: { 
   baseId?: string;
+  apiClient: ApiClient;
   children: ReactNode;
 }) {
-  const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const [currentBaseId, setCurrentBaseId] = useState(baseId);
 

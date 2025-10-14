@@ -26,7 +26,7 @@ import type {
 } from '../types/grid';
 import type { CoordinateManager, ImageManager, SpriteManager } from '../managers';
 import { emptySelection } from '../managers';
-import { CellRegionType, getCellRenderer } from '../renderers';
+import { CellRegionType, CellType, getCellRenderer, ICellClickProps } from '../renderers';
 import { RenderLayer } from './RenderLayer';
 import { getColumnStatisticData, inRange } from '../utils/core';
 
@@ -210,42 +210,39 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
         return;
       }
 
-      let isPreview = false;
-
       // Tap the cell
       if (columnIndex >= 0) {
         const cell = getCellContent([columnIndex, rowIndex]) as IInnerCell;
-        const cellRenderer = getCellRenderer(cell.type);
-        const onCellClick = cellRenderer.onClick;
+        const cellRenderer = getCellRenderer(cell.type as CellType);
+        const onCellClick = cellRenderer?.onClick;
 
         if (onCellClick) {
           const offsetX = coordInstance.getColumnOffset(columnIndex);
           onCellClick(
             cell as never,
             {
+              position: { x, y },
+              cell,
+              rowIndex,
+              columnIndex,
               width: coordInstance.getColumnWidth(columnIndex),
               height: coordInstance.getRowHeight(rowIndex),
               theme,
-              hoverCellPosition: [
-                columnIndex < coordInstance.freezeColumnCount
+              hoverCellPosition: {
+                x: columnIndex < coordInstance.freezeColumnCount
                   ? x - offsetX
                   : x - offsetX + scrollLeft,
-                y - coordInstance.getRowOffset(rowIndex) + scrollTop,
-              ],
+                y: y - coordInstance.getRowOffset(rowIndex) + scrollTop,
+              },
               activeCellBound: null,
               isActive: false,
             },
-            (cellRegion: ICellRegionWithData) => {
-              const { type } = cellRegion;
-
-              if (type === CellRegionType.Preview) {
-                isPreview = true;
-              }
+            (props: ICellClickProps) => {
+              // Callback from cell renderer
+              // Handle cell click region types here if needed
             }
           );
         }
-
-        if (isPreview) return;
       }
 
       const range = [0, rowIndex];

@@ -56,7 +56,11 @@ const RowContextMenuBase: ForwardRefRenderFunction<IRowContextMenuRef, IRowConte
         padding: 8,
       });
       
-      setComputedPosition(computed);
+      setComputedPosition({
+        left: computed.left,
+        top: computed.top,
+        transformOrigin: computed.transformOrigin || 'top left',
+      });
     }
   }, [isVisible, position]);
 

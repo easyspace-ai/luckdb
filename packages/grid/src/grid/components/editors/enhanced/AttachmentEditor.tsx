@@ -29,20 +29,13 @@ export const AttachmentEditor: FC<IAttachmentEditorProps> = ({
     readAs: 'DataURL',
     accept: allowedTypes.length > 0 ? allowedTypes : undefined,
     multiple: maxFiles > 1,
-    validators: [
-      {
-        validator: (file) => {
-          if (file.size > maxSize) {
-            return {
-              valid: false,
-              errorMessage: `File size exceeds ${formatFileSize(maxSize)}`,
-            };
-          }
-          return { valid: true };
-        },
-      },
-    ],
     onFilesSuccessfullySelected: async ({ plainFiles }) => {
+      // Validate file size
+      const oversizedFile = plainFiles.find((file) => file.size > maxSize);
+      if (oversizedFile) {
+        console.error(`File size exceeds ${formatFileSize(maxSize)}`);
+        return;
+      }
       if (!onUpload) return;
 
       setIsUploading(true);

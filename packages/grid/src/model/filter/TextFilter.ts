@@ -5,14 +5,14 @@
 
 import { BaseFilter, type IFilterConfig } from './BaseFilter';
 import type { Field } from '../field/Field';
-import type { Record } from '../record/Record';
+import type { RecordModel } from '../record/Record';
 
 export class TextFilter extends BaseFilter {
   constructor(field: Field, config: IFilterConfig) {
     super(field, config);
   }
 
-  match(record: Record): boolean {
+  match(record: RecordModel): boolean {
     const { operator } = this.config;
 
     switch (operator) {
@@ -63,7 +63,7 @@ export class TextFilter extends BaseFilter {
     }
   }
 
-  private matchIs(record: Record): boolean {
+  private matchIs(record: RecordModel): boolean {
     const value = this.getValue(record);
     const filterValue = this.config.value;
     
@@ -72,7 +72,7 @@ export class TextFilter extends BaseFilter {
     return String(value).toLowerCase() === String(filterValue).toLowerCase();
   }
 
-  private matchContains(record: Record): boolean {
+  private matchContains(record: RecordModel): boolean {
     const value = this.getValue(record);
     const filterValue = this.config.value;
     
@@ -81,7 +81,7 @@ export class TextFilter extends BaseFilter {
     return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
   }
 
-  private matchStartsWith(record: Record): boolean {
+  private matchStartsWith(record: RecordModel): boolean {
     const value = this.getValue(record);
     const filterValue = this.config.value;
     
@@ -90,7 +90,7 @@ export class TextFilter extends BaseFilter {
     return String(value).toLowerCase().startsWith(String(filterValue).toLowerCase());
   }
 
-  private matchEndsWith(record: Record): boolean {
+  private matchEndsWith(record: RecordModel): boolean {
     const value = this.getValue(record);
     const filterValue = this.config.value;
     

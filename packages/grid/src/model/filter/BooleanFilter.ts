@@ -5,14 +5,14 @@
 
 import { BaseFilter, type IFilterConfig } from './BaseFilter';
 import type { Field } from '../field/Field';
-import type { Record } from '../record/Record';
+import type { RecordModel } from '../record/Record';
 
 export class BooleanFilter extends BaseFilter {
   constructor(field: Field, config: IFilterConfig) {
     super(field, config);
   }
 
-  match(record: Record): boolean {
+  match(record: RecordModel): boolean {
     const { operator } = this.config;
 
     switch (operator) {
@@ -47,7 +47,7 @@ export class BooleanFilter extends BaseFilter {
     }
   }
 
-  private matchIs(record: Record): boolean {
+  private matchIs(record: RecordModel): boolean {
     const value = this.getValue(record);
     const filterValue = this.config.value;
     

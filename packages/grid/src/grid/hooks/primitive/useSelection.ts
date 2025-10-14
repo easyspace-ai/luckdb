@@ -1,6 +1,10 @@
 import { useRef, useState } from 'react';
 import { useUnmount, useUpdateEffect } from 'react-use';
-import type { IGridProps } from '../../core/Grid';
+
+export interface IGridProps {
+  // 占位符接口
+  [key: string]: any;
+}
 import type { ICellItem, ILinearRow, IMouseState, IPosition, IRange } from '../../types/grid';
 import { RegionType, SelectionRegionType, SelectableType } from '../../types/grid';
 import { CombinedSelection, type CoordinateManager } from '../../managers';

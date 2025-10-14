@@ -4,7 +4,8 @@
  */
 
 import type { Field } from '../field/Field';
-import type { Record } from '../record/Record';
+import type { RecordModel } from '../record/Record';
+import { FieldType } from '@/types/field';
 import type { SortDirection } from '../sort/SortManager';
 
 export interface IGroupConfig {
@@ -13,7 +14,7 @@ export interface IGroupConfig {
 }
 
 export interface IGroupedRecord {
-  record: Record;
+  record: RecordModel;
   level: number; // 嵌套层级
   groupPath: string[]; // 分组路径
 }
@@ -24,7 +25,7 @@ export interface IGroupNode {
   value: unknown;
   displayValue: string;
   level: number;
-  records: Record[];
+  records: RecordModel[];
   children: IGroupNode[];
   collapsed: boolean;
   count: number;
@@ -44,7 +45,7 @@ export class GroupManager {
   /**
    * 对记录进行分组
    */
-  group(records: Record[]): IGroupNode[] {
+  group(records: RecordModel[]): IGroupNode[] {
     if (this.groupConfigs.length === 0) {
       return []; // 没有分组配置
     }
@@ -55,7 +56,7 @@ export class GroupManager {
   /**
    * 获取扁平化的分组记录列表（用于渲染）
    */
-  getFlattenedRecords(records: Record[]): IGroupedRecord[] {
+  getFlattenedRecords(records: RecordModel[]): IGroupedRecord[] {
     const grouped = this.group(records);
     const flattened: IGroupedRecord[] = [];
 
@@ -86,7 +87,7 @@ export class GroupManager {
   /**
    * 获取分组摘要信息
    */
-  getGroupSummaries(records: Record[]): Map<string, number> {
+  getGroupSummaries(records: RecordModel[]): Map<string, number> {
     const summaries = new Map<string, number>();
     const grouped = this.group(records);
 
@@ -192,7 +193,7 @@ export class GroupManager {
   /**
    * 递归分组函数
    */
-  private groupRecursive(records: Record[], level: number): IGroupNode[] {
+  private groupRecursive(records: RecordModel[], level: number): IGroupNode[] {
     if (level >= this.groupConfigs.length) {
       return []; // 已达到最大分组层级
     }
@@ -206,7 +207,7 @@ export class GroupManager {
     }
 
     // 按字段值分组
-    const groups = new Map<string, Record[]>();
+    const groups = new Map<string, RecordModel[]>();
     
     for (const record of records) {
       const value = record.getCellValue(config.fieldId);
@@ -288,7 +289,7 @@ export class GroupManager {
     }
 
     // 对于布尔字段
-    if (field.type === 'boolean' || field.type === 'checkbox') {
+    if (field.type === FieldType.Checkbox) {
       return value ? '是' : '否';
     }
 

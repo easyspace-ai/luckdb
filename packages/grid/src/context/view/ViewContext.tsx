@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useApiClient } from '@/hooks/useApiClient';
+import { ApiClient } from '@/api/client';
 import { View } from '@/model/view/View';
 import type { IView, ICreateViewRo, IUpdateViewRo } from '@/api/types';
 
@@ -21,13 +21,14 @@ const ViewContext = createContext<IViewContext | null>(null);
 export function ViewProvider({ 
   tableId,
   viewId,
+  apiClient,
   children 
 }: { 
   tableId: string;
   viewId?: string;
+  apiClient: ApiClient;
   children: ReactNode;
 }) {
-  const apiClient = useApiClient();
   const queryClient = useQueryClient();
 
   // 获取视图列表
@@ -79,15 +80,29 @@ export function ViewProvider({
 
   // 复制视图
   const duplicateMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => {
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
       const view = getView(id);
       if (!view) throw new Error('View not found');
       
-      return apiClient.createView(tableId, {
+      // 先创建基本视图
+      const newView = await apiClient.createView(tableId, {
         name,
         type: view.type,
         tableId,
       });
+      
+      // 然后更新其他属性
+      if (view.filter || view.sort || view.group || view.columnMeta || view.options) {
+        await apiClient.updateView(tableId, newView.id, {
+          filter: view.filter,
+          sort: view.sort,
+          group: view.group,
+          columnMeta: view.columnMeta,
+          options: view.options,
+        });
+      }
+      
+      return newView;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['views', tableId] });

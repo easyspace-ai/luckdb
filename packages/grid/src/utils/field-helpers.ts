@@ -28,13 +28,8 @@ export function getFormulaCellType(
   }
 }
 
-/**
- * Check if a field type is a computed field (Formula or Rollup)
- * 检查字段类型是否为计算字段
- */
-export function isComputedField(fieldType: FieldType): boolean {
-  return fieldType === FieldType.Formula || fieldType === FieldType.Rollup;
-}
+// isComputedField has been moved to field-mapping.ts to avoid duplicate exports
+import { isComputedField as isComputedFieldFromMapping } from './field-mapping';
 
 /**
  * Check if a field type is editable
@@ -54,6 +49,9 @@ export function isEditableFieldType(fieldType: FieldType): boolean {
   
   return !readonlyFieldTypes.has(fieldType);
 }
+
+// Re-export for backward compatibility
+export { isComputedFieldFromMapping as isComputedField };
 
 /**
  * Check if button is clickable based on field options and cell value

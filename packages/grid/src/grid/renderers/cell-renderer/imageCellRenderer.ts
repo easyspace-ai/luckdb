@@ -129,7 +129,7 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
     const editable = !readonly && isActive;
 
     const { iconSizeSM } = theme;
-    const [hoverX, hoverY] = hoverCellPosition;
+    const { x: hoverX, y: hoverY } = hoverCellPosition;
     const startX = cellHorizontalPadding;
     const startY = (height - iconSizeSM) / 2;
 

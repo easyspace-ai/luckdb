@@ -71,7 +71,7 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
     const { data, readonly } = cell;
     if (readonly) return { type: CellRegionType.Blank };
     const { hoverCellPosition, width, height, theme } = props;
-    const [x, y] = hoverCellPosition;
+    const { x, y } = hoverCellPosition;
     const { iconSizeSM } = theme;
     const halfIconSize = iconSizeSM / 2;
 

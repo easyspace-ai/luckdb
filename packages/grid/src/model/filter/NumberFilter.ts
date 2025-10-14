@@ -5,14 +5,14 @@
 
 import { BaseFilter, type IFilterConfig } from './BaseFilter';
 import type { Field } from '../field/Field';
-import type { Record } from '../record/Record';
+import type { RecordModel } from '../record/Record';
 
 export class NumberFilter extends BaseFilter {
   constructor(field: Field, config: IFilterConfig) {
     super(field, config);
   }
 
-  match(record: Record): boolean {
+  match(record: RecordModel): boolean {
     const { operator } = this.config;
 
     switch (operator) {
@@ -63,7 +63,7 @@ export class NumberFilter extends BaseFilter {
     }
   }
 
-  private getNumericValue(record: Record): number | null {
+  private getNumericValue(record: RecordModel): number | null {
     const value = this.getValue(record);
     if (this.isEmpty(value)) return null;
     
@@ -71,7 +71,7 @@ export class NumberFilter extends BaseFilter {
     return isNaN(num) ? null : num;
   }
 
-  private matchEqual(record: Record): boolean {
+  private matchEqual(record: RecordModel): boolean {
     const value = this.getNumericValue(record);
     const filterValue = Number(this.config.value);
     
@@ -80,7 +80,7 @@ export class NumberFilter extends BaseFilter {
     return value === filterValue;
   }
 
-  private matchGreaterThan(record: Record): boolean {
+  private matchGreaterThan(record: RecordModel): boolean {
     const value = this.getNumericValue(record);
     const filterValue = Number(this.config.value);
     
@@ -89,7 +89,7 @@ export class NumberFilter extends BaseFilter {
     return value > filterValue;
   }
 
-  private matchGreaterThanOrEqual(record: Record): boolean {
+  private matchGreaterThanOrEqual(record: RecordModel): boolean {
     const value = this.getNumericValue(record);
     const filterValue = Number(this.config.value);
     
@@ -98,7 +98,7 @@ export class NumberFilter extends BaseFilter {
     return value >= filterValue;
   }
 
-  private matchLessThan(record: Record): boolean {
+  private matchLessThan(record: RecordModel): boolean {
     const value = this.getNumericValue(record);
     const filterValue = Number(this.config.value);
     
@@ -107,7 +107,7 @@ export class NumberFilter extends BaseFilter {
     return value < filterValue;
   }
 
-  private matchLessThanOrEqual(record: Record): boolean {
+  private matchLessThanOrEqual(record: RecordModel): boolean {
     const value = this.getNumericValue(record);
     const filterValue = Number(this.config.value);
     

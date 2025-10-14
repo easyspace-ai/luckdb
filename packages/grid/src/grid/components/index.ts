@@ -5,5 +5,6 @@
 export * from './editors';
 export * from './context-menu';
 export * from './column-management';
-export * from './field';
+export * from './field';  // 现在已恢复
 export * from './ui';
+export * from './toolbar';

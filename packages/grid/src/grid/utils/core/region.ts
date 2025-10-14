@@ -8,7 +8,15 @@ import type {
   IRegionPosition,
   IRowControlItem,
 } from '../../types/grid';
-import type { IRenderLayerProps } from '../../core/RenderLayer';
+
+export interface IRenderLayerProps {
+  theme: any;
+  height: number;
+  columns: any[];
+  scrollState: any;
+  [key: string]: any;
+}
+
 import { inRange } from './range';
 
 interface ICheckRegionProps

@@ -4,7 +4,7 @@
  */
 
 import type { Field } from '../field/Field';
-import type { Record } from '../record/Record';
+import type { RecordModel } from '../record/Record';
 import type { BaseFilter, IFilterConfig } from './BaseFilter';
 import { createFilterInstance } from './factory';
 
@@ -33,7 +33,7 @@ export class FilterManager {
   /**
    * 检查记录是否匹配过滤条件
    */
-  match(record: Record): boolean {
+  match(record: RecordModel): boolean {
     const { conjunction, filters } = this.filterGroup;
 
     if (filters.length === 0) {
@@ -54,7 +54,7 @@ export class FilterManager {
   /**
    * 过滤记录数组
    */
-  filter(records: Record[]): Record[] {
+  filter(records: RecordModel[]): RecordModel[] {
     if (this.filterGroup.filters.length === 0) {
       return records; // 没有过滤器，返回所有记录
     }

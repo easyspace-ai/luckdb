@@ -5,14 +5,14 @@
 
 import { BaseFilter, type IFilterConfig } from './BaseFilter';
 import type { Field } from '../field/Field';
-import type { Record } from '../record/Record';
+import type { RecordModel } from '../record/Record';
 
 export class AttachmentFilter extends BaseFilter {
   constructor(field: Field, config: IFilterConfig) {
     super(field, config);
   }
 
-  match(record: Record): boolean {
+  match(record: RecordModel): boolean {
     const { operator } = this.config;
 
     switch (operator) {
@@ -39,7 +39,7 @@ export class AttachmentFilter extends BaseFilter {
     }
   }
 
-  protected override matchIsEmpty(record: Record): boolean {
+  protected override matchIsEmpty(record: RecordModel): boolean {
     const value = this.getValue(record);
     
     if (value === null || value === undefined) return true;

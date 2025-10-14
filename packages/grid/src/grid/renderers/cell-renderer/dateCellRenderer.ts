@@ -7,12 +7,12 @@ export const dateCellRenderer: IBaseCellRenderer<IDateCell> = {
   draw: (cell, props) => {
     const { ctx, theme, rect } = props;
     const { data } = cell;
-    const { cellTextColor, cellLineColor } = theme;
+    const { textColor, cellLineColor } = theme;
     const { x, y, width, height } = rect;
 
     // 设置文本样式
-    ctx.fillStyle = cellTextColor;
-    ctx.font = `${theme.fontSizeSM}px ${theme.fontFamily}`;
+    ctx.fillStyle = textColor;
+    ctx.font = `${theme.fontSize}px ${theme.fontFamily}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 

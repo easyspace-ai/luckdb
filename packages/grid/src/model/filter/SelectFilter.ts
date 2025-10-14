@@ -5,14 +5,14 @@
 
 import { BaseFilter, type IFilterConfig } from './BaseFilter';
 import type { Field } from '../field/Field';
-import type { Record } from '../record/Record';
+import type { RecordModel } from '../record/Record';
 
 export class SelectFilter extends BaseFilter {
   constructor(field: Field, config: IFilterConfig) {
     super(field, config);
   }
 
-  match(record: Record): boolean {
+  match(record: RecordModel): boolean {
     const { operator } = this.config;
 
     switch (operator) {
@@ -73,7 +73,7 @@ export class SelectFilter extends BaseFilter {
     }
   }
 
-  private getValueArray(record: Record): string[] {
+  private getValueArray(record: RecordModel): string[] {
     const value = this.getValue(record);
     
     if (this.isEmpty(value)) return [];
@@ -95,7 +95,7 @@ export class SelectFilter extends BaseFilter {
     return [String(value)];
   }
 
-  private matchIs(record: Record): boolean {
+  private matchIs(record: RecordModel): boolean {
     const values = this.getValueArray(record);
     const filterValue = String(this.config.value);
     
@@ -104,7 +104,7 @@ export class SelectFilter extends BaseFilter {
     return values.length === 1 && values[0] === filterValue;
   }
 
-  private matchIsAnyOf(record: Record): boolean {
+  private matchIsAnyOf(record: RecordModel): boolean {
     const values = this.getValueArray(record);
     const filterValues = this.getFilterArray();
     
@@ -113,11 +113,11 @@ export class SelectFilter extends BaseFilter {
     return values.some(v => filterValues.includes(v));
   }
 
-  private matchIsNoneOf(record: Record): boolean {
+  private matchIsNoneOf(record: RecordModel): boolean {
     return !this.matchIsAnyOf(record);
   }
 
-  private matchHasAnyOf(record: Record): boolean {
+  private matchHasAnyOf(record: RecordModel): boolean {
     const values = this.getValueArray(record);
     const filterValues = this.getFilterArray();
     
@@ -126,7 +126,7 @@ export class SelectFilter extends BaseFilter {
     return values.some(v => filterValues.includes(v));
   }
 
-  private matchHasAllOf(record: Record): boolean {
+  private matchHasAllOf(record: RecordModel): boolean {
     const values = this.getValueArray(record);
     const filterValues = this.getFilterArray();
     
@@ -135,7 +135,7 @@ export class SelectFilter extends BaseFilter {
     return filterValues.every(fv => values.includes(fv));
   }
 
-  private matchHasNoneOf(record: Record): boolean {
+  private matchHasNoneOf(record: RecordModel): boolean {
     const values = this.getValueArray(record);
     const filterValues = this.getFilterArray();
     
@@ -144,7 +144,7 @@ export class SelectFilter extends BaseFilter {
     return !values.some(v => filterValues.includes(v));
   }
 
-  private matchIsExactly(record: Record): boolean {
+  private matchIsExactly(record: RecordModel): boolean {
     const values = this.getValueArray(record);
     const filterValues = this.getFilterArray();
     

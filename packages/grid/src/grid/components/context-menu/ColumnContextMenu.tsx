@@ -78,7 +78,11 @@ const ColumnContextMenuBase: ForwardRefRenderFunction<
       
       console.log('✅ 计算结果:', JSON.stringify(computed));
       
-      setComputedPosition(computed);
+      setComputedPosition({
+        left: computed.left,
+        top: computed.top,
+        transformOrigin: computed.transformOrigin || 'top left',
+      });
     }
   }, [isVisible, position]);
 

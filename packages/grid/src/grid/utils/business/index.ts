@@ -8,5 +8,3 @@ export * from './imageHandler';
 export * from './persistEditing';
 export * from './group';
 export * from './utils';
-
-

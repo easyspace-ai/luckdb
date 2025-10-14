@@ -1,5 +1,16 @@
 import { useHotkeys, isHotkeyPressed } from 'react-hotkeys-hook';
-import type { IEditorContainerProps, IEditorRef } from '../../components/editors/EditorContainer';
+
+export interface IEditorRef<T = any> {
+  focus?: () => void;
+  blur?: () => void;
+  getValue?: () => T | null;
+  setValue?: (value: T | null) => void;
+  saveValue?: () => void;
+}
+
+export interface IEditorContainerProps {
+  [key: string]: any;
+}
 import { SelectionRegionType } from '../../types/grid';
 import type { IRange } from '../../types/grid';
 

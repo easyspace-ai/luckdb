@@ -63,6 +63,13 @@ export function isReadonlyField(fieldType: FieldType): boolean {
 }
 
 /**
+ * 判断字段类型是否为计算字段
+ */
+export function isComputedField(fieldType: FieldType): boolean {
+  return fieldType === FieldType.Formula || fieldType === FieldType.Rollup;
+}
+
+/**
  * 获取字段类型的默认选项
  */
 export function getDefaultFieldOptions(fieldType: FieldType): unknown {

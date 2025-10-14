@@ -85,18 +85,7 @@ export type FieldType =
   | 'createdBy'
   | 'lastModifiedBy'
   | 'autoNumber'
-  | 'button'
-  // Field type aliases and variants
-  | 'text'
-  | 'email'
-  | 'phone'
-  | 'url'
-  | 'currency'
-  | 'percent'
-  | 'duration'
-  | 'dateTime'
-  | 'boolean'
-  | 'linkTo';
+  | 'button';
 
 export interface IField {
   id: string;
@@ -251,17 +240,6 @@ export interface ITablePermission {
   'view|read': boolean;
   'view|update': boolean;
   'view|delete': boolean;
-}
-
-export interface IPermission {
-  userId: string;
-  role: 'owner' | 'editor' | 'viewer';
-  permissions: IPermissions;
-}
-
-export interface IUpdatePermissionRo {
-  role?: 'owner' | 'editor' | 'viewer';
-  permissions?: IPermissions;
 }
 
 // User

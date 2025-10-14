@@ -1,5 +1,5 @@
 import type { ICellItem, IRange } from '../../types/grid';
-import type { CombinedSelection } from '../../managers/selection-manager';
+import type { CombinedSelection } from '../../managers';
 
 export const isRangeWithinRanges = (checkedRange: IRange, ranges: IRange[]) => {
   const [checkedStart, checkedEnd] = checkedRange;

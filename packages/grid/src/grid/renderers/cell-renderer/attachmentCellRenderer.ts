@@ -7,12 +7,12 @@ export const attachmentCellRenderer: IBaseCellRenderer<IAttachmentCell> = {
   draw: (cell, props) => {
     const { ctx, theme, rect } = props;
     const { data } = cell;
-    const { cellTextColor, cellLineColor } = theme;
+    const { textColor, cellLineColor } = theme;
     const { x, y, width, height } = rect;
 
     // 设置文本样式
-    ctx.fillStyle = cellTextColor;
-    ctx.font = `${theme.fontSizeSM}px ${theme.fontFamily}`;
+    ctx.fillStyle = textColor;
+    ctx.font = `${theme.fontSize}px ${theme.fontFamily}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
@@ -26,7 +26,7 @@ export const attachmentCellRenderer: IBaseCellRenderer<IAttachmentCell> = {
       const text = '无附件';
       const textX = x + 8;
       const textY = y + height / 2;
-      ctx.fillStyle = theme.cellTextColorHighlight;
+      ctx.fillStyle = theme.textColorSecondary;
       ctx.fillText(text, textX, textY);
     }
 

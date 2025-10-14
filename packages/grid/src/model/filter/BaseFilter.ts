@@ -4,7 +4,7 @@
  */
 
 import type { Field } from '../field/Field';
-import type { Record } from '../record/Record';
+import type { RecordModel } from '../record/Record';
 
 export type FilterOperator = 
   // 通用操作符
@@ -40,7 +40,7 @@ export abstract class BaseFilter {
   /**
    * 检查记录是否匹配过滤条件
    */
-  abstract match(record: Record): boolean;
+  abstract match(record: RecordModel): boolean;
 
   /**
    * 获取过滤器的显示文本
@@ -50,7 +50,7 @@ export abstract class BaseFilter {
   /**
    * 获取字段值
    */
-  protected getValue(record: Record): unknown {
+  protected getValue(record: RecordModel): unknown {
     return record.getCellValue(this.field.id);
   }
 
@@ -64,7 +64,7 @@ export abstract class BaseFilter {
   /**
    * 通用 isEmpty 操作符
    */
-  protected matchIsEmpty(record: Record): boolean {
+  protected matchIsEmpty(record: RecordModel): boolean {
     const value = this.getValue(record);
     return this.isEmpty(value);
   }
@@ -72,7 +72,7 @@ export abstract class BaseFilter {
   /**
    * 通用 isNotEmpty 操作符
    */
-  protected matchIsNotEmpty(record: Record): boolean {
+  protected matchIsNotEmpty(record: RecordModel): boolean {
     return !this.matchIsEmpty(record);
   }
 

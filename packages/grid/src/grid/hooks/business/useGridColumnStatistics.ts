@@ -1,20 +1,5 @@
 import { useMemo } from 'react';
-
-type AggregationType = 
-  | 'count' 
-  | 'countEmpty' 
-  | 'countNotEmpty' 
-  | 'countUnique'
-  | 'sum' 
-  | 'avg' 
-  | 'min' 
-  | 'max'
-  | 'median'
-  | 'percentEmpty'
-  | 'percentNotEmpty'
-  | 'percentUnique'
-  | 'empty'
-  | 'filled';
+import type { AggregationType } from './constant';
 
 /**
  * Column statistics interface
@@ -31,13 +16,21 @@ export interface IColumnStatistics {
  * Statistic function names
  */
 export const STATISTIC_FUNC_NAMES: Record<AggregationType, string> = {
+  none: 'None',
   sum: 'Sum',
+  average: 'Average',
   avg: 'Average',
   min: 'Min',
   max: 'Max',
   count: 'Count',
   empty: 'Empty',
   filled: 'Filled',
+  countEmpty: 'Count Empty',
+  countNotEmpty: 'Count Not Empty',
+  countUnique: 'Count Unique',
+  percentEmpty: 'Percent Empty',
+  percentNotEmpty: 'Percent Not Empty',
+  percentUnique: 'Percent Unique',
 };
 
 /**

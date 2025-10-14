@@ -1,12 +1,8 @@
 /**
- * Library Utils Export
+ * Library exports
  */
 
 export * from './websocket';
 export * from './sharedb';
-export * from './sharedb-record';
-export * from './presence';
-export * from './ot';
 export * from './operation-history';
-
 

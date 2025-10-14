@@ -16,35 +16,38 @@ import { userCellRenderer } from './userCellRenderer';
 export * from './interface';
 export * from './utils';
 
-export const getCellRenderer = (cellType: CellType) => {
+import type { IInternalCellRenderer, ICell } from './interface';
+
+// Export getCellRenderer function
+export const getCellRenderer = (cellType: CellType): IInternalCellRenderer<ICell> => {
   switch (cellType) {
     case CellType.Text:
-      return textCellRenderer;
+      return textCellRenderer as IInternalCellRenderer<ICell>;
     case CellType.Link:
-      return linkCellRenderer;
+      return linkCellRenderer as IInternalCellRenderer<ICell>;
     case CellType.Number:
-      return numberCellRenderer;
+      return numberCellRenderer as IInternalCellRenderer<ICell>;
     case CellType.Boolean:
-      return booleanCellRenderer;
+      return booleanCellRenderer as IInternalCellRenderer<ICell>;
     case CellType.Select:
     case CellType.MultiSelect:
-      return selectCellRenderer;
+      return selectCellRenderer as IInternalCellRenderer<ICell>;
     case CellType.Image:
-      return imageCellRenderer;
+      return imageCellRenderer as IInternalCellRenderer<ICell>;
     case CellType.Rating:
-      return ratingCellRenderer;
+      return ratingCellRenderer as IInternalCellRenderer<ICell>;
     case CellType.Chart:
-      return chartCellRenderer;
+      return chartCellRenderer as IInternalCellRenderer<ICell>;
     case CellType.User:
-      return userCellRenderer;
+      return userCellRenderer as IInternalCellRenderer<ICell>;
     case CellType.Button:
-      return buttonCellRenderer;
+      return buttonCellRenderer as IInternalCellRenderer<ICell>;
     case CellType.Date:
-      return dateCellRenderer;
+      return dateCellRenderer as IInternalCellRenderer<ICell>;
     case CellType.Attachment:
-      return attachmentCellRenderer;
+      return attachmentCellRenderer as IInternalCellRenderer<ICell>;
     case CellType.Loading:
     default:
-      return loadingCellRenderer;
+      return loadingCellRenderer as IInternalCellRenderer<ICell>;
   }
 };

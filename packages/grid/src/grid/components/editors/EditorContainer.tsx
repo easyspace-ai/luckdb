@@ -5,7 +5,7 @@ import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
 import type { IGridTheme } from '@/grid/configs';
 import { useKeyboardSelection } from '@/grid/hooks/primitive';
-import type { IInteractionLayerProps } from '../../core/InteractionLayer';
+import type { IGridTheme as IInteractionLayerProps } from '@/grid/configs';
 import {
   SelectionRegionType,
   type IActiveCellBound,
@@ -28,23 +28,20 @@ import { DateEditor } from './enhanced/DateEditor';
 import { AttachmentEditor } from './enhanced/AttachmentEditor';
 import { ChartEditor } from './basic/ChartEditor';
 
-export interface IEditorContainerProps
-  extends Pick<
-    IInteractionLayerProps,
-    | 'theme'
-    | 'coordInstance'
-    | 'scrollToItem'
-    | 'real2RowIndex'
-    | 'getCellContent'
-    | 'onUndo'
-    | 'onRedo'
-    | 'onCopy'
-    | 'onPaste'
-    | 'onDelete'
-    | 'onRowAppend'
-    | 'onRowExpand'
-    | 'scrollBy'
-  > {
+export interface IEditorContainerProps {
+  theme: IGridTheme;
+  coordInstance: any;
+  scrollToItem: (position: [columnIndex: number, rowIndex: number]) => void;
+  real2RowIndex: (index: number) => number;
+  getCellContent: (position: [columnIndex: number, rowIndex: number]) => any;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onCopy?: (selection: CombinedSelection, event: React.ClipboardEvent) => void;
+  onPaste?: (selection: CombinedSelection, event: React.ClipboardEvent) => void;
+  onDelete?: (selection: CombinedSelection) => void;
+  onRowAppend?: () => void;
+  onRowExpand?: (rowIndex: number) => void;
+  scrollBy: (deltaX: number, deltaY: number) => void;
   isEditing?: boolean;
   scrollState: IScrollState;
   activeCell: ICellItem | null;
@@ -236,12 +233,9 @@ export const EditorContainerBase: ForwardRefRenderFunction<
       case CellType.Link: {
         return (
           <LinkEditor
-            ref={editorRef}
+            value={(cellContent as any)?.data || null}
             rect={rect}
-            theme={theme}
             style={editorStyle}
-            cell={cellContent}
-            isEditing={isEditing}
             onChange={onChangeInner}
           />
         );
@@ -258,13 +252,19 @@ export const EditorContainerBase: ForwardRefRenderFunction<
         );
       case CellType.Rating:
         return (
-          <RatingEditor
-            ref={editorRef}
-            rect={rect}
-            theme={theme}
-            cell={cellContent}
-            onChange={onChangeInner}
-          />
+          <div ref={editorRef as any}>
+            <RatingEditor
+              value={(cellContent as any)?.data || null}
+              rect={rect}
+              style={editorStyle}
+              onChange={onChangeInner}
+              options={{
+                icon: (cellContent as any)?.icon,
+                color: (cellContent as any)?.color,
+                max: (cellContent as any)?.max,
+              }}
+            />
+          </div>
         );
       case CellType.Select:
       case CellType.MultiSelect:
@@ -286,7 +286,10 @@ export const EditorContainerBase: ForwardRefRenderFunction<
             ref={editorRef}
             rect={rect}
             theme={theme}
-            cell={cellContent}
+            cell={{
+              ...cellContent,
+              url: (cellContent as any)?.url || '',
+            } as any}
             style={editorStyle}
             isEditing={isEditing}
             onChange={onChangeInner}
@@ -294,39 +297,37 @@ export const EditorContainerBase: ForwardRefRenderFunction<
         );
       case CellType.Date:
         return (
-          <DateEditor
-            ref={editorRef}
-            rect={rect}
-            theme={theme}
-            cell={cellContent as any}
-            style={editorStyle}
-            isEditing={isEditing}
-            onChange={onChangeInner}
-          />
+          <div ref={editorRef as any}>
+            <DateEditor
+              value={(cellContent as any)?.data || null}
+              rect={rect}
+              style={editorStyle}
+              onChange={(value) => onChangeInner(value)}
+            />
+          </div>
         );
       case CellType.User:
         return (
-          <UserEditor
-            ref={editorRef}
-            rect={rect}
-            theme={theme}
-            cell={cellContent as any}
-            style={editorStyle}
-            isEditing={isEditing}
-            onChange={onChangeInner}
-          />
+          <div ref={editorRef as any}>
+            <UserEditor
+              value={(cellContent as any)?.data || null}
+              users={[]}
+              rect={rect}
+              style={editorStyle}
+              onChange={(value) => onChangeInner(value)}
+            />
+          </div>
         );
       case CellType.Attachment:
         return (
-          <AttachmentEditor
-            ref={editorRef}
-            rect={rect}
-            theme={theme}
-            cell={cellContent as any}
-            style={editorStyle}
-            isEditing={isEditing}
-            onChange={onChangeInner}
-          />
+          <div ref={editorRef as any}>
+            <AttachmentEditor
+              value={(cellContent as any)?.data || null}
+              rect={rect}
+              style={editorStyle}
+              onChange={(value) => onChangeInner(value)}
+            />
+          </div>
         );
       case CellType.Chart:
         return (
@@ -360,7 +361,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!activeCell || isEditing) return;
     if (!isPrintableKey(event.nativeEvent)) return;
-    if (NO_EDITING_CELL_TYPES.has(cellType)) return;
+    if (NO_EDITING_CELL_TYPES.has(cellType as CellType)) return;
     setEditing(true);
     editorRef.current?.setValue?.(null);
   };
@@ -377,7 +378,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
 
   // 对于 Boolean 和 Rating 字段，容器应该完全不可见
   const containerStyle = useMemo(() => {
-    const isInvisibleEditor = NO_EDITING_CELL_TYPES.has(cellType);
+    const isInvisibleEditor = NO_EDITING_CELL_TYPES.has(cellType as CellType);
     if (isInvisibleEditor) {
       return {
         position: 'absolute' as const,

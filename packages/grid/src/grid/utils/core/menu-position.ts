@@ -3,7 +3,10 @@
  * 菜单定位工具 - 处理边界检测、滚动补偿等
  */
 
-import type { IPosition } from '../../types/grid';
+export interface IPosition {
+  x: number;
+  y: number;
+}
 
 export interface ISize {
   width: number;

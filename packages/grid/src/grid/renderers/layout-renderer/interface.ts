@@ -1,7 +1,12 @@
 import type { IGridTheme } from '../../configs';
-import type { ICellPosition, IGridColumn, IRectangle, IRowControlItem } from '../../interface';
+import type { ICellPosition, IGridColumn, IRectangle, IRowControlItem, ICellItem } from '../../types/grid';
 import type { CoordinateManager, ImageManager, SpriteManager } from '../../managers';
-import type { IRenderLayerProps } from '../../core/RenderLayer';
+import type { ICell } from '../cell-renderer/interface';
+
+export interface IRenderLayerProps {
+  getCellContent: (cell: ICellItem) => ICell;
+  [key: string]: any;
+}
 
 export interface ICellDrawerProps extends IRectangle {
   getCellContent: IRenderLayerProps['getCellContent'];

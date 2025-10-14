@@ -5,14 +5,14 @@
 
 import { BaseFilter, type IFilterConfig } from './BaseFilter';
 import type { Field } from '../field/Field';
-import type { Record } from '../record/Record';
+import type { RecordModel } from '../record/Record';
 
 export class LinkFilter extends BaseFilter {
   constructor(field: Field, config: IFilterConfig) {
     super(field, config);
   }
 
-  match(record: Record): boolean {
+  match(record: RecordModel): boolean {
     const { operator } = this.config;
 
     switch (operator) {
@@ -43,7 +43,7 @@ export class LinkFilter extends BaseFilter {
     }
   }
 
-  private getLinkedRecordIds(record: Record): string[] {
+  private getLinkedRecordIds(record: RecordModel): string[] {
     const value = this.getValue(record);
     
     if (this.isEmpty(value)) return [];
@@ -55,12 +55,12 @@ export class LinkFilter extends BaseFilter {
     return [String(value)];
   }
 
-  private matchHasRecord(record: Record): boolean {
+  private matchHasRecord(record: RecordModel): boolean {
     const linkedIds = this.getLinkedRecordIds(record);
     return linkedIds.length > 0;
   }
 
-  private matchHasNoRecord(record: Record): boolean {
+  private matchHasNoRecord(record: RecordModel): boolean {
     return !this.matchHasRecord(record);
   }
 }

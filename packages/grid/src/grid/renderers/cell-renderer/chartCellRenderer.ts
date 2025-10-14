@@ -17,7 +17,7 @@ export const chartCellRenderer: IInternalCellRenderer<IChartCell> = {
 
     if (!data?.length || !displayData?.length) return;
 
-    const [hoverX] = hoverCellPosition ?? [];
+    const hoverX = hoverCellPosition?.x ?? 0;
     const hoverAmount = hoverCellPosition ? 1 : 0;
 
     if (chartType === ChartType.Bar) {

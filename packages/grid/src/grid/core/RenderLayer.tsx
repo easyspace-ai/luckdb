@@ -1,6 +1,6 @@
 import type { FC } from 'react';
 import { useRef, useEffect, useMemo } from 'react';
-import type { IVisibleRegion } from '../hooks/primitive/useVisibleRegion';
+import type { IVisibleRegion } from '../hooks/primitive';
 import type { IInteractionLayerProps } from './InteractionLayer';
 import { RegionType } from '../types/grid';
 import type {
@@ -15,7 +15,7 @@ import type {
   IColumnFreezeState,
 } from '../types/grid';
 import type { CombinedSelection } from '../managers';
-import { drawGrid } from '../renderers';
+import { drawGrid } from '../renderers/layout-renderer/layoutRenderer';
 
 export interface IRenderLayerProps
   extends Pick<
@@ -181,8 +181,10 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       getCellContent,
       real2RowIndex,
       getLinearRow,
+      devicePixelRatio: window.devicePixelRatio || 1,
     };
     lastPropsRef.current = props;
+    // drawGrid takes mainCanvas, cacheCanvas, props, and lastProps
     drawGrid(mainCanvas, cacheCanvas, props, lastProps);
   }, [
     theme,
@@ -232,11 +234,9 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
   return (
     <canvas
       ref={mainCanvasRef}
-      className="pointer-events-none"
       style={{
-        width: containerWidth,
-        height,
         backgroundColor: theme.cellBg,
+        pointerEvents: 'none',
       }}
     />
   );

@@ -5,18 +5,15 @@
 // Application-level contexts
 export * from './session';
 export * from './app';
-export * from './connection';
-export * from './history';
+// export * from './connection'; // 依赖已删除的 lib，仅在开发模式可用
+// export * from './history'; // 依赖已删除的 lib，仅在开发模式可用
 
 // Data-level contexts
 export * from './base';
 export * from './table';
 export * from './field';
-export * from './record';
 export * from './view';
 export * from './permission';
-export * from './aggregation';
 
 // Combined providers
 export * from './AppProviders';
-

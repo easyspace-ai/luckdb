@@ -7,7 +7,6 @@ type ConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'error';
 
 interface IConnectionContext {
   status: ConnectionStatus;
-  isConnected: boolean;
   socket: ReconnectingWebSocket | null;
   shareConnection: any | null; // sharedb.Connection type
   subscribeDoc: (collection: string, id: string) => any | null;
@@ -78,7 +77,6 @@ export function ConnectionProvider({
   return (
     <ConnectionContext.Provider value={{
       status,
-      isConnected: status === 'connected',
       socket,
       shareConnection,
       subscribeDoc,

@@ -26,8 +26,6 @@ import type {
   IGetRecordsRo,
   PaginatedResponse,
   ITablePermission,
-  IPermission,
-  IUpdatePermissionRo,
 } from './types';
 
 export interface ApiClientConfig {
@@ -452,52 +450,6 @@ export class ApiClient {
     await this.client.delete(
       `/table/${tableId}/record/${recordId}/comment/${commentId}`
     );
-  }
-
-  // ==================== Permission APIs ====================
-
-  /**
-   * Get permissions for a base
-   */
-  async getPermissions(
-    baseId: string,
-    tableId?: string
-  ): Promise<IPermission[]> {
-    const url = tableId
-      ? `/base/${baseId}/table/${tableId}/permission`
-      : `/base/${baseId}/permission`;
-    const response = await this.client.get(url);
-    return response.data;
-  }
-
-  /**
-   * Update permission
-   */
-  async updatePermission(
-    baseId: string,
-    userId: string,
-    data: IUpdatePermissionRo
-  ): Promise<IPermission> {
-    const response = await this.client.patch(
-      `/base/${baseId}/permission/${userId}`,
-      data
-    );
-    return response.data;
-  }
-
-  // ==================== Aggregation APIs ====================
-
-  /**
-   * Get aggregations for a view
-   */
-  async getAggregations(
-    tableId: string,
-    viewId: string
-  ): Promise<any[]> {
-    const response = await this.client.get(
-      `/table/${tableId}/view/${viewId}/aggregation`
-    );
-    return response.data;
   }
 
   // ==================== Utility ====================

@@ -43,7 +43,7 @@ test-results/
 *.tmp
 *.bak
 *.old
-teable-develop
+
 book
 docs
 

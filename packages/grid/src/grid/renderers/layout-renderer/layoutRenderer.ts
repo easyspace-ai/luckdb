@@ -4,8 +4,10 @@ import type { IGridTheme } from '../../configs';
 import { GRID_DEFAULT, ROW_RELATED_REGIONS } from '../../configs';
 import type { IVisibleRegion } from '../../hooks/primitive/useVisibleRegion';
 import { getDropTargetIndex } from '../../hooks';
-import type { ICellItem, ICell, IRectangle, ICollaborator, ILinearRow } from '../../interface';
-import { DragRegionType, LinearRowType, RegionType, RowControlType } from '../../interface';
+import type { ICellItem, IRectangle, ICollaborator, ILinearRow } from '../../types/grid';
+import { DragRegionType, LinearRowType, RegionType, RowControlType } from '../../types/grid';
+import type { ICell } from '../cell-renderer/interface';
+import { CellType } from '../cell-renderer/interface';
 import { GridInnerIcon } from '../../managers';
 import {
   checkIfRowOrCellActive,
@@ -80,8 +82,9 @@ export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawe
   } = props;
 
   const cell = getCellContent([columnIndex, rowIndex]);
-  const cellRenderer = getCellRenderer(cell.type);
+  const cellRenderer = getCellRenderer(cell.type as CellType);
   cellRenderer.draw(cell as never, {
+    cell,
     ctx,
     theme,
     rect: {
@@ -90,6 +93,10 @@ export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawe
       width: width,
       height,
     },
+    x,
+    y,
+    width,
+    height,
     rowIndex,
     columnIndex,
     imageManager,
@@ -562,9 +569,10 @@ export const drawGroupRow = (ctx: CanvasRenderingContext2D, props: IGroupRowDraw
   });
 
   const cell = getGroupCell(value, depth);
-  const cellRenderer = getCellRenderer(cell.type);
+  const cellRenderer = getCellRenderer(cell.type as CellType);
   const offsetY = 18;
   cellRenderer.draw(cell as never, {
+    cell,
     ctx,
     theme,
     rect: {
@@ -573,6 +581,10 @@ export const drawGroupRow = (ctx: CanvasRenderingContext2D, props: IGroupRowDraw
       width,
       height: height - offsetY,
     },
+    x,
+    y: y + offsetY,
+    width,
+    height: height - offsetY,
     rowIndex,
     columnIndex,
     imageManager,

@@ -147,7 +147,7 @@ export const Tooltip: FC<ITooltipProps> = ({ content, children, delay = 500, pos
 
   return (
     <>
-      {React.cloneElement(children, {
+      {React.cloneElement(children as React.ReactElement<any>, {
         onMouseEnter: handleMouseEnter,
         onMouseLeave: handleMouseLeave,
       })}

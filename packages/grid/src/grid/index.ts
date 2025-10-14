@@ -6,7 +6,8 @@
  */
 
 // Core Grid Components
-export * from './core';
+export { Grid } from './core/Grid';
+export type { IGridRef, IGridProps } from './core/Grid';
 
 // UI Components (includes editors, context menus, etc.)
 export * from './components';
@@ -23,16 +24,60 @@ export * from './managers';
 // Store
 export * from './store';
 
-// Utilities
-export * from './utils';
-
 // Configs
 export * from './configs';
 
-// Types
-export * from './types';
+// Types - be specific to avoid conflicts
+export type { 
+  IPosition,
+  IRectangle,
+  IRange,
+  ICellRange,
+  IGridColumn,
+  IScrollState,
+  IMouseState,
+  ICellItem,
+  IColumnStatistic,
+  IColumnStatistics,
+  IRowControlItem,
+  ICellPosition,
+  IActiveCellBound,
+  ICollaborator,
+  IColumnLoading,
+  LinearRowType,
+  SelectionRegionType,
+  DragRegionType,
+  RegionType,
+  RowControlType,
+} from './types/grid';
 
-// Legacy re-exports for backward compatibility
-export { Grid } from './core/Grid';
-export type { IGridRef } from './core/Grid';
-export type { IGridColumn, ICellItem } from './types/grid';
+// Cell renderer types and interfaces
+export type {
+  ICell,
+  IInnerCell,
+  ITextCell,
+  INumberCell,
+  IBooleanCell,
+  ISelectCell,
+  IMultiSelectCell,
+  ILinkCell,
+  IImageCell,
+  IChartCell,
+  IDateCell,
+  IUserCell,
+  IRatingCell,
+  IButtonCell,
+  IAttachmentCell,
+  ILoadingCell,
+  IImageData,
+  ICellRenderProps,
+  ICellClickProps,
+  ICellMeasureProps,
+  IInternalCellRenderer,
+  IBaseCellRenderer,
+  ChartType,
+  NumberDisplayType,
+} from './renderers/cell-renderer/interface';
+
+// Cell renderer enums (must be value exports)
+export { CellType, CellRegionType } from './renderers/cell-renderer/interface';

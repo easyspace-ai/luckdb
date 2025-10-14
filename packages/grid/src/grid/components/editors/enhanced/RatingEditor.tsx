@@ -70,10 +70,10 @@ export interface IRatingEditorProps {
   onSave?: () => void;
   onCancel?: () => void;
   readonly?: boolean;
-  options: {
-    icon: RatingIcon | string;
-    color: string;
-    max: number;
+  options?: {
+    icon?: RatingIcon | string;
+    color?: string;
+    max?: number;
   };
   className?: string;
   style?: React.CSSProperties;
@@ -136,22 +136,28 @@ export const RatingEditor = forwardRef<HTMLDivElement, IRatingEditorProps>((prop
         }
 
         return (
-          <IconComponent
+          <span
             key={index}
-            className="rating-icon"
             style={{
-              width: '24px',
-              height: '24px',
-              marginRight: '8px',
-              borderRadius: '4px',
+              display: 'inline-flex',
               cursor: readonly ? 'not-allowed' : 'pointer',
-              transition: 'all 0.15s',
-              ...iconStyle,
             }}
             onMouseEnter={() => onHoverIndexChange(index)}
             onMouseLeave={() => onHoverIndexChange(-1)}
             onClick={() => onChangeInner(index)}
-          />
+          >
+            <IconComponent
+              className="rating-icon"
+              style={{
+                width: '24px',
+                height: '24px',
+                marginRight: '8px',
+                borderRadius: '4px',
+                transition: 'all 0.15s',
+                ...iconStyle,
+              }}
+            />
+          </span>
         );
       })}
     </div>
