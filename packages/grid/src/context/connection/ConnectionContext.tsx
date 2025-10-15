@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { WebSocketManager } from '@/lib/websocket';
-import { ShareDBConnection } from '@/lib/sharedb';
+import { WebSocketManager } from '../../lib/websocket';
+import { ShareDBConnection } from '../../lib/sharedb';
 import type ReconnectingWebSocket from 'reconnecting-websocket';
 
 type ConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'error';

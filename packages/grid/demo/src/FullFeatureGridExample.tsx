@@ -1,3 +1,8 @@
+/**
+ * 全功能 Grid 示例
+ * 展示包括右键菜单在内的所有功能
+ */
+
 import { useState, useRef, useMemo, useCallback } from 'react';
 import { 
   Grid, 
@@ -7,11 +12,13 @@ import {
   CellType,
   type ICell,
   GridToolbar,
-  StatisticsRow
+  StatisticsRow,
+  AppProviders,
+  createSDKAdapter
 } from '@luckdb/grid';
 import { generateDemoData, type DemoRecord } from './data';
 
-export default function App() {
+export default function FullFeatureGridExample() {
   const gridRef = useRef<IGridRef>(null);
   const [showToolbar, setShowToolbar] = useState(true);
   const [showStatistics, setShowStatistics] = useState(true);
@@ -386,6 +393,103 @@ export default function App() {
     [localColumns]
   );
 
+  // 字段操作回调函数
+  const handleAddColumn = useCallback((fieldType: any, insertIndex?: number, fieldName?: string, options?: any) => {
+    console.log('Add column:', fieldType, 'at index:', insertIndex, 'name:', fieldName, 'options:', options);
+    
+    // 根据字段类型设置图标和默认配置
+    const getFieldIcon = (type: string) => {
+      const iconMap: Record<string, string> = {
+        'singleLineText': '📝',
+        'longText': '📄',
+        'number': '🔢',
+        'singleSelect': '🔘',
+        'multipleSelect': '☑️',
+        'date': '📅',
+        'checkbox': '☑️',
+        'user': '👤',
+        'attachment': '📎',
+        'link': '🔗',
+        'rating': '⭐',
+        'formula': '🧮',
+        'rollup': '📊',
+        'autoNumber': '#️⃣',
+        'createdTime': '🕒',
+        'lastModifiedTime': '🕐',
+        'createdBy': '👤',
+        'lastModifiedBy': '👤',
+      };
+      return iconMap[type] || '📄';
+    };
+    
+    const newColumn: IGridColumn = {
+      id: `col-${Date.now()}`,
+      name: fieldName || `新字段_${Date.now()}`,
+      width: 150,
+      icon: getFieldIcon(fieldType),
+      type: fieldType, // 保存字段类型
+      options: options, // 保存字段配置选项
+    };
+    
+    setLocalColumns(prev => {
+      const newColumns = [...prev];
+      const insertPos = insertIndex ?? newColumns.length;
+      newColumns.splice(insertPos, 0, newColumn);
+      return newColumns;
+    });
+  }, []);
+
+  const handleEditColumn = useCallback((columnIndex: number, updatedColumn: IGridColumn) => {
+    console.log('Edit column:', columnIndex, updatedColumn);
+    setLocalColumns(prev => prev.map((col, idx) => 
+      idx === columnIndex ? { ...col, ...updatedColumn } : col
+    ));
+  }, []);
+
+  const handleDuplicateColumn = useCallback((columnIndex: number) => {
+    console.log('Duplicate column:', columnIndex);
+    setLocalColumns(prev => {
+      const newColumns = [...prev];
+      const originalColumn = newColumns[columnIndex];
+      const duplicatedColumn = {
+        ...originalColumn,
+        id: `col-${Date.now()}`,
+        name: `${originalColumn.name}_副本`,
+      };
+      newColumns.splice(columnIndex + 1, 0, duplicatedColumn);
+      return newColumns;
+    });
+  }, []);
+
+  const handleDeleteColumn = useCallback((columnIndex: number) => {
+    console.log('Delete column:', columnIndex);
+    setLocalColumns(prev => prev.filter((_, idx) => idx !== columnIndex));
+  }, []);
+
+  const handleStartEditColumn = useCallback((columnIndex: number, column: IGridColumn) => {
+    console.log('Start editing column:', columnIndex, column);
+  }, []);
+
+  // 删除行处理
+  const handleDeleteRow = useCallback((selection: any) => {
+    console.log('Delete row selection:', selection);
+    // 这里应该根据实际的数据结构来实现删除逻辑
+    // 由于示例数据是模拟的，这里只是打印日志
+    console.log('删除行功能已触发，实际项目中需要连接后端API');
+  }, []);
+
+  // 创建模拟的 API 客户端
+  const apiClient = createSDKAdapter({
+    baseURL: 'http://localhost:8080/api/v1',
+    token: 'demo-token',
+    onError: (error) => {
+      console.error('API Error:', error);
+    },
+    onUnauthorized: () => {
+      console.log('Unauthorized - redirecting to login');
+    },
+  });
+
   return (
     <div
       style={{
@@ -405,10 +509,10 @@ export default function App() {
         }}
       >
         <h1 style={{ fontSize: '24px', fontWeight: '600', margin: '0 0 8px 0' }}>
-          🧪 完整功能测试 - 虚拟滚动演示
+          🎯 全功能 Grid 示例 - 包含右键菜单
         </h1>
         <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>
-          测试所有列类型和虚拟滚动功能 - {localColumns.length} 列 × {records.length} 行
+          测试所有列类型、右键菜单和虚拟滚动功能 - {localColumns.length} 列 × {records.length} 行
         </p>
       </div>
 
@@ -481,87 +585,112 @@ export default function App() {
           minHeight: 0,
         }}
       >
-        {/* 头部工具栏 */}
-        {showToolbar && (
-          <GridToolbar
-            onUndo={() => console.log('Undo')}
-            onRedo={() => console.log('Redo')}
-            onAddNew={() => console.log('Add new')}
-            onFieldConfig={() => console.log('Field config')}
-            onFilter={() => console.log('Filter')}
-            onSort={() => console.log('Sort')}
-            onGroup={() => console.log('Group')}
-            onSearch={() => console.log('Search')}
-            onFullscreen={() => console.log('Fullscreen')}
-            onShare={() => console.log('Share')}
-            onAPI={() => console.log('API')}
-            onCollaboration={() => console.log('Collaboration')}
-            onToggleToolbar={() => setShowToolbar(false)}
-            onToggleStatistics={() => setShowStatistics(!showStatistics)}
-          />
-        )}
+        <AppProviders
+          baseId="demo-base"
+          tableId="demo-table"
+          viewId="demo-view"
+          apiClient={apiClient}
+        >
+          {/* 头部工具栏 */}
+          {showToolbar && (
+            <GridToolbar
+              onUndo={() => console.log('Undo')}
+              onRedo={() => console.log('Redo')}
+              onAddNew={() => console.log('Add new')}
+              onFieldConfig={() => console.log('Field config')}
+              onFilter={() => console.log('Filter')}
+              onSort={() => console.log('Sort')}
+              onGroup={() => console.log('Group')}
+              onSearch={() => console.log('Search')}
+              onFullscreen={() => console.log('Fullscreen')}
+              onShare={() => console.log('Share')}
+              onAPI={() => console.log('API')}
+              onCollaboration={() => console.log('Collaboration')}
+              onToggleToolbar={() => setShowToolbar(false)}
+              onToggleStatistics={() => setShowStatistics(!showStatistics)}
+            />
+          )}
 
-        {/* Grid */}
-        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-          <Grid
-            ref={gridRef}
-            columns={localColumns}
-            rowCount={records.length}
-            getCellContent={getCellContent}
-            freezeColumnCount={2}
-            rowHeight={36}
-            columnHeaderHeight={40}
-            style={{
-              width: '100%',
-              height: '100%',
-            }}
-            onCellEdited={handleCellEdited}
-            onSelectionChanged={(selection) => {
-              if (selection.isRowSelection && selection.ranges && selection.ranges.length > 0) {
-                const totalRows = selection.ranges.reduce((sum, range) => {
-                  // range is [startIndex, endIndex]
-                  if (Array.isArray(range) && range.length === 2) {
-                    return sum + (range[1] - range[0] + 1);
-                  }
-                  return sum;
-                }, 0);
-                setSelectedRows(totalRows);
-              } else {
-                setSelectedRows(0);
-              }
-            }}
-            onColumnResize={(column, newSize, colIndex) => {
-              console.log('Column resized:', column.name, 'New width:', newSize);
-              const newColumns = [...localColumns];
-              newColumns[colIndex] = { ...newColumns[colIndex], width: newSize };
-              setLocalColumns(newColumns);
-            }}
-            onColumnOrdered={(dragColIndexCollection, dropColIndex) => {
-              console.log('Column ordered:', dragColIndexCollection, 'Drop at:', dropColIndex);
-              const newColumns = [...localColumns];
-              const draggedColumns = dragColIndexCollection.map((i) => newColumns[i]);
-              
-              const remainingColumns = newColumns.filter(
-                (_, i) => !dragColIndexCollection.includes(i)
-              );
-              
-              remainingColumns.splice(dropColIndex, 0, ...draggedColumns);
-              setLocalColumns(remainingColumns);
-            }}
-          />
-        </div>
+          {/* Grid */}
+          <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+            <Grid
+              ref={gridRef}
+              columns={localColumns}
+              rowCount={records.length}
+              getCellContent={getCellContent}
+              freezeColumnCount={2}
+              rowHeight={36}
+              columnHeaderHeight={40}
+              style={{
+                width: '100%',
+                height: '100%',
+              }}
+              onCellEdited={handleCellEdited}
+              onSelectionChanged={(selection) => {
+                if (selection.isRowSelection && selection.ranges && selection.ranges.length > 0) {
+                  const totalRows = selection.ranges.reduce((sum, range) => {
+                    // range is [startIndex, endIndex]
+                    if (Array.isArray(range) && range.length === 2) {
+                      return sum + (range[1] - range[0] + 1);
+                    }
+                    return sum;
+                  }, 0);
+                  setSelectedRows(totalRows);
+                } else {
+                  setSelectedRows(0);
+                }
+              }}
+              onColumnResize={(column, newSize, colIndex) => {
+                console.log('Column resized:', column.name, 'New width:', newSize);
+                const newColumns = [...localColumns];
+                newColumns[colIndex] = { ...newColumns[colIndex], width: newSize };
+                setLocalColumns(newColumns);
+              }}
+              onColumnOrdered={(dragColIndexCollection, dropColIndex) => {
+                console.log('Column ordered:', dragColIndexCollection, 'Drop at:', dropColIndex);
+                const newColumns = [...localColumns];
+                const draggedColumns = dragColIndexCollection.map((i) => newColumns[i]);
+                
+                const remainingColumns = newColumns.filter(
+                  (_, i) => !dragColIndexCollection.includes(i)
+                );
+                
+                remainingColumns.splice(dropColIndex, 0, ...draggedColumns);
+                setLocalColumns(remainingColumns);
+              }}
+              // 字段操作回调
+              onAddColumn={handleAddColumn}
+              onEditColumn={handleEditColumn}
+              onDuplicateColumn={handleDuplicateColumn}
+              onDeleteColumn={handleDeleteColumn}
+              onStartEditColumn={handleStartEditColumn}
+              // 删除操作回调
+              onDelete={handleDeleteRow}
+              // 右键菜单回调
+              onColumnHeaderMenuClick={(colIndex, bounds) => {
+                console.log('📋 列头右键菜单:', colIndex, bounds);
+              }}
+              onRowHeaderMenuClick={(rowIndex, position) => {
+                console.log('📋 行头右键菜单:', rowIndex, position);
+              }}
+              onCellContextMenu={(rowIndex, colIndex, position) => {
+                console.log('📋 单元格右键菜单:', rowIndex, colIndex, position);
+              }}
+            />
+          </div>
 
-        {/* 底部统计行 */}
-        {showStatistics && (
-          <StatisticsRow
-            statistics={statistics}
-            totalRecords={records.length}
-            selectedRecords={selectedRows}
-            onStatisticClick={(colIndex) => console.log('Statistic clicked:', colIndex)}
-            onToggleStatistics={() => setShowStatistics(false)}
-            width={1200}
-          />
-        )}
+          {/* 底部统计行 */}
+          {showStatistics && (
+            <StatisticsRow
+              statistics={statistics}
+              totalRecords={records.length}
+              selectedRecords={selectedRows}
+              onStatisticClick={(colIndex) => console.log('Statistic clicked:', colIndex)}
+              onToggleStatistics={() => setShowStatistics(false)}
+              width={1200}
+            />
+          )}
+        </AppProviders>
       </div>
 
       {/* 说明面板 */}
@@ -574,16 +703,16 @@ export default function App() {
       >
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', fontSize: '13px' }}>
           <div>
-            <h3 style={{ fontSize: '14px', fontWeight: '600', margin: '0 0 8px 0' }}>📊 数据规模</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', margin: '0 0 8px 0' }}>🎯 右键菜单功能</h3>
             <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.8' }}>
-              <li>列数: {localColumns.length} 列</li>
-              <li>行数: {records.length} 行</li>
-              <li>单元格: {localColumns.length * records.length} 个</li>
-              <li>虚拟滚动: ✅ 已启用</li>
+              <li>列头右键：编辑字段、复制、插入、筛选、排序、分组</li>
+              <li>行头右键：删除行、复制行、插入行</li>
+              <li>单元格右键：复制、粘贴、删除</li>
+              <li>冻结列、隐藏字段、字段配置</li>
             </ul>
           </div>
           <div>
-            <h3 style={{ fontSize: '14px', fontWeight: '600', margin: '0 0 8px 0' }}>🎯 支持的列类型</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', margin: '0 0 8px 0' }}>📊 支持的列类型</h3>
             <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.8' }}>
               <li>文本、数字、货币、百分比</li>
               <li>布尔、单选、多选</li>
@@ -592,12 +721,13 @@ export default function App() {
             </ul>
           </div>
           <div>
-            <h3 style={{ fontSize: '14px', fontWeight: '600', margin: '0 0 8px 0' }}>⚡ 功能测试</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', margin: '0 0 8px 0' }}>⚡ 交互功能</h3>
             <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.8' }}>
               <li>拖动调整列宽</li>
               <li>拖动重新排序列</li>
               <li>水平/垂直滚动</li>
               <li>选择单元格/行</li>
+              <li>虚拟滚动优化</li>
             </ul>
           </div>
         </div>

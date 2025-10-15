@@ -9,7 +9,7 @@ import { TableProvider } from './table/TableContext';
 import { FieldProvider } from './field/FieldContext';
 import { ViewProvider } from './view/ViewContext';
 import { PermissionProvider } from './permission/PermissionContext';
-import { ApiClient } from '@/api/client';
+import { ApiClient } from '../api/client';
 
 const queryClient = new QueryClient({
   defaultOptions: {

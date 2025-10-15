@@ -14,7 +14,7 @@ import { LinkFilter } from './LinkFilter';
 import { UserFilter } from './UserFilter';
 import { AttachmentFilter } from './AttachmentFilter';
 import { RatingFilter } from './RatingFilter';
-import { FieldType } from '@/types/field';
+import { FieldType } from '../../types/field';
 
 export function createFilterInstance(
   field: Field,

@@ -3,7 +3,7 @@
  * Base class for all view types
  */
 
-import type { IView, ViewType, IFilter, ISort, IGroup, IColumnMeta } from '@/api/types';
+import type { IView, ViewType, IFilter, ISort, IGroup, IColumnMeta } from '../../api/types';
 
 export interface IViewConfig {
   id: string;

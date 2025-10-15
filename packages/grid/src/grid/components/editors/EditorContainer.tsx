@@ -3,9 +3,9 @@ import { getRandomString } from '../../../utils/string';
 import { clamp } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
-import type { IGridTheme } from '@/grid/configs';
-import { useKeyboardSelection } from '@/grid/hooks/primitive';
-import type { IGridTheme as IInteractionLayerProps } from '@/grid/configs';
+import type { IGridTheme } from '../../configs';
+import { useKeyboardSelection } from '../../hooks/primitive';
+import type { IGridTheme as IInteractionLayerProps } from '../../configs';
 import {
   SelectionRegionType,
   type IActiveCellBound,
@@ -13,10 +13,10 @@ import {
   type IRectangle,
   type IScrollState,
 } from '../../types/grid';
-import type { CombinedSelection } from '@/grid/managers';
+import type { CombinedSelection } from '../../managers';
 import type { ICell, IInnerCell } from '../../renderers/cell-renderer/interface';
 import { CellType } from '../../renderers/cell-renderer/interface';
-import { isPrintableKey } from '@/grid/utils/core';
+import { isPrintableKey } from '../../utils/core';
 import { BooleanEditor } from './basic/BooleanEditor';
 import { RatingEditor } from './enhanced/RatingEditor';
 import { SelectEditor } from './enhanced/SelectEditor';

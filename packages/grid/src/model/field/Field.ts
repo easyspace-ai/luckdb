@@ -3,7 +3,7 @@
  * Abstract base class for all field types
  */
 
-import type { FieldType } from '@/api/types';
+import type { FieldType } from '../../api/types';
 
 export interface IFieldOptions {
   [key: string]: any;

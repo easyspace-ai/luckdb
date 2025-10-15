@@ -1,5 +1,5 @@
 import React, { useState, useMemo, forwardRef, type FC } from 'react';
-import type { RatingIcon } from '@/types/field';
+import type { RatingIcon } from '../../../../types/field';
 
 /**
  * Rating图标映射

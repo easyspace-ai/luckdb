@@ -1,9 +1,9 @@
 import { createContext, useContext, useMemo, ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ApiClient } from '@/api/client';
-import { createFieldInstance } from '@/model/field/factory';
-import type { IField, ICreateFieldRo, IUpdateFieldRo } from '@/api/types';
-import type { Field } from '@/model/field/Field';
+import { ApiClient } from '../../api/client';
+import { createFieldInstance } from '../../model/field/factory';
+import type { IField, ICreateFieldRo, IUpdateFieldRo } from '../../api/types';
+import type { Field } from '../../model/field/Field';
 
 interface IFieldContext {
   fields: Field[];

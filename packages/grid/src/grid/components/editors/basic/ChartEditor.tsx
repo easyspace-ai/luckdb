@@ -2,8 +2,8 @@ import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ForwardRefRenderFunction } from 'react';
 import type { IEditorRef } from '../EditorContainer';
 import type { IEditorProps } from '../EditorContainer';
-import type { IChartCell } from '@/grid/renderers/cell-renderer/interface';
-import { Input } from '@/ui';
+import type { IChartCell } from '../../../renderers/cell-renderer/interface';
+import { Input } from '../../../../ui';
 
 // 图表编辑器：支持编辑图表数据和类型
 const ChartEditorBase: ForwardRefRenderFunction<IEditorRef<IChartCell>, IEditorProps<IChartCell>> = (

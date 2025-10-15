@@ -10,11 +10,13 @@ import { CellType } from '../grid/renderers/cell-renderer/interface';
  * FieldType 到 CellType 的映射表
  */
 export const FIELD_TYPE_TO_CELL_TYPE_MAP: Record<FieldType, CellType> = {
+  [FieldType.Text]: CellType.Text,              // 基础文本类型
   [FieldType.SingleLineText]: CellType.Text,
   [FieldType.LongText]: CellType.Text,
   [FieldType.User]: CellType.User,
   [FieldType.Attachment]: CellType.Attachment,
   [FieldType.Checkbox]: CellType.Boolean,
+  [FieldType.Select]: CellType.Select,          // 通用选择类型
   [FieldType.MultipleSelect]: CellType.Select,
   [FieldType.SingleSelect]: CellType.Select,
   [FieldType.Date]: CellType.Date,
@@ -29,6 +31,9 @@ export const FIELD_TYPE_TO_CELL_TYPE_MAP: Record<FieldType, CellType> = {
   [FieldType.LastModifiedBy]: CellType.User,
   [FieldType.AutoNumber]: CellType.Number,
   [FieldType.Button]: CellType.Button,
+  [FieldType.Email]: CellType.Text,    // Email 字段显示为文本
+  [FieldType.Phone]: CellType.Text,    // Phone 字段显示为文本
+  [FieldType.URL]: CellType.Link,      // URL 字段显示为链接
 };
 
 /**

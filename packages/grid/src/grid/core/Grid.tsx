@@ -5,6 +5,7 @@ import { useState, useRef, useMemo, useCallback, useEffect, useImperativeHandle,
 import { useRafState } from 'react-use';
 import { LoadingIndicator, ColumnManagement, type IColumnManagementRef } from '../components';
 import { RowContextMenu, type IRowContextMenuRef } from '../components/context-menu/RowContextMenu';
+import { DeleteConfirmDialog, type IDeleteConfirmDialogRef, type DeleteType } from '../components/dialogs/DeleteConfirmDialog';
 import type { IGridTheme } from '../configs';
 import { gridTheme, GRID_DEFAULT, DEFAULT_SCROLL_STATE, DEFAULT_MOUSE_STATE } from '../configs';
 import { useResizeObserver } from '../hooks/primitive';
@@ -100,7 +101,7 @@ export interface IGridExternalProps {
   onCollapsedGroupChanged?: (collapsedGroupIds: Set<string>) => void;
   onColumnFreeze?: (freezeColumnCount: number) => void;
   onColumnAppend?: () => void;
-  onAddColumn?: (fieldType: any, insertIndex?: number) => void;
+  onAddColumn?: (fieldType: any, insertIndex?: number, fieldName?: string, options?: any) => void;
   onEditColumn?: (columnIndex: number, updatedColumn: IGridColumn) => void;
   onDuplicateColumn?: (columnIndex: number) => void;
   onDeleteColumn?: (columnIndex: number) => void;
@@ -178,6 +179,7 @@ const {
 } = GRID_DEFAULT;
 
 const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forwardRef) => {
+  console.log('[Grid] GridBase component rendered');
   const {
     columns,
     commentCountMap,
@@ -242,6 +244,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onDeleteColumn,
     onStartEditColumn,
   } = props;
+
+  // 调试日志
+  console.log('[Grid] Component rendered with onAddColumn:', !!onAddColumn);
 
   useImperativeHandle(forwardRef, () => ({
     resetState: () => interactionLayerRef.current?.resetState(),
@@ -328,6 +333,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const interactionLayerRef = useRef<IInteractionLayerRef | null>(null);
   const columnManagementRef = useRef<IColumnManagementRef | null>(null);
   const rowContextMenuRef = useRef<IRowContextMenuRef | null>(null);
+  const deleteConfirmDialogRef = useRef<IDeleteConfirmDialogRef | null>(null);
   const { ref, width, height } = useResizeObserver<HTMLDivElement>();
 
   const [activeColumnIndex, activeRowIndex] = activeCell ?? [];
@@ -570,28 +576,20 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     scrollerRef.current?.scrollBy(deltaX, deltaY);
   }, []);
 
-  // 点击右侧"+"添加列时，优先使用onAddColumn回调，否则显示默认字段属性编辑弹窗
+  // 点击右侧"+"添加列时，优先使用onAddColumn回调，否则显示字段类型选择弹窗
   const handleAppendColumnClick = useCallback(() => {
+    console.log('[Grid] handleAppendColumnClick called, onAddColumn:', !!onAddColumn);
     // 如果提供了onAddColumn回调，优先使用它
     if (onAddColumn) {
+      console.log('[Grid] Calling onAddColumn with text type and index:', columns.length);
       onAddColumn('text', columns.length);
       return;
     }
-
-    // 否则使用默认的字段属性编辑器
-    const defaultColumn: IGridColumn = {
-      id: `col-${Date.now()}`,
-      name: '新字段',
-      width: 160,
-      description: '',
-      icon: 'A',
-    };
 
     // 计算浮层位置：
     // - 顶部与第一行顶部对齐（columnHeaderHeight 下方）
     // - 右侧与最后一列右边缘对齐（容器内坐标转换为页面坐标由上层容器处理，这里使用相对容器的 left/top）
     // 计算面板在页面中的定位（与 append 列按钮一致）
-    const panelWidth = 360;
     const containerEl = containerRef.current;
     const rect = containerEl?.getBoundingClientRect();
     const pageLeft = (rect?.left ?? 0) + window.scrollX;
@@ -605,10 +603,10 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     const x = pageLeft + appendRightX + 1;
     const y = pageTop + columnHeaderHeight; // 与第一行顶部对齐（表头下沿）
 
-    columnManagementRef.current?.showFieldPropertyEditor(
-      defaultColumn,
-      columns.length,
-      { x: Math.max(x, pageLeft), y, width: panelWidth }
+    // 使用新的字段类型选择弹窗
+    columnManagementRef.current?.showFieldTypeSelectModal(
+      { x: Math.max(x, pageLeft), y },
+      'create'
     );
   }, [onAddColumn, columns.length, coordInstance, scrollState.scrollLeft, columnHeaderHeight]);
 
@@ -887,7 +885,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         ref={rowContextMenuRef}
         onDeleteRow={(rowIndex) => {
           console.log('Delete row:', rowIndex);
-          onDelete?.({ type: SelectableType.Row } as any);
+          // 显示删除确认对话框
+          const recordId = `record-${rowIndex}`;
+          deleteConfirmDialogRef.current?.show('row', recordId, rowIndex);
         }}
         onDuplicateRow={(rowIndex) => {
           console.log('Duplicate row:', rowIndex);
@@ -902,6 +902,16 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           onRowAppend?.(rowIndex + 1);
         }}
         onExpandRow={(rowIndex) => onRowExpand?.(rowIndex)}
+      />
+
+      <DeleteConfirmDialog
+        ref={deleteConfirmDialogRef}
+        onConfirm={(type: DeleteType, itemIndex: number) => {
+          if (type === 'row') {
+            console.log('Confirm delete row:', itemIndex);
+            onDelete?.({ type: SelectableType.Row } as any);
+          }
+        }}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
-import { MagicAi, Square } from '@/utils/icons';
+import { MagicAi, Square } from '../../../utils/icons';
 import type { ICellItem, IScrollState } from '../../types/grid';
 import type { CoordinateManager } from '../../managers';
 

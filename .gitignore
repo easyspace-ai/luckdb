@@ -2,6 +2,7 @@
 node_modules/
 /dist
 /build
+dist/
 
 # 日志文件
 *.log
@@ -21,6 +22,11 @@ logs/
 .vscode/
 .idea/
 *.iml
+.cursor/
+.playwright-mcp/
+
+# 构建缓存
+.turbo/
 
 # 构建输出
 /server/easydb
@@ -46,4 +52,4 @@ test-results/
 
 book
 docs
-
+/teable-develop

@@ -1,8 +1,8 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ForwardRefRenderFunction } from 'react';
-import type { IImageCell } from '@/grid/renderers/cell-renderer/interface';
+import type { IImageCell } from '../../../renderers/cell-renderer/interface';
 import type { IEditorProps, IEditorRef } from '../EditorContainer';
-import { Input } from '@/ui';
+import { Input } from '../../../../ui';
 
 const ImageEditorBase: ForwardRefRenderFunction<IEditorRef<IImageCell>, IEditorProps<IImageCell>> = (
   props,

@@ -16,11 +16,13 @@ export enum CellValueType {
  * Field Type Enum - 与参考项目对齐的字段类型定义
  */
 export enum FieldType {
+  Text = 'text',                    // 基础文本类型
   SingleLineText = 'singleLineText',
   LongText = 'longText',
   User = 'user',
   Attachment = 'attachment',
   Checkbox = 'checkbox',
+  Select = 'select',                // 通用选择类型
   MultipleSelect = 'multipleSelect',
   SingleSelect = 'singleSelect',
   Date = 'date',
@@ -35,6 +37,9 @@ export enum FieldType {
   LastModifiedBy = 'lastModifiedBy',
   AutoNumber = 'autoNumber',
   Button = 'button',
+  Email = 'email',
+  Phone = 'phone',
+  URL = 'url',
 }
 
 /**

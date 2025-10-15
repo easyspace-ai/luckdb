@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
-import type { ICellItem } from '@/grid/interface';
-import { SelectionRegionType } from '@/grid/interface';
-import { CombinedSelection, emptySelection } from '@/grid/managers';
+import type { ICellItem } from '../../interface';
+import { SelectionRegionType } from '../../interface';
+import { CombinedSelection, emptySelection } from '../../managers';
 
 /**
  * Grid ref interface

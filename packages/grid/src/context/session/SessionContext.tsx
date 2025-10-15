@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { ApiClient } from '@/api/client';
+import { ApiClient } from '../../api/client';
 
 interface IUser {
   id: string;

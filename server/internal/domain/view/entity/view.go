@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/easyspace-ai/luckdb/server/internal/domain/view/valueobject"
+	"github.com/easyspace-ai/luckdb/server/pkg/utils"
 
 	"github.com/google/uuid"
 )
@@ -70,7 +71,7 @@ func NewView(
 	now := time.Now()
 
 	return &View{
-		id:          uuid.New().String(),
+		id:          utils.GenerateViewID(), // 使用带前缀的短ID而不是UUID
 		tableID:     tableID,
 		name:        name,
 		description: "",
@@ -80,7 +81,7 @@ func NewView(
 		group:       nil,
 		columnMeta:  &valueobject.ColumnMetaList{Columns: []valueobject.ColumnMeta{}},
 		options:     make(map[string]interface{}),
-		order:       float64(time.Now().UnixNano()),
+		order:       0.0, // 默认顺序为0，实际顺序应该由ViewService根据当前视图数量计算
 		version:     1,
 		isLocked:    false,
 		enableShare: false,

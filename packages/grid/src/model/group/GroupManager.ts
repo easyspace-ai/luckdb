@@ -5,7 +5,7 @@
 
 import type { Field } from '../field/Field';
 import type { RecordModel } from '../record/Record';
-import { FieldType } from '@/types/field';
+import { FieldType } from '../../types/field';
 import type { SortDirection } from '../sort/SortManager';
 
 export interface IGroupConfig {

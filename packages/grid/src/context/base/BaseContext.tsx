@@ -1,7 +1,7 @@
 import { createContext, useContext, ReactNode, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ApiClient } from '@/api/client';
-import type { IBase, ICreateBaseRo, IUpdateBaseRo } from '@/api/types';
+import { ApiClient } from '../../api/client';
+import type { IBase, ICreateBaseRo, IUpdateBaseRo } from '../../api/types';
 
 interface IBaseContext {
   bases: IBase[];

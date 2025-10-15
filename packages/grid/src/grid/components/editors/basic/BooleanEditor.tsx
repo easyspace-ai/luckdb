@@ -3,7 +3,7 @@ import { noop } from 'lodash';
 import type { ForwardRefRenderFunction } from 'react';
 import { useImperativeHandle, forwardRef, useRef, useState } from 'react';
 import { Key as KeyCode } from 'ts-keycode-enum';
-import type { IBooleanCell } from '@/grid/renderers';
+import type { IBooleanCell } from '../../../renderers';
 import type { IEditorRef, IEditorProps } from '../EditorContainer';
 
 const BooleanEditorBase: ForwardRefRenderFunction<

@@ -3,7 +3,7 @@
  * Represents a single record in a table
  */
 
-import type { IRecord } from '@/api/types';
+import type { IRecord } from '../../api/types';
 import type { IFieldInstance } from '../field';
 
 export interface IRecordConfig {

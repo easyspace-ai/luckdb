@@ -18,7 +18,7 @@ type View struct {
 	Group            datatypes.JSON `gorm:"column:group;type:jsonb"`
 	ColumnMeta       datatypes.JSON `gorm:"column:column_meta;type:jsonb"`
 	Options          datatypes.JSON `gorm:"column:options;type:jsonb"`
-	Order            *float64       `gorm:"column:order;type:numeric(10,2)"`
+	Order            *float64       `gorm:"column:order"`
 	Version          int            `gorm:"column:version;type:int;default:1"`
 	IsLocked         bool           `gorm:"column:is_locked;type:boolean;default:false"`
 	EnableShare      bool           `gorm:"column:enable_share;type:boolean;default:false"`

@@ -1,13 +1,13 @@
-import { Input } from '@/ui';
+import { Input } from '../../../../ui';
 import type { ChangeEvent, ForwardRefRenderFunction, KeyboardEvent, RefObject } from 'react';
 import { useState, useRef, useImperativeHandle, forwardRef, useMemo } from 'react';
 // 使用 ESM 导入并以 any 断言，避免 TS/React 版本差异造成的 JSX 类型不兼容
 import AutoSizeTextareaDefault from 'react-textarea-autosize';
 const AutoSizeTextarea: any = AutoSizeTextareaDefault as any;
 import { Key } from 'ts-keycode-enum';
-import { GRID_DEFAULT } from '@/grid/configs';
-import type { ILinkCell, INumberCell, ITextCell } from '@/grid/renderers';
-import { CellType } from '@/grid/renderers';
+import { GRID_DEFAULT } from '../../../configs';
+import type { ILinkCell, INumberCell, ITextCell } from '../../../renderers';
+import { CellType } from '../../../renderers';
 import type { IEditorRef, IEditorProps } from '../EditorContainer';
 
 const { rowHeight: defaultRowHeight } = GRID_DEFAULT;

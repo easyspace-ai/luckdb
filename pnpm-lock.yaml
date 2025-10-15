@@ -268,6 +268,9 @@ importers:
 
   packages/grid:
     dependencies:
+      '@luckdb/sdk':
+        specifier: workspace:*
+        version: link:../sdk
       '@radix-ui/react-popover':
         specifier: ^1.0.7
         version: 1.1.15(@types/react-dom@18.3.7)(@types/react@18.3.26)(react-dom@18.3.1)(react@18.3.1)

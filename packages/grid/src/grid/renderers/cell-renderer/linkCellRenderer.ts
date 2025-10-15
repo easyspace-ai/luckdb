@@ -24,10 +24,16 @@ interface ITextPosition {
 
 interface IComputeTextPositionProps {
   ctx: CanvasRenderingContext2D;
-  data: string[];
+  data: string[] | ILinkCellData;
   rect: IRectangle;
   theme: IGridTheme;
   isActive?: boolean;
+}
+
+interface ILinkCellData {
+  title?: string;
+  url?: string;
+  text?: string;
 }
 
 const { cellHorizontalPadding, cellVerticalPaddingMD, cellTextLineHeight, maxRowCount } =
@@ -52,7 +58,23 @@ const computeTextPositions = ({
   let drawX = x + cellHorizontalPadding;
   let drawY = y + cellVerticalPaddingMD;
 
-  for (const text of data) {
+  // Handle different data structures: array, object, or string
+  let textArray: string[] = [];
+  if (Array.isArray(data)) {
+    textArray = data.filter(item => item != null).map(item => String(item));
+  } else if (data && typeof data === 'object') {
+    // Extract text from ILinkCellData object
+    const linkData = data as ILinkCellData;
+    const displayText = linkData.title || linkData.text || linkData.url || '';
+    if (displayText) {
+      textArray = [displayText];
+    }
+  } else if (data != null) {
+    // Handle string or other primitive values
+    textArray = [String(data)];
+  }
+
+  for (const text of textArray) {
     const textLines = drawMultiLineText(ctx, {
       text,
       maxLines,
@@ -92,7 +114,11 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
     const { data } = cell;
     const { ctx, theme, width, height } = props;
 
-    if (!data.length) {
+    // Check if data is empty
+    const isEmpty = Array.isArray(data) ? !data.length : 
+                   (data && typeof data === 'object') ? (!data.title && !data.text && !data.url) :
+                   !data || data === '';
+    if (isEmpty) {
       return { width, height, totalHeight: height };
     }
 
@@ -128,7 +154,11 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
     ctx.save();
     ctx.beginPath();
 
-    if (data.length && !isActive) {
+    // Check if data is empty
+    const isEmpty = Array.isArray(data) ? !data.length : 
+                   (data && typeof data === 'object') ? (!data.title && !data.text && !data.url) :
+                   !data || data === '';
+    if (!isEmpty && !isActive) {
       ctx.rect(originX, originY, originWidth, originHeight);
       ctx.clip();
     }
@@ -210,7 +240,17 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
     for (const position of textPositions) {
       const { x, y, width, link } = position;
       if (hoverX >= x && hoverX <= x + width && hoverY >= y && hoverY <= y + cellTextLineHeight) {
-        return { type: CellRegionType.Preview, data: link };
+        // Extract URL based on data structure
+        let linkUrl = link; // default to the text content
+        if (Array.isArray(data)) {
+          linkUrl = link;
+        } else if (data && typeof data === 'object') {
+          const linkData = data as ILinkCellData;
+          linkUrl = linkData.url || linkData.text || linkData.title || link;
+        } else if (typeof data === 'string') {
+          linkUrl = data;
+        }
+        return { type: CellRegionType.Preview, data: linkUrl };
       }
     }
     return { type: CellRegionType.Blank };

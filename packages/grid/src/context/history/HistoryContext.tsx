@@ -4,7 +4,7 @@
  */
 
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { OperationHistory, type IHistoryEntry } from '@/lib/operation-history';
+import { OperationHistory, type IHistoryEntry } from '../../lib/operation-history';
 
 export interface IHistoryContext {
   operations: IHistoryEntry[];

@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, ReactNode } from 'react';
-import { ApiClient } from '@/api/client';
-import type { IPermissions } from '@/api/types';
+import { ApiClient } from '../../api/client';
+import type { IPermissions } from '../../api/types';
 
 type PermissionLevel = 'owner' | 'editor' | 'commenter' | 'viewer' | 'none';
 type PermissionAction = 'create' | 'read' | 'update' | 'delete';

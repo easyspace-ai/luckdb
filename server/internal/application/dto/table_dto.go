@@ -6,11 +6,33 @@ import (
 	tableEntity "github.com/easyspace-ai/luckdb/server/internal/domain/table/entity"
 )
 
+// ViewConfigDTO 视图配置DTO
+type ViewConfigDTO struct {
+	Name        string                   `json:"name" binding:"required"`
+	Type        string                   `json:"type" binding:"required"`
+	Description string                   `json:"description,omitempty"`
+	ColumnMeta  []map[string]interface{} `json:"columnMeta,omitempty"`
+}
+
+// FieldConfigDTO 字段配置DTO
+type FieldConfigDTO struct {
+	Name        string                 `json:"name" binding:"required"`
+	Type        string                 `json:"type" binding:"required"`
+	Description string                 `json:"description,omitempty"`
+	Required    bool                   `json:"required"`
+	Unique      bool                   `json:"unique"`
+	IsPrimary   bool                   `json:"isPrimary,omitempty"`
+	Options     map[string]interface{} `json:"options,omitempty"`
+}
+
 // CreateTableRequest 创建表请求
+// 对齐 Teable 的 ICreateTableRo 和 ICreateTableWithDefault
 type CreateTableRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Description string `json:"description"`
-	BaseID      string `json:"baseId" binding:"required"` // ✅ 统一使用 camelCase
+	Name        string           `json:"name" binding:"required"`
+	Description string           `json:"description"`
+	BaseID      string           `json:"baseId" binding:"required"` // ✅ 统一使用 camelCase
+	Views       []ViewConfigDTO  `json:"views,omitempty"`           // ✅ 视图配置数组（可选，不传时使用默认值）
+	Fields      []FieldConfigDTO `json:"fields,omitempty"`          // ✅ 字段配置数组（可选，不传时使用默认值）
 }
 
 // UpdateTableRequest 更新表请求

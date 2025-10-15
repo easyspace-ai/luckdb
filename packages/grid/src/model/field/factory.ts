@@ -3,7 +3,7 @@
  * Creates field instances based on field type
  */
 
-import type { IField } from '@/api/types';
+import type { IField } from '../../api/types';
 import { Field, type IFieldConfig } from './Field';
 import { TextField } from './TextField';
 import { NumberField } from './NumberField';

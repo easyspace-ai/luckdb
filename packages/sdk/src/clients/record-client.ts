@@ -44,7 +44,7 @@ export class RecordClient {
 
   /**
    * 获取记录列表（GET /api/v1/tables/:tableId/records）
-   * ⚠️ 后端返回直接数组，不是分页格式
+   * 后端返回格式：{ list: Record[], pagination?: {...} }
    */
   public async list(params?: PaginationParams & { 
     tableId?: string;  // ✅ 使用 camelCase
@@ -53,39 +53,75 @@ export class RecordClient {
   }): Promise<PaginatedResponse<Record>> {
     if (params?.tableId) {
       const { tableId, ...restParams } = params;
-      // Records API 返回直接数组
-      const records = await this.httpClient.get<Record[]>(`/api/v1/tables/${tableId}/records`, restParams);
-      // 手动包装成分页格式
+      // Records API 返回 { list: [...] } 格式
+      const response = await this.httpClient.get<{ list: Record[]; pagination?: any }>(`/api/v1/tables/${tableId}/records`, restParams);
+      
+      // 提取 list 数组
+      const records = response?.list || [];
+      
+      // 如果有 pagination 信息，使用它；否则手动构造
+      if (response?.pagination) {
+        return {
+          data: records,
+          total: response.pagination.total || records.length,
+          limit: response.pagination.limit || records.length,
+          offset: ((response.pagination.page || 1) - 1) * (response.pagination.limit || records.length)
+        };
+      }
+      
+      // 没有 pagination 信息，手动包装
       return {
-        data: records || [],
-        total: (records || []).length,
-        limit: (records || []).length,
+        data: records,
+        total: records.length,
+        limit: records.length,
         offset: 0
       };
     }
     // 全局记录列表（如果存在）
-    const records = await this.httpClient.get<Record[]>('/api/v1/records', params);
+    const response = await this.httpClient.get<{ list: Record[]; pagination?: any }>('/api/v1/records', params);
+    const records = response?.list || [];
+    
+    if (response?.pagination) {
+      return {
+        data: records,
+        total: response.pagination.total || records.length,
+        limit: response.pagination.limit || records.length,
+        offset: ((response.pagination.page || 1) - 1) * (response.pagination.limit || records.length)
+      };
+    }
+    
     return {
-      data: records || [],
-      total: (records || []).length,
-      limit: (records || []).length,
+      data: records,
+      total: records.length,
+      limit: records.length,
       offset: 0
     };
   }
 
   /**
    * 获取数据表的记录列表（GET /api/v1/tables/:tableId/records）
-   * ⚠️ 后端返回直接数组，不是分页格式
+   * 后端返回格式：{ list: Record[], pagination?: {...} }
    */
   public async listTableRecords(tableId: string, params?: PaginationParams & {
     filter?: FilterExpression;
     sort?: SortExpression[];
   }): Promise<PaginatedResponse<Record>> {
-    const records = await this.httpClient.get<Record[]>(`/api/v1/tables/${tableId}/records`, params);
+    const response = await this.httpClient.get<{ list: Record[]; pagination?: any }>(`/api/v1/tables/${tableId}/records`, params);
+    const records = response?.list || [];
+    
+    if (response?.pagination) {
+      return {
+        data: records,
+        total: response.pagination.total || records.length,
+        limit: response.pagination.limit || records.length,
+        offset: ((response.pagination.page || 1) - 1) * (response.pagination.limit || records.length)
+      };
+    }
+    
     return {
-      data: records || [],
-      total: (records || []).length,
-      limit: (records || []).length,
+      data: records,
+      total: records.length,
+      limit: records.length,
       offset: 0
     };
   }

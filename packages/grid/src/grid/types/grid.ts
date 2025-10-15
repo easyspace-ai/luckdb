@@ -1,4 +1,4 @@
-import type { IUser } from '@/types';
+import type { IUser } from '../../types';
 import type { IGridTheme } from '../configs/gridTheme';
 import type { ICell } from '../renderers/cell-renderer/interface';
 export * from '../renderers/cell-renderer/interface';
@@ -88,6 +88,8 @@ export interface IGridColumn {
   readonly?: boolean;
   isPrimary?: boolean;
   description?: string;
+  type?: string; // 字段类型
+  options?: any; // 字段配置选项（用于公式字段、汇总字段等）
   statisticLabel?: {
     showAlways: boolean;
     label: string;

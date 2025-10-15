@@ -241,11 +241,71 @@ func (s *MigrateService) executeGolangMigrate(ctx context.Context, command, vers
 			return errors.ErrDatabaseOperation.WithDetails(err.Error())
 		}
 	case "drop":
+		// 先清理 UUID schema，再执行标准 drop
+		if err := s.cleanupUUIDSchemas(db); err != nil {
+			s.logger.Warn("清理 UUID schema 失败", zap.Error(err))
+		}
 		if err := m.Drop(); err != nil {
 			return errors.ErrDatabaseOperation.WithDetails(err.Error())
 		}
 	default:
 		return errors.ErrBadRequest.WithDetails(fmt.Sprintf("未知命令: %s", command))
+	}
+
+	return nil
+}
+
+// cleanupUUIDSchemas 清理 UUID 格式的 schema
+func (s *MigrateService) cleanupUUIDSchemas(db *sql.DB) error {
+	s.logger.Info("开始清理 UUID schema...")
+
+	// 查询所有 UUID 格式的 schema
+	query := `
+		SELECT schema_name 
+		FROM information_schema.schemata 
+		WHERE schema_name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+		AND schema_name != 'public'
+	`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return fmt.Errorf("查询 UUID schema 失败: %w", err)
+	}
+	defer rows.Close()
+
+	var schemas []string
+	for rows.Next() {
+		var schemaName string
+		if err := rows.Scan(&schemaName); err != nil {
+			return fmt.Errorf("扫描 schema 名称失败: %w", err)
+		}
+		schemas = append(schemas, schemaName)
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("遍历 schema 结果失败: %w", err)
+	}
+
+	s.logger.Info("发现 UUID schema", zap.Strings("schemas", schemas))
+
+	// 删除每个 UUID schema
+	for _, schemaName := range schemas {
+		dropQuery := fmt.Sprintf("DROP SCHEMA IF EXISTS \"%s\" CASCADE", schemaName)
+		s.logger.Info("删除 schema", zap.String("schema", schemaName))
+
+		if _, err := db.Exec(dropQuery); err != nil {
+			s.logger.Warn("删除 schema 失败",
+				zap.String("schema", schemaName),
+				zap.Error(err))
+		} else {
+			s.logger.Info("成功删除 schema", zap.String("schema", schemaName))
+		}
+	}
+
+	if len(schemas) > 0 {
+		s.logger.Info("UUID schema 清理完成", zap.Int("count", len(schemas)))
+	} else {
+		s.logger.Info("没有发现需要清理的 UUID schema")
 	}
 
 	return nil
@@ -321,14 +381,14 @@ func (s *MigrateService) runAutoMigrate(db *gorm.DB) error {
 	allModels := []interface{}{
 		// 核心表
 		&models.User{},
-		&models.Account{},
+		// &models.Account{}, // TODO: Account模型未实现
 		&models.Space{},
 		&models.SpaceCollaborator{},
 		&models.Base{},
 		&models.Table{},
 		&models.Field{},
 		&models.Record{},
-		// &models.View{},  // TODO: View模型待实现
+		&models.View{}, // ✅ View模型已实现
 		&models.Permission{},
 		&models.Attachment{},
 		&models.Collaborator{},
@@ -439,11 +499,32 @@ func (s *MigrateService) runAutoMigrate(db *gorm.DB) error {
 
 	s.logger.Info("开始迁移模型", zap.Int("model_count", len(allModels)))
 
-	if err := db.AutoMigrate(allModels...); err != nil {
-		return errors.ErrDatabaseOperation.WithDetails(err.Error())
+	// 逐个迁移模型，遇到错误时记录但继续执行
+	successCount := 0
+	failedModels := []string{}
+
+	for i, model := range allModels {
+		modelName := fmt.Sprintf("%T", model)
+		if err := db.AutoMigrate(model); err != nil {
+			s.logger.Warn("模型迁移失败，跳过",
+				zap.Int("index", i),
+				zap.String("model", modelName),
+				zap.Error(err))
+			failedModels = append(failedModels, modelName)
+		} else {
+			successCount++
+		}
 	}
 
-	s.logger.Info("模型迁移成功", zap.Int("model_count", len(allModels)))
+	if len(failedModels) > 0 {
+		s.logger.Warn("部分模型迁移失败",
+			zap.Int("failed_count", len(failedModels)),
+			zap.Strings("failed_models", failedModels))
+	}
+
+	s.logger.Info("模型迁移完成",
+		zap.Int("success_count", successCount),
+		zap.Int("total_count", len(allModels)))
 
 	return nil
 }

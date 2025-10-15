@@ -9,6 +9,7 @@ import (
 	"github.com/easyspace-ai/luckdb/server/internal/domain/view/entity"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/view/repository"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/view/valueobject"
+	"github.com/easyspace-ai/luckdb/server/internal/infrastructure/database/models"
 
 	"gorm.io/gorm"
 )
@@ -23,34 +24,7 @@ func NewViewRepository(db *gorm.DB) repository.ViewRepository {
 	return &ViewRepositoryImpl{db: db}
 }
 
-// ViewModel GORM数据模型
-type ViewModel struct {
-	ID          string     `gorm:"primaryKey;column:id"`
-	Name        string     `gorm:"column:name"`
-	Description string     `gorm:"column:description"`
-	TableID     string     `gorm:"column:table_id;index"`
-	Type        string     `gorm:"column:type"`
-	Filter      string     `gorm:"column:filter;type:text"`      // JSON
-	Sort        string     `gorm:"column:sort;type:text"`        // JSON
-	Group       string     `gorm:"column:group;type:text"`       // JSON
-	ColumnMeta  string     `gorm:"column:column_meta;type:text"` // JSON
-	Options     string     `gorm:"column:options;type:text"`     // JSON
-	Order       float64    `gorm:"column:order;index"`
-	Version     int        `gorm:"column:version"`
-	IsLocked    bool       `gorm:"column:is_locked"`
-	EnableShare bool       `gorm:"column:enable_share"`
-	ShareID     *string    `gorm:"column:share_id;uniqueIndex"`
-	ShareMeta   string     `gorm:"column:share_meta;type:text"` // JSON
-	CreatedBy   string     `gorm:"column:created_by"`
-	CreatedAt   time.Time  `gorm:"column:created_time"`
-	UpdatedAt   time.Time  `gorm:"column:last_modified_time"` // ✅ 修复：使用正确的列名 last_modified_time
-	DeletedAt   *time.Time `gorm:"column:deleted_time;index"`
-}
-
-// TableName 指定表名
-func (ViewModel) TableName() string {
-	return "view"
-}
+// 移除自定义的models.View，直接使用models.View以确保与GORM AutoMigrate一致
 
 // Save 保存视图
 func (r *ViewRepositoryImpl) Save(ctx context.Context, view *entity.View) error {
@@ -59,7 +33,7 @@ func (r *ViewRepositoryImpl) Save(ctx context.Context, view *entity.View) error 
 		return fmt.Errorf("failed to convert view to model: %w", err)
 	}
 
-	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
+	if err := r.db.WithContext(ctx).Create(&model).Error; err != nil {
 		return fmt.Errorf("failed to save view: %w", err)
 	}
 
@@ -82,7 +56,7 @@ func (r *ViewRepositoryImpl) Update(ctx context.Context, view *entity.View) erro
 
 // FindByID 根据ID查找视图
 func (r *ViewRepositoryImpl) FindByID(ctx context.Context, id string) (*entity.View, error) {
-	var model ViewModel
+	var model models.View
 	err := r.db.WithContext(ctx).
 		Where("id = ? AND deleted_time IS NULL", id).
 		First(&model).Error
@@ -99,18 +73,18 @@ func (r *ViewRepositoryImpl) FindByID(ctx context.Context, id string) (*entity.V
 
 // FindByTableID 根据表格ID查找所有视图
 func (r *ViewRepositoryImpl) FindByTableID(ctx context.Context, tableID string) ([]*entity.View, error) {
-	var models []ViewModel
+	var viewModels []models.View
 	err := r.db.WithContext(ctx).
 		Where("table_id = ? AND deleted_time IS NULL", tableID).
 		Order("\"order\"").
-		Find(&models).Error
+		Find(&viewModels).Error
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to find views by table ID: %w", err)
 	}
 
-	views := make([]*entity.View, 0, len(models))
-	for _, model := range models {
+	views := make([]*entity.View, 0, len(viewModels))
+	for _, model := range viewModels {
 		view, err := r.toEntity(&model)
 		if err != nil {
 			return nil, err
@@ -123,7 +97,7 @@ func (r *ViewRepositoryImpl) FindByTableID(ctx context.Context, tableID string) 
 
 // FindByShareID 根据分享ID查找视图
 func (r *ViewRepositoryImpl) FindByShareID(ctx context.Context, shareID string) (*entity.View, error) {
-	var model ViewModel
+	var model models.View
 	err := r.db.WithContext(ctx).
 		Where("share_id = ? AND enable_share = ? AND deleted_time IS NULL", shareID, true).
 		First(&model).Error
@@ -142,7 +116,7 @@ func (r *ViewRepositoryImpl) FindByShareID(ctx context.Context, shareID string) 
 func (r *ViewRepositoryImpl) Delete(ctx context.Context, id string) error {
 	now := time.Now()
 	err := r.db.WithContext(ctx).
-		Model(&ViewModel{}).
+		Model(&models.View{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"deleted_time":       now,
@@ -160,7 +134,7 @@ func (r *ViewRepositoryImpl) Delete(ctx context.Context, id string) error {
 func (r *ViewRepositoryImpl) Exists(ctx context.Context, id string) (bool, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
-		Model(&ViewModel{}).
+		Model(&models.View{}).
 		Where("id = ? AND deleted_time IS NULL", id).
 		Count(&count).Error
 
@@ -175,7 +149,7 @@ func (r *ViewRepositoryImpl) Exists(ctx context.Context, id string) (bool, error
 func (r *ViewRepositoryImpl) Count(ctx context.Context, tableID string) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
-		Model(&ViewModel{}).
+		Model(&models.View{}).
 		Where("table_id = ? AND deleted_time IS NULL", tableID).
 		Count(&count).Error
 
@@ -187,31 +161,46 @@ func (r *ViewRepositoryImpl) Count(ctx context.Context, tableID string) (int64, 
 }
 
 // toModel 实体转模型
-func (r *ViewRepositoryImpl) toModel(view *entity.View) (*ViewModel, error) {
-	model := &ViewModel{
-		ID:          view.ID(),
-		Name:        view.Name(),
-		Description: view.Description(),
-		TableID:     view.TableID(),
-		Type:        string(view.ViewType()),
-		Order:       view.Order(),
-		Version:     view.Version(),
-		IsLocked:    view.IsLocked(),
-		EnableShare: view.EnableShare(),
-		ShareID:     view.ShareID(),
-		CreatedBy:   view.CreatedBy(),
-		CreatedAt:   view.CreatedAt(),
-		UpdatedAt:   view.UpdatedAt(),
-		DeletedAt:   view.DeletedAt(),
+func (r *ViewRepositoryImpl) toModel(view *entity.View) (*models.View, error) {
+	// Order字段处理：如果为0则设为nil
+	var order *float64
+	if viewOrder := view.Order(); viewOrder != 0 {
+		order = &viewOrder
 	}
 
-	// JSON字段序列化
+	// Description字段处理
+	var description *string
+	if desc := view.Description(); desc != "" {
+		description = &desc
+	}
+
+	// UpdatedAt字段处理
+	updatedAt := view.UpdatedAt()
+
+	model := &models.View{
+		ID:               view.ID(),
+		Name:             view.Name(),
+		Description:      description,
+		TableID:          view.TableID(),
+		Type:             string(view.ViewType()),
+		Order:            order,
+		Version:          view.Version(),
+		IsLocked:         view.IsLocked(),
+		EnableShare:      view.EnableShare(),
+		ShareID:          view.ShareID(),
+		CreatedBy:        view.CreatedBy(),
+		CreatedTime:      view.CreatedAt(),
+		LastModifiedTime: &updatedAt,
+		DeletedTime:      view.DeletedAt(),
+	}
+
+	// JSON字段序列化 - 使用datatypes.JSON，GORM会自动处理nil值为NULL
 	if filter := view.Filter(); filter != nil {
 		filterJSON, err := json.Marshal(filter)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal filter: %w", err)
 		}
-		model.Filter = string(filterJSON)
+		model.Filter = filterJSON
 	}
 
 	if sort := view.Sort(); sort != nil {
@@ -219,7 +208,7 @@ func (r *ViewRepositoryImpl) toModel(view *entity.View) (*ViewModel, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal sort: %w", err)
 		}
-		model.Sort = string(sortJSON)
+		model.Sort = sortJSON
 	}
 
 	if group := view.Group(); group != nil {
@@ -227,7 +216,7 @@ func (r *ViewRepositoryImpl) toModel(view *entity.View) (*ViewModel, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal group: %w", err)
 		}
-		model.Group = string(groupJSON)
+		model.Group = groupJSON
 	}
 
 	if columnMeta := view.ColumnMeta(); columnMeta != nil {
@@ -235,7 +224,7 @@ func (r *ViewRepositoryImpl) toModel(view *entity.View) (*ViewModel, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal column meta: %w", err)
 		}
-		model.ColumnMeta = string(columnMetaJSON)
+		model.ColumnMeta = columnMetaJSON
 	}
 
 	if options := view.Options(); options != nil && len(options) > 0 {
@@ -243,7 +232,7 @@ func (r *ViewRepositoryImpl) toModel(view *entity.View) (*ViewModel, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal options: %w", err)
 		}
-		model.Options = string(optionsJSON)
+		model.Options = optionsJSON
 	}
 
 	if shareMeta := view.ShareMeta(); shareMeta != nil && len(shareMeta) > 0 {
@@ -251,59 +240,59 @@ func (r *ViewRepositoryImpl) toModel(view *entity.View) (*ViewModel, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal share meta: %w", err)
 		}
-		model.ShareMeta = string(shareMetaJSON)
+		model.ShareMeta = shareMetaJSON
 	}
 
 	return model, nil
 }
 
 // toEntity 模型转实体
-func (r *ViewRepositoryImpl) toEntity(model *ViewModel) (*entity.View, error) {
+func (r *ViewRepositoryImpl) toEntity(model *models.View) (*entity.View, error) {
 	// 解析视图类型
 	viewType, err := valueobject.NewViewType(model.Type)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse view type: %w", err)
 	}
 
-	// 解析JSON字段
+	// 解析JSON字段 - 处理datatypes.JSON类型
 	var filter *valueobject.Filter
-	if model.Filter != "" {
+	if len(model.Filter) > 0 {
 		var filterData map[string]interface{}
-		if err := json.Unmarshal([]byte(model.Filter), &filterData); err != nil {
+		if err := json.Unmarshal(model.Filter, &filterData); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal filter: %w", err)
 		}
 		filter, _ = valueobject.NewFilter(filterData)
 	}
 
 	var sort *valueobject.Sort
-	if model.Sort != "" {
+	if len(model.Sort) > 0 {
 		var sortData []map[string]interface{}
-		if err := json.Unmarshal([]byte(model.Sort), &sortData); err != nil {
+		if err := json.Unmarshal(model.Sort, &sortData); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal sort: %w", err)
 		}
 		sort, _ = valueobject.NewSort(sortData)
 	}
 
 	var group *valueobject.Group
-	if model.Group != "" {
+	if len(model.Group) > 0 {
 		var groupData []map[string]interface{}
-		if err := json.Unmarshal([]byte(model.Group), &groupData); err != nil {
+		if err := json.Unmarshal(model.Group, &groupData); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal group: %w", err)
 		}
 		group, _ = valueobject.NewGroup(groupData)
 	}
 
 	var columnMeta *valueobject.ColumnMetaList
-	if model.ColumnMeta != "" {
+	if len(model.ColumnMeta) > 0 {
 		// 尝试反序列化为完整的ColumnMetaList结构
 		var temp valueobject.ColumnMetaList
-		if err := json.Unmarshal([]byte(model.ColumnMeta), &temp); err == nil {
+		if err := json.Unmarshal(model.ColumnMeta, &temp); err == nil {
 			// 成功解析为ColumnMetaList
 			columnMeta = &temp
 		} else {
 			// 如果失败，尝试解析为数组格式（向后兼容）
 			var columnMetaData []map[string]interface{}
-			if err := json.Unmarshal([]byte(model.ColumnMeta), &columnMetaData); err != nil {
+			if err := json.Unmarshal(model.ColumnMeta, &columnMetaData); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal column meta: %w", err)
 			}
 			columnMeta, _ = valueobject.NewColumnMetaList(columnMetaData)
@@ -313,24 +302,44 @@ func (r *ViewRepositoryImpl) toEntity(model *ViewModel) (*entity.View, error) {
 	}
 
 	var options map[string]interface{}
-	if model.Options != "" {
-		if err := json.Unmarshal([]byte(model.Options), &options); err != nil {
+	if len(model.Options) > 0 {
+		if err := json.Unmarshal(model.Options, &options); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal options: %w", err)
 		}
 	}
 
 	var shareMeta map[string]interface{}
-	if model.ShareMeta != "" {
-		if err := json.Unmarshal([]byte(model.ShareMeta), &shareMeta); err != nil {
+	if len(model.ShareMeta) > 0 {
+		if err := json.Unmarshal(model.ShareMeta, &shareMeta); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal share meta: %w", err)
 		}
+	}
+
+	// Order字段处理
+	var order float64
+	if model.Order != nil {
+		order = *model.Order
+	}
+
+	// 时间字段处理
+	var updatedAt time.Time
+	if model.LastModifiedTime != nil {
+		updatedAt = *model.LastModifiedTime
+	} else {
+		updatedAt = model.CreatedTime
+	}
+
+	// Description字段处理
+	var description string
+	if model.Description != nil {
+		description = *model.Description
 	}
 
 	// 重建实体
 	view := entity.ReconstructView(
 		model.ID,
 		model.Name,
-		model.Description,
+		description,
 		model.TableID,
 		viewType,
 		filter,
@@ -338,16 +347,16 @@ func (r *ViewRepositoryImpl) toEntity(model *ViewModel) (*entity.View, error) {
 		group,
 		columnMeta,
 		options,
-		model.Order,
+		order,
 		model.Version,
 		model.IsLocked,
 		model.EnableShare,
 		model.ShareID,
 		shareMeta,
 		model.CreatedBy,
-		model.CreatedAt,
-		model.UpdatedAt,
-		model.DeletedAt,
+		model.CreatedTime,
+		updatedAt,
+		model.DeletedTime,
 	)
 
 	return view, nil

@@ -1,7 +1,7 @@
 import { createContext, useContext, ReactNode, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ApiClient } from '@/api/client';
-import type { ITable, ICreateTableRo, IUpdateTableRo } from '@/api/types';
+import { ApiClient } from '../../api/client';
+import type { ITable, ICreateTableRo, IUpdateTableRo } from '../../api/types';
 
 interface ITableContext {
   tables: ITable[];

@@ -112,6 +112,14 @@ func (s *ViewService) CreateView(
 		}
 	}
 
+	// 8.5. 设置视图排序order（基于当前表的视图数量）
+	count, err := s.viewRepo.Count(ctx, req.TableID)
+	if err != nil {
+		logger.Warn("获取视图数量失败，使用默认order=0", logger.ErrorField(err))
+	} else {
+		view.UpdateOrder(float64(count)) // order从0开始递增
+	}
+
 	// 9. 保存视图
 	if err := s.viewRepo.Save(ctx, view); err != nil {
 		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("保存视图失败: %v", err))

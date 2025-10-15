@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/easyspace-ai/luckdb/server/internal/application/dto"
+	"github.com/easyspace-ai/luckdb/server/internal/application/helpers"
 	baseRepo "github.com/easyspace-ai/luckdb/server/internal/domain/base/repository"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/space/repository"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/table/aggregate"
@@ -47,9 +48,16 @@ func NewTableService(
 }
 
 // CreateTable 创建表格
-// ✅ 完全动态表架构：创建Table时在Schema中创建独立的物理表
-// 严格按照旧系统实现：teable-develop/apps/nestjs-backend/src/features/table/table.service.ts
+// ✅ 对齐 Teable 实现：支持批量创建字段和视图
+// 参考：teable-develop/apps/nestjs-backend/src/features/table/open-api/table-open-api.service.ts
 func (s *TableService) CreateTable(ctx context.Context, req dto.CreateTableRequest, userID string) (*dto.TableResponse, error) {
+	// 0. ✅ 准备默认值（对齐 Teable 的 TablePipe）
+	helpers.PrepareTableDefaults(&req)
+
+	logger.Info("🔍 PrepareTableDefaults 完成",
+		logger.Int("views_count", len(req.Views)),
+		logger.Int("fields_count", len(req.Fields)))
+
 	// 1. 验证表格名称
 	tableName, err := valueobject.NewTableName(req.Name)
 	if err != nil {
@@ -81,7 +89,6 @@ func (s *TableService) CreateTable(ctx context.Context, req dto.CreateTableReque
 	}
 
 	// 5. ✅ 创建物理表（包含系统字段）
-	// 参考旧系统：this.dbProvider.generateDbTableName(baseId, tableRo.dbTableName)
 	tableID := table.ID().String()
 	baseID := req.BaseID
 	dbTableName := s.dbProvider.GenerateTableName(baseID, tableID)
@@ -91,7 +98,6 @@ func (s *TableService) CreateTable(ctx context.Context, req dto.CreateTableReque
 		logger.String("base_id", baseID),
 		logger.String("db_table_name", dbTableName))
 
-	// 参考旧系统：createTableSchema = this.knex.schema.createTable(dbTableName, ...)
 	if err := s.dbProvider.CreatePhysicalTable(ctx, baseID, tableID); err != nil {
 		logger.Error("创建物理表失败",
 			logger.String("table_id", tableID),
@@ -122,65 +128,109 @@ func (s *TableService) CreateTable(ctx context.Context, req dto.CreateTableReque
 	// 临时存储聚合根以便未来扩展
 	_ = tableAgg
 
-	// 7. ✅ 自动创建默认字段 "name"（会自动添加列到物理表）
-	if s.fieldService != nil {
-		defaultFieldReq := dto.CreateFieldRequest{
-			TableID:  table.ID().String(),
-			Name:     "name",
-			Type:     "text",
-			Required: false,
-			Unique:   false,
+	// 7. ✅ 批量创建字段（对齐 Teable）
+	createdFieldCount := 0
+	if s.fieldService != nil && len(req.Fields) > 0 {
+		logger.Info("开始批量创建字段",
+			logger.String("table_id", tableID),
+			logger.Int("field_count", len(req.Fields)))
+
+		for i, fieldConfig := range req.Fields {
+			fieldReq := dto.CreateFieldRequest{
+				TableID:  tableID,
+				Name:     fieldConfig.Name,
+				Type:     fieldConfig.Type,
+				Required: fieldConfig.Required,
+				Unique:   fieldConfig.Unique,
+				Options:  fieldConfig.Options,
+			}
+
+			if _, err := s.fieldService.CreateField(ctx, fieldReq, userID); err != nil {
+				logger.Warn("创建字段失败",
+					logger.String("table_id", tableID),
+					logger.Int("field_index", i),
+					logger.String("field_name", fieldConfig.Name),
+					logger.ErrorField(err),
+				)
+			} else {
+				createdFieldCount++
+				logger.Debug("字段创建成功",
+					logger.String("table_id", tableID),
+					logger.String("field_name", fieldConfig.Name),
+					logger.String("field_type", fieldConfig.Type),
+				)
+			}
 		}
 
-		// 创建默认字段，如果失败仅记录日志，不影响表格创建
-		if _, err := s.fieldService.CreateField(ctx, defaultFieldReq, userID); err != nil {
-			logger.Warn("创建默认字段失败",
-				logger.String("table_id", table.ID().String()),
-				logger.String("error", err.Error()),
-			)
-		} else {
-			logger.Info("默认字段创建成功",
-				logger.String("table_id", table.ID().String()),
-				logger.String("field_name", "name"),
-			)
-		}
+		logger.Info("✅ 字段批量创建完成",
+			logger.String("table_id", tableID),
+			logger.Int("created_count", createdFieldCount),
+			logger.Int("total_count", len(req.Fields)))
 	}
 
-	// 8. ✅ 自动创建默认视图 "Grid view"（参考 Teable）
+	// 8. ✅ 批量创建视图（对齐 Teable）
 	var defaultViewID *string
-	if s.viewService != nil {
-		defaultViewReq := dto.CreateViewRequest{
-			TableID:     table.ID().String(),
-			Name:        "Grid view",
-			Type:        "grid",
-			Description: "",
+	createdViews := make([]*dto.ViewResponse, 0, len(req.Views))
+
+	logger.Info("🔍 检查视图服务状态",
+		logger.Bool("viewService_nil", s.viewService == nil),
+		logger.Int("views_count", len(req.Views)))
+
+	if s.viewService != nil && len(req.Views) > 0 {
+		logger.Info("开始批量创建视图",
+			logger.String("table_id", tableID),
+			logger.Int("view_count", len(req.Views)))
+
+		for i, viewConfig := range req.Views {
+			viewReq := dto.CreateViewRequest{
+				TableID:     tableID,
+				Name:        viewConfig.Name,
+				Type:        viewConfig.Type,
+				Description: viewConfig.Description,
+				ColumnMeta:  viewConfig.ColumnMeta,
+			}
+
+			if viewResp, err := s.viewService.CreateView(ctx, viewReq, userID); err != nil {
+				logger.Warn("创建视图失败",
+					logger.String("table_id", tableID),
+					logger.Int("view_index", i),
+					logger.String("view_name", viewConfig.Name),
+					logger.ErrorField(err),
+				)
+			} else {
+				createdViews = append(createdViews, viewResp)
+				logger.Info("✅ 视图创建成功",
+					logger.String("table_id", tableID),
+					logger.String("view_id", viewResp.ID),
+					logger.String("view_name", viewConfig.Name),
+					logger.String("view_type", viewConfig.Type),
+				)
+			}
 		}
 
-		// 创建默认视图，如果失败仅记录日志，不影响表格创建
-		if viewResp, err := s.viewService.CreateView(ctx, defaultViewReq, userID); err != nil {
-			logger.Warn("创建默认视图失败",
-				logger.String("table_id", table.ID().String()),
-				logger.ErrorField(err),
-			)
-		} else {
-			defaultViewID = &viewResp.ID
-			logger.Info("✅ 默认视图创建成功",
-				logger.String("table_id", table.ID().String()),
-				logger.String("view_id", viewResp.ID),
-				logger.String("view_name", "Grid view"),
-			)
+		// 设置第一个视图为默认视图（对齐 Teable）
+		if len(createdViews) > 0 {
+			defaultViewID = &createdViews[0].ID
 		}
+
+		logger.Info("✅ 视图批量创建完成",
+			logger.String("table_id", tableID),
+			logger.Int("created_count", len(createdViews)),
+			logger.Int("total_count", len(req.Views)))
 	}
 
-	logger.Info("✅ 表格创建成功（含物理表、默认字段、默认视图）",
-		logger.String("table_id", table.ID().String()),
+	logger.Info("✅ 表格创建成功（含物理表、字段、视图）",
+		logger.String("table_id", tableID),
 		logger.String("base_id", req.BaseID),
 		logger.String("name", tableName.String()),
-		logger.String("db_table_name", dbTableName))
+		logger.String("db_table_name", dbTableName),
+		logger.Int("field_count", createdFieldCount),
+		logger.Int("view_count", len(createdViews)))
 
 	// 返回响应，包含 defaultViewId
 	response := dto.FromTableEntity(table)
 	response.DefaultViewID = defaultViewID
+	response.FieldCount = createdFieldCount
 	return response, nil
 }
 
