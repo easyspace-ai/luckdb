@@ -122,13 +122,13 @@ export class CoordinateSystem {
   ): ICellPosition | null {
     // 调整坐标（加上滚动偏移）
     const adjustedX = x + scrollLeft;
-    const adjustedY = y + scrollTop - this.headerHeight;
+    const adjustedY = y + scrollTop; // getRowOffset 已经包含了 headerHeight，所以不需要减
 
     // 二分查找列
     const columnIndex = this.binarySearchColumn(adjustedX);
 
-    // 二分查找行
-    const rowIndex = this.binarySearchRow(adjustedY);
+    // 二分查找行（只在数据区域查找）
+    const rowIndex = adjustedY < this.headerHeight ? -1 : this.binarySearchRow(adjustedY);
 
     if (columnIndex === -1 || rowIndex === -1) {
       return null;

@@ -5,6 +5,7 @@
 import React, { useState, useMemo } from 'react';
 import { BigTable } from '../src';
 import type { IRow, IColumn } from '../src';
+import { useImportExport } from '../src/react/hooks/useImportExport';
 
 // 生成测试数据
 function generateData(rowCount: number): { rows: IRow[]; columns: IColumn[] } {
@@ -41,17 +42,65 @@ function generateData(rowCount: number): { rows: IRow[]; columns: IColumn[] } {
 }
 
 export default function App() {
-  const [rowCount, setRowCount] = useState(10000);
+  const [rowCount, setRowCount] = useState(100); // 从100行开始方便测试编辑
   const [renderMode, setRenderMode] = useState<'dom' | 'canvas' | 'webgl'>('canvas');
 
-  const { rows, columns } = useMemo(() => generateData(rowCount), [rowCount]);
+  // 初始数据
+  const initialData = useMemo(() => generateData(rowCount), [rowCount]);
+  const [rows, setRows] = useState<IRow[]>(initialData.rows);
+  const [columns, setColumns] = useState<IColumn[]>(initialData.columns);
+
+  // 更新行数时重新生成数据
+  React.useEffect(() => {
+    const newData = generateData(rowCount);
+    setRows(newData.rows);
+    setColumns(newData.columns);
+  }, [rowCount]);
+
+  // 处理单元格修改
+  const handleCellChange = (rowId: string | number, columnId: string | number, value: unknown) => {
+    console.log('[App] Cell changed:', { rowId, columnId, value });
+
+    setRows((prevRows) => {
+      return prevRows.map((row) => {
+        if (row.id === rowId) {
+          // 查找对应的列
+          const column = columns.find((col) => col.id === columnId);
+          if (column) {
+            return {
+              ...row,
+              data: {
+                ...row.data,
+                [column.key]: value,
+              },
+            };
+          }
+        }
+        return row;
+      });
+    });
+  };
+
+  // 导入导出
+  const { exportAsCSV, exportAsExcel, triggerImport } = useImportExport({
+    rows,
+    columns,
+    onImport: (importedRows, importedColumns) => {
+      console.log('[App] Imported data:', {
+        rows: importedRows.length,
+        columns: importedColumns.length,
+      });
+      setRows(importedRows);
+      // Note: columns 在这个示例中是固定的，如果要支持动态列，需要更改数据结构
+    },
+  });
 
   return (
     <div style={{ padding: 20, height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div style={{ marginBottom: 20 }}>
         <h1>BigTable Demo</h1>
 
-        <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
           <div>
             <label>
               行数：
@@ -79,6 +128,77 @@ export default function App() {
           <div style={{ color: '#666', fontSize: 14 }}>
             总单元格数：{(rows.length * columns.length).toLocaleString()}
           </div>
+
+          {/* 导入导出按钮 */}
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
+            <button
+              onClick={() => {
+                // 测试：设置 Name 列宽度为 300px
+                setColumns((prev) => {
+                  const newCols = [...prev];
+                  const nameColIndex = newCols.findIndex((c) => c.key === 'name');
+                  if (nameColIndex >= 0) {
+                    newCols[nameColIndex] = { ...newCols[nameColIndex], width: 300 };
+                    console.log('[Test] 设置 Name 列宽度为 300px');
+                  }
+                  return newCols;
+                });
+              }}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#f59e0b',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 4,
+                cursor: 'pointer',
+                fontSize: 13,
+              }}
+            >
+              🧪 测试: Name列→300px
+            </button>
+            <button
+              onClick={() => triggerImport('.csv')}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#3b82f6',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 4,
+                cursor: 'pointer',
+                fontSize: 13,
+              }}
+            >
+              📥 导入 CSV
+            </button>
+            <button
+              onClick={() => exportAsCSV(`bigtable_${Date.now()}.csv`)}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#10b981',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 4,
+                cursor: 'pointer',
+                fontSize: 13,
+              }}
+            >
+              📤 导出 CSV
+            </button>
+            <button
+              onClick={() => exportAsExcel(`bigtable_${Date.now()}.xlsx`)}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#06b6d4',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 4,
+                cursor: 'pointer',
+                fontSize: 13,
+              }}
+            >
+              📊 导出 Excel
+            </button>
+          </div>
         </div>
       </div>
 
@@ -87,11 +207,39 @@ export default function App() {
           rows={rows}
           columns={columns}
           renderMode={renderMode}
+          frozenColumnCount={1} // 冻结第一列（ID列）
+          editable={true}
           showPerformance
           onCellClick={(rowId, columnId) => {
-            console.log('Clicked:', rowId, columnId);
+            console.log('[App] Clicked:', rowId, columnId);
           }}
+          onCellDoubleClick={(rowId, columnId) => {
+            console.log('[App] Double clicked:', rowId, columnId);
+          }}
+          onCellChange={handleCellChange}
         />
+      </div>
+
+      <div style={{ marginTop: 20, fontSize: 14, color: '#666' }}>
+        <h3>交互功能</h3>
+        <ul style={{ marginTop: 10 }}>
+          <li>
+            ✅ <strong>列拖动排序</strong>
+            ：在列头按住鼠标拖动可重新排序列（拖动时显示阴影和插入位置指示器）
+          </li>
+          <li>
+            ✅ <strong>列宽调整</strong>：将鼠标悬停在列边界，拖动调整列宽
+          </li>
+          <li>
+            ✅ <strong>单元格编辑</strong>：双击单元格进入编辑模式
+          </li>
+          <li>
+            ✅ <strong>右键菜单</strong>：右键点击单元格显示上下文菜单
+          </li>
+          <li>
+            ✅ <strong>冻结列</strong>：首列（ID）冻结，不受水平滚动影响
+          </li>
+        </ul>
       </div>
 
       <div style={{ marginTop: 20, fontSize: 14, color: '#666' }}>

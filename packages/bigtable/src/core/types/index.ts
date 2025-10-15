@@ -160,10 +160,15 @@ export interface IRenderer {
 
 export interface IRenderData {
   cells: ICell[];
+  rows: IRow[];
+  columns: IColumn[];
   visibleRegion: IVisibleRegion;
   scrollState: IScrollState;
   selection?: ISelection;
   theme: ITheme;
+  cellPositions?: Map<CellId, ICellPosition>;
+  frozenColumnCount?: number;
+  frozenWidth?: number;
 }
 
 // ==================== 事件 ====================

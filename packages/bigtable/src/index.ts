@@ -38,3 +38,7 @@ export type {
   IPerformanceMetrics,
   RenderMode,
 } from './core';
+
+// Utils (CSV/Excel Import/Export)
+export { CSVExporter, CSVImporter } from './utils/csv';
+export { ExcelExporter, ExcelImporter } from './utils/excel';

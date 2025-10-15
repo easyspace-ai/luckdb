@@ -63,6 +63,18 @@ export class GridEngine {
   private rafId: number | null = null;
   private lastFrameTime: number = 0;
 
+  // 列拖动状态
+  private columnDragState: {
+    isDragging: boolean;
+    dragColumnIndex: number;
+    dropTargetIndex: number;
+    dragStartX: number;
+    currentX: number;
+  } | null = null;
+
+  // 列宽调整悬停状态
+  private resizeHoverColumnIndex: number = -1;
+
   constructor(config: IGridEngineConfig) {
     this.config = config;
     this.rows = config.rows;
@@ -150,6 +162,16 @@ export class GridEngine {
       return;
     }
 
+    // 同步列拖动状态到渲染器
+    if ('setColumnDragState' in this.renderer) {
+      (this.renderer as any).setColumnDragState(this.columnDragState);
+    }
+
+    // 同步列宽调整悬停状态到渲染器
+    if ('setResizeHoverColumn' in this.renderer) {
+      (this.renderer as any).setResizeHoverColumn(this.resizeHoverColumnIndex);
+    }
+
     // 计算可见区域
     const baseRegion = this.coordinateSystem.getVisibleRegion(
       this.scrollState.scrollLeft,
@@ -166,7 +188,7 @@ export class GridEngine {
     );
 
     // 获取可见单元格
-    const cells = this.getCellsInRegion(extendedRegion);
+    const { cells, cellPositions } = this.getCellsInRegionWithPositions(extendedRegion);
 
     // 更新性能指标
     this.performanceMetrics.visibleCells = cells.length;
@@ -174,9 +196,14 @@ export class GridEngine {
     // 渲染
     const renderData: IRenderData = {
       cells,
+      rows: this.rows,
+      columns: this.columns,
       visibleRegion: extendedRegion,
       scrollState: this.scrollState,
       theme: this.theme,
+      cellPositions,
+      frozenColumnCount: this.config.frozenColumnCount,
+      frozenWidth: this.coordinateSystem.getFrozenWidth(),
     };
 
     this.renderer.render(renderData);
@@ -292,6 +319,143 @@ export class GridEngine {
   }
 
   /**
+   * 获取主题
+   */
+  getTheme(): ITheme {
+    return { ...this.theme };
+  }
+
+  /**
+   * 获取滚动状态
+   */
+  getScrollState(): IScrollState {
+    return { ...this.scrollState };
+  }
+
+  /**
+   * 获取内容总尺寸（用于自定义滚动条）
+   */
+  getTotalSize(): { width: number; height: number } {
+    return {
+      width: this.coordinateSystem.getTotalWidth(),
+      height: this.coordinateSystem.getTotalHeight(),
+    };
+  }
+
+  /**
+   * 获取容器视口尺寸
+   */
+  getContainerSize(): { width: number; height: number } {
+    return { width: this.config.containerWidth, height: this.config.containerHeight };
+  }
+
+  /**
+   * 获取冻结区域宽度
+   */
+  getFrozenWidth(): number {
+    return this.coordinateSystem.getFrozenWidth();
+  }
+
+  /**
+   * 动态更新列配置
+   */
+  updateColumns(columns: IColumn[]): void {
+    this.columns = columns;
+
+    // 使用 updateConfig 而不是重新创建（性能更好）
+    this.coordinateSystem.updateConfig({
+      columns: this.columns,
+    });
+
+    // 触发重新渲染
+    this.render();
+
+    console.log(
+      '[GridEngine] Columns updated, total width:',
+      this.coordinateSystem.getTotalWidth()
+    );
+  }
+
+  /**
+   * 动态更新行数据
+   */
+  updateRows(rows: IRow[]): void {
+    this.rows = rows;
+
+    // 使用 updateConfig 而不是重新创建
+    this.coordinateSystem.updateConfig({
+      rows: this.rows,
+    });
+
+    // 触发重新渲染
+    this.render();
+  }
+
+  /**
+   * 设置列拖动状态
+   */
+  setColumnDragState(
+    state: {
+      isDragging: boolean;
+      dragColumnIndex: number;
+      dropTargetIndex: number;
+      dragStartX: number;
+      currentX: number;
+    } | null
+  ): void {
+    this.columnDragState = state;
+    // 触发重新渲染以显示拖动反馈
+    this.render();
+  }
+
+  /**
+   * 获取列拖动状态
+   */
+  getColumnDragState(): typeof this.columnDragState {
+    return this.columnDragState;
+  }
+
+  /**
+   * 列重排序
+   */
+  reorderColumn(fromIndex: number, toIndex: number): void {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) {
+      return;
+    }
+
+    const newColumns = [...this.columns];
+    const [removed] = newColumns.splice(fromIndex, 1);
+
+    // 如果目标位置在拖动列之后，需要调整索引
+    const adjustedToIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+    newColumns.splice(adjustedToIndex, 0, removed);
+
+    this.updateColumns(newColumns);
+
+    console.log('[GridEngine] Column reordered:', {
+      from: fromIndex,
+      to: toIndex,
+      adjustedTo: adjustedToIndex,
+      columnId: removed.id,
+    });
+  }
+
+  /**
+   * 设置列宽调整悬停列索引
+   */
+  setResizeHoverColumn(index: number): void {
+    this.resizeHoverColumnIndex = index;
+    this.render();
+  }
+
+  /**
+   * 获取列宽调整悬停列索引
+   */
+  getResizeHoverColumn(): number {
+    return this.resizeHoverColumnIndex;
+  }
+
+  /**
    * 销毁
    */
   destroy(): void {
@@ -303,10 +467,14 @@ export class GridEngine {
   // ==================== 私有方法 ====================
 
   /**
-   * 获取区域内的所有单元格
+   * 获取区域内的所有单元格（带位置信息）
    */
-  private getCellsInRegion(region: IVisibleRegion): ICell[] {
+  private getCellsInRegionWithPositions(region: IVisibleRegion): {
+    cells: ICell[];
+    cellPositions: Map<string, ICellPosition>;
+  } {
     const cells: ICell[] = [];
+    const cellPositions = new Map<string, ICellPosition>();
 
     for (let rowIndex = region.rowStartIndex; rowIndex <= region.rowEndIndex; rowIndex++) {
       const row = this.rows[rowIndex];
@@ -329,10 +497,18 @@ export class GridEngine {
         };
 
         cells.push(cell);
+        cellPositions.set(cell.id, { rowIndex, columnIndex });
       }
     }
 
-    return cells;
+    return { cells, cellPositions };
+  }
+
+  /**
+   * 获取区域内的所有单元格（向后兼容）
+   */
+  private getCellsInRegion(region: IVisibleRegion): ICell[] {
+    return this.getCellsInRegionWithPositions(region).cells;
   }
 
   /**
