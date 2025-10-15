@@ -168,6 +168,10 @@ func (s *FieldService) CreateField(ctx context.Context, req dto.CreateFieldReque
 		field.SetUnique(true)
 	}
 
+	// 5. ✨ 应用通用字段配置（defaultValue, showAs, formatting 等）
+	// 参考 Teable 的优秀设计，补充我们之前缺失的配置
+	s.applyCommonFieldOptions(field, req.Options)
+
 	// 6. 循环依赖检测（仅对虚拟字段）
 	if isVirtualFieldType(req.Type) {
 		if err := s.checkCircularDependency(ctx, req.TableID, field); err != nil {
@@ -187,6 +191,7 @@ func (s *FieldService) CreateField(ctx context.Context, req dto.CreateFieldReque
 
 	// 8. ✅ 创建物理表列（完全动态表架构）
 	// 参考旧系统：ALTER TABLE ADD COLUMN
+	// 注意：虚拟字段也需要创建物理列来存储计算结果
 	if s.tableRepo != nil && s.dbProvider != nil {
 		// 8.1 获取Table信息（需要Base ID）
 		table, err := s.tableRepo.GetByID(ctx, req.TableID)
@@ -534,6 +539,10 @@ func (s *FieldService) UpdateField(ctx context.Context, fieldID string, req dto.
 				field.UpdateOptions(options)
 			}
 		}
+
+		// ✨ 应用通用字段配置（defaultValue, showAs, formatting 等）
+		// 参考 Teable 的优秀设计，补充我们之前缺失的配置
+		s.applyCommonFieldOptions(field, req.Options)
 	}
 
 	// 4. 更新约束
@@ -837,6 +846,17 @@ func isVirtualFieldType(fieldType string) bool {
 	return virtualTypes[fieldType]
 }
 
+// isComputedFieldType 判断是否为计算字段类型（按照 teable 标准）
+func isComputedFieldType(fieldType string) bool {
+	computedTypes := map[string]bool{
+		"formula": true,
+		"rollup":  true,
+		"lookup":  true,
+		"count":   true,
+	}
+	return computedTypes[fieldType]
+}
+
 // GetFieldIDsByNames 根据字段名称获取字段ID列表
 // 用于 UpdateRecord 流程中识别变更的字段
 func (s *FieldService) GetFieldIDsByNames(ctx context.Context, tableID string, fieldNames []string) ([]string, error) {
@@ -870,4 +890,240 @@ func (s *FieldService) GetFieldIDsByNames(ctx context.Context, tableID string, f
 	}
 
 	return fieldIDs, nil
+}
+
+// applyCommonFieldOptions 应用通用字段配置（defaultValue, showAs, formatting 等）
+// 参考 Teable 的设计，补充我们之前缺失的配置
+func (s *FieldService) applyCommonFieldOptions(field *entity.Field, reqOptions map[string]interface{}) {
+	if reqOptions == nil || field == nil {
+		return
+	}
+
+	options := field.Options()
+	if options == nil {
+		options = valueobject.NewFieldOptions()
+	}
+
+	// 1. 应用通用的 ShowAs 配置
+	if showAsData, ok := reqOptions["showAs"].(map[string]interface{}); ok {
+		options.ShowAs = &valueobject.ShowAsOptions{
+			Type:   getStringFromMap(showAsData, "type"),
+			Color:  getStringFromMap(showAsData, "color"),
+			Config: showAsData,
+		}
+	}
+
+	// 2. 应用通用的 Formatting 配置
+	if formattingData, ok := reqOptions["formatting"].(map[string]interface{}); ok {
+		formatting := &valueobject.FormattingOptions{
+			Type:       getStringFromMap(formattingData, "type"),
+			DateFormat: getStringFromMap(formattingData, "dateFormat"),
+			TimeFormat: getStringFromMap(formattingData, "timeFormat"),
+			TimeZone:   getStringFromMap(formattingData, "timeZone"),
+			Currency:   getStringFromMap(formattingData, "currency"),
+			ShowCommas: getBoolFromMap(formattingData, "showCommas"),
+		}
+		if precision, ok := formattingData["precision"].(float64); ok {
+			p := int(precision)
+			formatting.Precision = &p
+		}
+		options.Formatting = formatting
+	}
+
+	// 3. 根据字段类型应用特定配置
+	fieldType := field.Type().String()
+
+	switch fieldType {
+	case "number":
+		if options.Number == nil {
+			options.Number = &valueobject.NumberOptions{}
+		}
+		// DefaultValue
+		if defaultValue, ok := reqOptions["defaultValue"].(float64); ok {
+			options.Number.DefaultValue = &defaultValue
+		}
+		// ShowAs (字段级别)
+		if showAsData, ok := reqOptions["showAs"].(map[string]interface{}); ok {
+			options.Number.ShowAs = &valueobject.ShowAsOptions{
+				Type:   getStringFromMap(showAsData, "type"),
+				Color:  getStringFromMap(showAsData, "color"),
+				Config: showAsData,
+			}
+		}
+
+	case "singleSelect", "multipleSelect":
+		if options.Select == nil {
+			options.Select = &valueobject.SelectOptions{}
+		}
+		// DefaultValue
+		if defaultValue, ok := reqOptions["defaultValue"]; ok {
+			options.Select.DefaultValue = defaultValue
+		}
+		// PreventAutoNewOptions
+		if preventAuto, ok := reqOptions["preventAutoNewOptions"].(bool); ok {
+			options.Select.PreventAutoNewOptions = preventAuto
+		}
+
+	case "date", "datetime":
+		if options.Date == nil {
+			options.Date = &valueobject.DateOptions{}
+		}
+		// DefaultValue
+		if defaultValue, ok := reqOptions["defaultValue"].(string); ok {
+			options.Date.DefaultValue = &defaultValue
+		}
+
+	case "formula":
+		if options.Formula != nil {
+			// TimeZone
+			if timeZone, ok := reqOptions["timeZone"].(string); ok {
+				options.Formula.TimeZone = timeZone
+			}
+			// ShowAs
+			if showAsData, ok := reqOptions["showAs"].(map[string]interface{}); ok {
+				options.Formula.ShowAs = &valueobject.ShowAsOptions{
+					Type:   getStringFromMap(showAsData, "type"),
+					Color:  getStringFromMap(showAsData, "color"),
+					Config: showAsData,
+				}
+			}
+			// Formatting
+			if formattingData, ok := reqOptions["formatting"].(map[string]interface{}); ok {
+				formatting := &valueobject.FormattingOptions{
+					Type:       getStringFromMap(formattingData, "type"),
+					DateFormat: getStringFromMap(formattingData, "dateFormat"),
+					TimeFormat: getStringFromMap(formattingData, "timeFormat"),
+					TimeZone:   getStringFromMap(formattingData, "timeZone"),
+					Currency:   getStringFromMap(formattingData, "currency"),
+					ShowCommas: getBoolFromMap(formattingData, "showCommas"),
+				}
+				if precision, ok := formattingData["precision"].(float64); ok {
+					p := int(precision)
+					formatting.Precision = &p
+				}
+				options.Formula.Formatting = formatting
+			}
+		}
+
+	case "rollup":
+		if options.Rollup != nil {
+			// TimeZone
+			if timeZone, ok := reqOptions["timeZone"].(string); ok {
+				options.Rollup.TimeZone = timeZone
+			}
+			// ShowAs
+			if showAsData, ok := reqOptions["showAs"].(map[string]interface{}); ok {
+				options.Rollup.ShowAs = &valueobject.ShowAsOptions{
+					Type:   getStringFromMap(showAsData, "type"),
+					Color:  getStringFromMap(showAsData, "color"),
+					Config: showAsData,
+				}
+			}
+			// Formatting
+			if formattingData, ok := reqOptions["formatting"].(map[string]interface{}); ok {
+				formatting := &valueobject.FormattingOptions{
+					Type:       getStringFromMap(formattingData, "type"),
+					DateFormat: getStringFromMap(formattingData, "dateFormat"),
+					TimeFormat: getStringFromMap(formattingData, "timeFormat"),
+					TimeZone:   getStringFromMap(formattingData, "timeZone"),
+					Currency:   getStringFromMap(formattingData, "currency"),
+					ShowCommas: getBoolFromMap(formattingData, "showCommas"),
+				}
+				if precision, ok := formattingData["precision"].(float64); ok {
+					p := int(precision)
+					formatting.Precision = &p
+				}
+				options.Rollup.Formatting = formatting
+			}
+		}
+
+	case "lookup":
+		if options.Lookup != nil {
+			// Formatting
+			if formattingData, ok := reqOptions["formatting"].(map[string]interface{}); ok {
+				formatting := &valueobject.FormattingOptions{
+					Type:       getStringFromMap(formattingData, "type"),
+					DateFormat: getStringFromMap(formattingData, "dateFormat"),
+					TimeFormat: getStringFromMap(formattingData, "timeFormat"),
+					TimeZone:   getStringFromMap(formattingData, "timeZone"),
+					Currency:   getStringFromMap(formattingData, "currency"),
+					ShowCommas: getBoolFromMap(formattingData, "showCommas"),
+				}
+				if precision, ok := formattingData["precision"].(float64); ok {
+					p := int(precision)
+					formatting.Precision = &p
+				}
+				options.Lookup.Formatting = formatting
+			}
+			// ShowAs
+			if showAsData, ok := reqOptions["showAs"].(map[string]interface{}); ok {
+				options.Lookup.ShowAs = &valueobject.ShowAsOptions{
+					Type:   getStringFromMap(showAsData, "type"),
+					Color:  getStringFromMap(showAsData, "color"),
+					Config: showAsData,
+				}
+			}
+		}
+
+	case "link":
+		if options.Link == nil {
+			options.Link = &valueobject.LinkOptions{}
+		}
+		// 高级过滤功能（参考 Teable）
+		if baseID, ok := reqOptions["baseId"].(string); ok {
+			options.Link.BaseID = baseID
+		}
+		if lookupFieldID, ok := reqOptions["lookupFieldId"].(string); ok {
+			options.Link.LookupFieldID = lookupFieldID
+		}
+		if filterByViewID, ok := reqOptions["filterByViewId"].(string); ok {
+			options.Link.FilterByViewID = &filterByViewID
+		}
+		if visibleFieldIDs, ok := reqOptions["visibleFieldIds"].([]interface{}); ok {
+			ids := make([]string, 0, len(visibleFieldIDs))
+			for _, id := range visibleFieldIDs {
+				if strID, ok := id.(string); ok {
+					ids = append(ids, strID)
+				}
+			}
+			options.Link.VisibleFieldIDs = ids
+		}
+		if filterData, ok := reqOptions["filter"].(map[string]interface{}); ok {
+			filter := &valueobject.FilterOptions{
+				Conjunction: getStringFromMap(filterData, "conjunction"),
+			}
+			if conditions, ok := filterData["conditions"].([]interface{}); ok {
+				filter.Conditions = make([]valueobject.FilterCondition, 0, len(conditions))
+				for _, condData := range conditions {
+					if condMap, ok := condData.(map[string]interface{}); ok {
+						filter.Conditions = append(filter.Conditions, valueobject.FilterCondition{
+							FieldID:  getStringFromMap(condMap, "fieldId"),
+							Operator: getStringFromMap(condMap, "operator"),
+							Value:    condMap["value"],
+						})
+					}
+				}
+			}
+			options.Link.Filter = filter
+		}
+	}
+
+	// 更新字段的 options
+	field.UpdateOptions(options)
+}
+
+// 辅助函数：从 map 中安全获取字符串
+func getStringFromMap(m map[string]interface{}, key string) string {
+	if v, ok := m[key].(string); ok {
+		return v
+	}
+	return ""
+}
+
+// 辅助函数：从 map 中安全获取布尔值
+func getBoolFromMap(m map[string]interface{}, key string) bool {
+	if v, ok := m[key].(bool); ok {
+		return v
+	}
+	return false
 }

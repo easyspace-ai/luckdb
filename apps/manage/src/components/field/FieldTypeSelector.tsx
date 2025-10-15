@@ -14,7 +14,7 @@ interface FieldTypeSelectorProps {
 }
 
 export function FieldTypeSelector({ 
-  value = FieldType.SingleLineText, 
+  value = FieldType.Formula, 
   onChange, 
   disabled = false,
   className 
@@ -49,10 +49,10 @@ export function FieldTypeSelector({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-96 p-0" align="start">
-        <Command>
+        <Command className="h-auto">
           <CommandInput placeholder="搜索字段类型..." />
           <CommandEmpty>未找到匹配的字段类型</CommandEmpty>
-          <CommandList>
+          <CommandList className="max-h-[400px] overflow-y-auto">
             {/* 基础类型 */}
             <CommandGroup heading="基础类型">
               {FIELD_TYPES_BY_CATEGORY.basic.map((fieldType) => (

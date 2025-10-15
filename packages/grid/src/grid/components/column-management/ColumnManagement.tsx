@@ -126,7 +126,7 @@ const ColumnManagementBase: ForwardRefRenderFunction<
         return;
       }
       // 使用新的字段类型选择弹窗进行编辑
-      const fieldType = (column as any).type || 'singleLineText';
+      const fieldType = (column as any).type || 'formula';
       fieldTypeSelectModalRef.current?.show(
         { x: 100, y: 100 }, 
         'edit', 

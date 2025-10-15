@@ -214,6 +214,10 @@ await luckdb.updatePresence('table', table.id, {
 - `getTable(id)` - 获取数据表详情
 - `updateTable(id, updates)` - 更新数据表
 - `deleteTable(id)` - 删除数据表
+- `renameTable(id, request)` - 重命名表
+- `duplicateTable(id, request)` - 复制表
+- `getTableUsage(id)` - 获取表用量信息
+- `getTableManagementMenu(id)` - 获取表管理菜单
 
 #### 字段管理
 - `createField(data)` - 创建字段
@@ -388,11 +392,49 @@ pnpm test:performance    # 性能测试
 
 查看 `examples/` 目录中的完整示例：
 
-- `basic-usage.ts` - 基础使用示例
-- `collaboration-example.ts` - 协作功能示例
-- `advanced-queries.ts` - 高级查询示例
+- `01-auth-test.ts` - 认证功能测试
+- `02-space-test.ts` - 空间管理测试
+- `03-base-test.ts` - 基础表管理测试
+- `04-table-test.ts` - 数据表管理测试
+- `05-table-management-test.ts` - **表管理功能测试（新增）**
+- `06-field-test.ts` - 字段管理测试
+- `07-record-test.ts` - 记录操作测试
+- `08-view-test.ts` - 视图管理测试
 - `99-comprehensive-test.ts` - 完整集成测试
 - `98-destructive-tests.ts` - 破坏性测试
+
+### 表管理功能示例
+
+```typescript
+import { LuckDB } from '@luckdb/sdk';
+
+const sdk = new LuckDB({
+  apiUrl: 'http://localhost:8080',
+  accessToken: 'your-token'
+});
+
+// 重命名表
+const renamedTable = await sdk.tables.renameTable('table-id', {
+  name: '新的表名'
+});
+
+// 复制表
+const duplicatedTable = await sdk.tables.duplicateTable('table-id', {
+  name: '复制的表',
+  withData: true,     // 复制数据
+  withViews: true,    // 复制视图
+  withFields: true    // 复制字段配置
+});
+
+// 获取表用量信息
+const usage = await sdk.tables.getTableUsage('table-id');
+console.log(`使用率: ${usage.usagePercentage}%`);
+console.log(`记录数: ${usage.recordCount}/${usage.maxRecords}`);
+
+// 获取表管理菜单
+const menu = await sdk.tables.getTableManagementMenu('table-id');
+console.log('可用操作:', Object.keys(menu.actions));
+```
 - `97-performance-tests.ts` - 性能测试
 
 ## 许可证

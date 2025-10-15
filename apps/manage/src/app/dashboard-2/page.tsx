@@ -1,58 +1,75 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { BaseLayout } from '@/components/layouts/base-layout';
-import luckdb from '@/lib/luckdb';
-import type { Space, Base } from '@luckdb/sdk';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
-import { Database, Folder, MoreHorizontal, Plus, Star, Users } from 'lucide-react';
+/**
+ * Dashboard - 极简主义工作台
+ * 
+ * 核心特性：
+ * 1. 简洁的视觉层级
+ * 2. 流畅的动画和微交互
+ * 3. 命令式快捷操作 (Cmd+K)
+ * 4. 键盘导航支持
+ */
+
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { BaseLayout } from '@/components/layouts/base-layout'
+import luckdb from '@/lib/luckdb'
+import type { Space, Base } from '@luckdb/sdk'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle 
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { toast } from 'sonner'
+import { Plus, Database } from 'lucide-react'
+import { 
+  BaseCard, 
+  EmptyState 
+} from '@/components/dashboard'
+import { useSpaceStore } from '@/stores/space-store'
 
 interface SpaceWithBases extends Space {
-  bases?: Base[];
+  bases?: Base[]
 }
 
 export default function Dashboard() {
-  const [spaces, setSpaces] = useState<SpaceWithBases[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [createSpaceDialogOpen, setCreateSpaceDialogOpen] = useState(false);
-  const [createBaseDialogOpen, setCreateBaseDialogOpen] = useState(false);
-  const [creatingSpace, setCreatingSpace] = useState(false);
-  const [creatingBase, setCreatingBase] = useState(false);
-  const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
-  const [newSpaceName, setNewSpaceName] = useState('');
-  const [newSpaceDescription, setNewSpaceDescription] = useState('');
-  const [newBaseName, setNewBaseName] = useState('');
-  const [newBaseDescription, setNewBaseDescription] = useState('');
-  const navigate = useNavigate();
+  const { spaces, selectedSpace, setSpaces, setSelectedSpace, addSpace } = useSpaceStore()
+  const [bases, setBases] = useState<Base[]>([])
+  const [loading, setLoading] = useState(true)
+  const [createBaseDialogOpen, setCreateBaseDialogOpen] = useState(false)
+  const [creatingBase, setCreatingBase] = useState(false)
+  const [newBaseName, setNewBaseName] = useState('')
+  const [newBaseDescription, setNewBaseDescription] = useState('')
+  const navigate = useNavigate()
 
   useEffect(() => {
     loadSpaces();
   }, []);
 
+  useEffect(() => {
+    if (selectedSpace) {
+      loadBases(selectedSpace.id);
+    } else {
+      setBases([]);
+    }
+  }, [selectedSpace]);
+
   const loadSpaces = async () => {
     try {
       setLoading(true);
       const spacesData = await luckdb.listSpaces();
+      setSpaces(spacesData);
       
-      const spacesWithBases = await Promise.all(
-        spacesData.map(async (space) => {
-          try {
-            const bases = await luckdb.listBases({ spaceId: space.id });
-            return { ...space, bases };
-          } catch (error) {
-            console.error(`Failed to load bases for space ${space.id}:`, error);
-            return { ...space, bases: [] };
-          }
-        })
-      );
-
-      setSpaces(spacesWithBases);
+      // 如果没有选中空间，自动选择第一个
+      if (spacesData.length > 0 && !selectedSpace) {
+        setSelectedSpace(spacesData[0]);
+      }
     } catch (error: any) {
       console.error('Failed to load spaces:', error);
       toast.error(error?.message || '加载空间失败');
@@ -61,35 +78,19 @@ export default function Dashboard() {
     }
   };
 
-  const handleCreateSpace = async () => {
-    if (!newSpaceName.trim()) {
-      toast.error('请输入空间名称');
-      return;
-    }
-
+  const loadBases = async (spaceId: string) => {
     try {
-      setCreatingSpace(true);
-      const newSpace = await luckdb.createSpace({
-        name: newSpaceName.trim(),
-        description: newSpaceDescription.trim() || undefined,
-      });
-
-      toast.success('创建空间成功');
-      setCreateSpaceDialogOpen(false);
-      setNewSpaceName('');
-      setNewSpaceDescription('');
-      
-      setSpaces([...spaces, { ...newSpace, bases: [] }]);
+      const basesData = await luckdb.listBases({ spaceId });
+      setBases(basesData);
     } catch (error: any) {
-      console.error('Failed to create space:', error);
-      toast.error(error?.message || '创建空间失败');
-    } finally {
-      setCreatingSpace(false);
+      console.error('Failed to load bases:', error);
+      toast.error('加载数据库失败');
+      setBases([]);
     }
   };
 
   const handleCreateBase = async () => {
-    if (!newBaseName.trim() || !selectedSpaceId) {
+    if (!newBaseName.trim() || !selectedSpace) {
       toast.error('请输入数据库名称');
       return;
     }
@@ -97,7 +98,7 @@ export default function Dashboard() {
     try {
       setCreatingBase(true);
       const newBase = await luckdb.createBase({
-        spaceId: selectedSpaceId,
+        spaceId: selectedSpace.id,
         name: newBaseName.trim(),
         description: newBaseDescription.trim() || undefined,
       });
@@ -106,14 +107,9 @@ export default function Dashboard() {
       setCreateBaseDialogOpen(false);
       setNewBaseName('');
       setNewBaseDescription('');
-      setSelectedSpaceId(null);
       
-      // 不刷新，直接更新列表
-      setSpaces(spaces.map(space => 
-        space.id === selectedSpaceId 
-          ? { ...space, bases: [...(space.bases || []), newBase] }
-          : space
-      ));
+      // 重新加载当前空间的数据库
+      loadBases(selectedSpace.id);
     } catch (error: any) {
       console.error('Failed to create base:', error);
       toast.error(error?.message || '创建数据库失败');
@@ -123,97 +119,91 @@ export default function Dashboard() {
   };
 
   const handleBaseClick = (baseId: string) => {
-    navigate(`/base/${baseId}`);
-  };
+    navigate(`/base/${baseId}`)
+  }
 
-  const openCreateBaseDialog = (spaceId: string) => {
-    setSelectedSpaceId(spaceId);
-    setCreateBaseDialogOpen(true);
-  };
 
+  // 监听 Cmd/Ctrl+N 创建空间
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'n' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        setCreateSpaceDialogOpen(true)
+      }
+    }
+    document.addEventListener('keydown', down)
+    return () => document.removeEventListener('keydown', down)
+  }, [])
+
+  // 加载状态 - 极简骨架屏
   if (loading) {
-  return (
-      <BaseLayout title="Dashboard" description="查看和管理您的所有空间">
-        <div className="px-4 lg:px-6">
-          <Skeleton className="h-10 w-32 mb-6" />
-          <div className="space-y-6">
+    return (
+      <BaseLayout>
+        <div className="px-4 lg:px-6 space-y-6">
+          {/* 顶部操作栏骨架 */}
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-9 w-40" />
+            <Skeleton className="h-9 w-32" />
+          </div>
+
+          {/* 空间卡片骨架 */}
+          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-1">
             {[...Array(2)].map((_, i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="h-8 w-48" />
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[...Array(3)].map((_, j) => (
-                      <Skeleton key={j} className="h-24" />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <div key={i} className="space-y-4">
+                <Skeleton className="h-40 w-full rounded-xl" />
+              </div>
             ))}
           </div>
         </div>
       </BaseLayout>
-    );
+    )
   }
 
   return (
-    <BaseLayout title="Dashboard" description="查看和管理您的所有空间">
-      <div className="px-4 lg:px-6 space-y-6">
-        {/* 创建空间按钮 */}
-        <div>
-          <Dialog open={createSpaceDialogOpen} onOpenChange={setCreateSpaceDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="lg" className="shadow-md">
-                <Plus className="h-4 w-4 mr-2" />
-                创建新空间
+    <BaseLayout 
+      spaces={spaces}
+      onCreateSpace={() => {
+        // 重新加载空间列表
+        loadSpaces()
+      }}
+    >
+      <div className="px-4 lg:px-6 space-y-8">
+
+        {/* 顶部操作栏 - 极简设计 */}
+        <div className="flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+              {selectedSpace ? `${selectedSpace.name} 数据库` : '数据库管理'}
+            </h1>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {selectedSpace ? `管理 ${selectedSpace.name} 空间中的数据库` : '请选择一个空间来查看数据库'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* 命令面板提示 */}
+            <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 animate-in fade-in zoom-in-95 duration-200 delay-100">
+              <Database className="h-4 w-4" />
+              <span>按</span>
+              <kbd className="px-2 py-1 text-xs font-mono bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded">
+                ⌘ K
+              </kbd>
+              <span>快速操作</span>
+            </div>
+
+            {/* 创建数据库按钮 */}
+            {selectedSpace && (
+              <Button
+                onClick={() => setCreateBaseDialogOpen(true)}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span>创建数据库</span>
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>创建新空间</DialogTitle>
-                <DialogDescription>
-                  创建一个新的工作空间来组织您的数据
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">空间名称 *</Label>
-                  <Input
-                    id="name"
-                    placeholder="例如：项目管理"
-                    value={newSpaceName}
-                    onChange={(e) => setNewSpaceName(e.target.value)}
-                    disabled={creatingSpace}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">描述（可选）</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="简要描述这个空间的用途"
-                    value={newSpaceDescription}
-                    onChange={(e) => setNewSpaceDescription(e.target.value)}
-                    disabled={creatingSpace}
-                    rows={3}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setCreateSpaceDialogOpen(false)}
-                  disabled={creatingSpace}
-                >
-                  取消
-                </Button>
-                <Button onClick={handleCreateSpace} disabled={creatingSpace}>
-                  {creatingSpace ? '创建中...' : '创建'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            )}
+          </div>
         </div>
+
 
         {/* 创建数据库对话框 */}
         <Dialog open={createBaseDialogOpen} onOpenChange={setCreateBaseDialogOpen}>
@@ -221,7 +211,7 @@ export default function Dashboard() {
             <DialogHeader>
               <DialogTitle>创建数据库</DialogTitle>
               <DialogDescription>
-                在选中的空间中创建一个新的数据库
+                在 {selectedSpace?.name} 空间中创建一个新的数据库
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -265,123 +255,44 @@ export default function Dashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* 空间列表 */}
-        {spaces.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Folder className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">暂无空间</h3>
-              <p className="text-sm text-muted-foreground mb-6 text-center max-w-sm">
-                创建您的第一个工作空间，开始组织和管理您的数据
+        {/* 数据库列表 - 极简化设计 */}
+        {!selectedSpace ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <Database className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                请选择一个空间
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400">
+                从左侧选择空间来查看其中的数据库
               </p>
-              <Button onClick={() => setCreateSpaceDialogOpen(true)} size="lg">
-                <Plus className="h-4 w-4 mr-2" />
-                创建第一个空间
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {spaces.map((space) => (
-              <Card key={space.id} className="overflow-hidden border-2 hover:border-primary/50 transition-colors">
-                <CardHeader className="bg-muted/30 border-b">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Folder className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-xl font-bold">{space.name}</h2>
-                          <Button variant="ghost" size="icon" className="h-7 w-7">
-                            <Star className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        {space.description && (
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            {space.description}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-3 py-1 text-xs rounded-full bg-background border">
-                        免费版
-                      </span>
-                      <Button variant="link" className="h-auto p-0 text-sm text-purple-600 hover:text-purple-700">
-                        升级
-                      </Button>
-                      <Button onClick={() => openCreateBaseDialog(space.id)} size="sm">
-                        <Plus className="h-4 w-4 mr-1" />
-                        创建数据库
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Users className="h-4 w-4 mr-1" />
-                        邀请
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="pt-6">
-                  {!space.bases || space.bases.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-lg">
-                      <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                        <Database className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-4">该空间暂无数据库</p>
-                      <Button 
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openCreateBaseDialog(space.id)}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        创建第一个数据库
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {space.bases.map((base) => (
-                        <Card
-                          key={base.id}
-                          className="cursor-pointer hover:shadow-lg hover:border-primary/30 transition-all group"
-                          onClick={() => handleBaseClick(base.id)}
-                        >
-                          <CardContent className="p-5">
-                            <div className="flex items-start gap-3">
-                              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
-                                <Database className="h-6 w-6 text-primary" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
-                                  {base.name}
-                                </h3>
-                                {base.description && (
-                                  <p className="text-sm text-muted-foreground truncate mt-1">
-                                    {base.description}
-                                  </p>
-                                )}
-                                <p className="text-xs text-muted-foreground mt-2">
-                                  点击打开
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+            </div>
           </div>
-                  )}
-                </CardContent>
-              </Card>
+        ) : bases.length === 0 ? (
+          <EmptyState type="bases" onAction={() => setCreateBaseDialogOpen(true)} />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {bases.map((base, index) => (
+              <div
+                key={base.id}
+                className="animate-in fade-in zoom-in-95 duration-200"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <BaseCard
+                  base={base}
+                  onClick={() => handleBaseClick(base.id)}
+                  onEdit={() => {
+                    toast.info('编辑功能开发中')
+                  }}
+                  onDelete={() => {
+                    toast.info('删除功能开发中')
+                  }}
+                />
+              </div>
             ))}
           </div>
         )}
       </div>
     </BaseLayout>
-  );
+  )
 }

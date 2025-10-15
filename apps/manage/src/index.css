@@ -172,3 +172,16 @@ html {
 .animate-logo-scroll:hover {
   animation-play-state: paused;
 }
+
+/* Wiggle animation for decorative elements */
+@keyframes wiggle {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(15deg) scale(1.1);
+  }
+  75% {
+    transform: rotate(-15deg) scale(1.1);
+  }
+}

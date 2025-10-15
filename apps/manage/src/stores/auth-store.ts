@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { User, AuthResponse } from '@luckdb/sdk';
+import type { User, AuthResponse, RegisterRequest } from '@luckdb/sdk';
 import luckdb from '@/lib/luckdb';
 
 interface AuthState {
@@ -11,6 +11,7 @@ interface AuthState {
   
   // Actions
   login: (email: string, password: string) => Promise<void>;
+  register: (userData: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   setAuth: (auth: AuthResponse) => void;
   clearAuth: () => void;
@@ -40,6 +41,26 @@ export const useAuthStore = create<AuthState>()(
           });
         } catch (error) {
           console.error('Login failed:', error);
+          throw error;
+        }
+      },
+
+      register: async (userData: RegisterRequest) => {
+        try {
+          const response = await luckdb.register(userData);
+          
+          // 设置 SDK 的 token
+          luckdb.setAccessToken(response.accessToken);
+          luckdb.setRefreshToken(response.refreshToken);
+          
+          set({
+            user: response.user,
+            accessToken: response.accessToken,
+            refreshToken: response.refreshToken,
+            isAuthenticated: true,
+          });
+        } catch (error) {
+          console.error('Register failed:', error);
           throw error;
         }
       },

@@ -8,7 +8,12 @@ import { CommandSearch, SearchTrigger } from "@/components/command-search"
 import { ModeToggle } from "@/components/mode-toggle"
 import { getAppUrl } from "@/lib/utils"
 
-export function SiteHeader() {
+interface SiteHeaderProps {
+  spaces?: Array<{ id: string; name: string; description?: string; bases?: Array<{ id: string; name: string; description?: string }> }>
+  onCreateSpace?: () => void
+}
+
+export function SiteHeader({ spaces = [], onCreateSpace }: SiteHeaderProps = {}) {
   const [searchOpen, setSearchOpen] = React.useState(false)
 
   React.useEffect(() => {
@@ -36,41 +41,17 @@ export function SiteHeader() {
             <SearchTrigger onClick={() => setSearchOpen(true)} />
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <Button variant="ghost" asChild size="sm" className="hidden sm:flex">
-              <a
-                href="https://shadcnstore.com/blocks"
-                rel="noopener noreferrer"
-                target="_blank"
-                className="dark:text-foreground"
-              >
-                Blocks
-              </a>
-            </Button>
-            <Button variant="ghost" asChild size="sm" className="hidden sm:flex">
-              <a
-                href={getAppUrl("/landing")}
-                rel="noopener noreferrer"
-                target="_blank"
-                className="dark:text-foreground"
-              >
-                Landing Page
-              </a>
-            </Button>
-            <Button variant="ghost" asChild size="sm" className="hidden sm:flex">
-              <a
-                href="https://github.com/silicondeck/shadcn-dashboard-landing-template"
-                rel="noopener noreferrer"
-                target="_blank"
-                className="dark:text-foreground"
-              >
-                GitHub
-              </a>
-            </Button>
+             
             <ModeToggle />
           </div>
         </div>
       </header>
-      <CommandSearch open={searchOpen} onOpenChange={setSearchOpen} />
+      <CommandSearch 
+        open={searchOpen} 
+        onOpenChange={setSearchOpen}
+        spaces={spaces}
+        onCreateSpace={onCreateSpace}
+      />
     </>
   )
 }

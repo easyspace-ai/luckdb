@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, UserPlus } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('admin@126.com');
@@ -36,6 +36,10 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const goToRegister = () => {
+    navigate('/auth/register');
   };
 
   return (
@@ -72,7 +76,7 @@ export default function LoginPage() {
               />
             </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex-col space-y-3">
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
@@ -82,6 +86,16 @@ export default function LoginPage() {
               ) : (
                 '登录'
               )}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={goToRegister}
+              disabled={isLoading}
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              没有账户？立即注册
             </Button>
           </CardFooter>
         </form>

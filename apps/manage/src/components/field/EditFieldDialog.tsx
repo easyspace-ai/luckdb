@@ -31,7 +31,7 @@ export function EditFieldDialog({
   onSave
 }: EditFieldDialogProps) {
   const [fieldName, setFieldName] = useState('');
-  const [fieldType, setFieldType] = useState<FieldType>(FieldType.SingleLineText);
+  const [fieldType, setFieldType] = useState<FieldType>(FieldType.Formula);
   const [description, setDescription] = useState('');
   const [showDescription, setShowDescription] = useState(false);
   const [defaultValue, setDefaultValue] = useState('');
@@ -56,7 +56,7 @@ export function EditFieldDialog({
   useEffect(() => {
     if (!open) {
       setFieldName('');
-      setFieldType(FieldType.SingleLineText);
+      setFieldType(FieldType.Formula);
       setDescription('');
       setShowDescription(false);
       setDefaultValue('');

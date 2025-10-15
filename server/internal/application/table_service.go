@@ -7,6 +7,7 @@ import (
 	"github.com/easyspace-ai/luckdb/server/internal/application/dto"
 	"github.com/easyspace-ai/luckdb/server/internal/application/helpers"
 	baseRepo "github.com/easyspace-ai/luckdb/server/internal/domain/base/repository"
+	recordRepo "github.com/easyspace-ai/luckdb/server/internal/domain/record/repository"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/space/repository"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/table/aggregate"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/table/entity"
@@ -23,9 +24,10 @@ type TableService struct {
 	tableRepo    tableRepo.TableRepository
 	baseRepo     baseRepo.BaseRepository
 	spaceRepo    repository.SpaceRepository
-	fieldService *FieldService       // ✅ 添加字段服务依赖
-	viewService  *ViewService        // ✅ 添加视图服务依赖
-	dbProvider   database.DBProvider // ✅ 数据库提供者（物理表管理）
+	recordRepo   recordRepo.RecordRepository // ✅ 添加记录仓库依赖
+	fieldService *FieldService               // ✅ 添加字段服务依赖
+	viewService  *ViewService                // ✅ 添加视图服务依赖
+	dbProvider   database.DBProvider         // ✅ 数据库提供者（物理表管理）
 }
 
 // NewTableService 创建表格服务
@@ -33,6 +35,7 @@ func NewTableService(
 	tableRepo tableRepo.TableRepository,
 	baseRepo baseRepo.BaseRepository,
 	spaceRepo repository.SpaceRepository,
+	recordRepo recordRepo.RecordRepository,
 	fieldService *FieldService,
 	viewService *ViewService,
 	dbProvider database.DBProvider,
@@ -41,6 +44,7 @@ func NewTableService(
 		tableRepo:    tableRepo,
 		baseRepo:     baseRepo,
 		spaceRepo:    spaceRepo,
+		recordRepo:   recordRepo,   // ✅ 注入记录仓库
 		fieldService: fieldService, // ✅ 注入字段服务
 		viewService:  viewService,  // ✅ 注入视图服务
 		dbProvider:   dbProvider,   // ✅ 注入数据库提供者
@@ -363,4 +367,229 @@ func (s *TableService) ListTables(ctx context.Context, baseID string) ([]*dto.Ta
 	}
 
 	return tableList, nil
+}
+
+// RenameTable 重命名表
+func (s *TableService) RenameTable(ctx context.Context, tableID string, req dto.RenameTableRequest) (*dto.TableResponse, error) {
+	// 1. 查找表格
+	table, err := s.tableRepo.GetByID(ctx, tableID)
+	if err != nil {
+		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查找表格失败: %v", err))
+	}
+	if table == nil {
+		return nil, pkgerrors.ErrNotFound.WithDetails("表格不存在")
+	}
+
+	// 2. 验证新名称
+	newName, err := valueobject.NewTableName(req.Name)
+	if err != nil {
+		return nil, pkgerrors.ErrValidationFailed.WithDetails(fmt.Sprintf("表格名称无效: %v", err))
+	}
+
+	// 3. 检查名称是否重复（在同一Base下）
+	exists, err := s.tableRepo.ExistsByNameInBase(ctx, table.BaseID(), newName, &tableID)
+	if err != nil {
+		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("检查表格名称失败: %v", err))
+	}
+	if exists {
+		return nil, pkgerrors.ErrConflict.WithDetails("表格名称已存在")
+	}
+
+	// 4. 重命名
+	if err := table.Rename(newName); err != nil {
+		return nil, pkgerrors.ErrInternalServer.WithDetails(fmt.Sprintf("重命名失败: %v", err))
+	}
+
+	// 5. 保存
+	if err := s.tableRepo.Save(ctx, table); err != nil {
+		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("保存表格失败: %v", err))
+	}
+
+	logger.Info("表格重命名成功",
+		logger.String("table_id", tableID),
+		logger.String("new_name", newName.String()))
+
+	return dto.FromTableEntity(table), nil
+}
+
+// DuplicateTable 复制表
+func (s *TableService) DuplicateTable(ctx context.Context, tableID string, req dto.DuplicateTableRequest, userID string) (*dto.TableResponse, error) {
+	// 1. 查找原表格
+	originalTable, err := s.tableRepo.GetByID(ctx, tableID)
+	if err != nil {
+		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查找原表格失败: %v", err))
+	}
+	if originalTable == nil {
+		return nil, pkgerrors.ErrNotFound.WithDetails("原表格不存在")
+	}
+
+	// 2. 验证新名称
+	newName, err := valueobject.NewTableName(req.Name)
+	if err != nil {
+		return nil, pkgerrors.ErrValidationFailed.WithDetails(fmt.Sprintf("表格名称无效: %v", err))
+	}
+
+	// 3. 检查名称是否重复
+	exists, err := s.tableRepo.ExistsByNameInBase(ctx, originalTable.BaseID(), newName, nil)
+	if err != nil {
+		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("检查表格名称失败: %v", err))
+	}
+	if exists {
+		return nil, pkgerrors.ErrConflict.WithDetails("表格名称已存在")
+	}
+
+	// 4. 创建新表格实体
+	newTable, err := entity.NewTable(originalTable.BaseID(), newName, userID)
+	if err != nil {
+		return nil, pkgerrors.ErrInternalServer.WithDetails(fmt.Sprintf("创建新表格实体失败: %v", err))
+	}
+
+	// 5. 复制描述
+	if originalTable.Description() != nil {
+		newTable.UpdateDescription(*originalTable.Description())
+	}
+
+	// 6. 创建物理表
+	newTableID := newTable.ID().String()
+	baseID := originalTable.BaseID()
+	dbTableName := s.dbProvider.GenerateTableName(baseID, newTableID)
+
+	if err := s.dbProvider.CreatePhysicalTable(ctx, baseID, newTableID); err != nil {
+		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("创建物理表失败: %v", err))
+	}
+
+	// 7. 设置物理表名并保存表格
+	newTable.SetDBTableName(dbTableName)
+	if err := s.tableRepo.Save(ctx, newTable); err != nil {
+		// 回滚：删除已创建的物理表
+		if rollbackErr := s.dbProvider.DropPhysicalTable(ctx, baseID, newTableID); rollbackErr != nil {
+			logger.Error("回滚删除物理表失败", logger.ErrorField(rollbackErr))
+		}
+		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("保存新表格失败: %v", err))
+	}
+
+	// 8. 复制字段（如果需要）
+	if req.WithFields && s.fieldService != nil {
+		fields, err := s.fieldService.ListFields(ctx, tableID)
+		if err != nil {
+			logger.Warn("获取原表格字段失败", logger.ErrorField(err))
+		} else {
+			for _, field := range fields {
+				fieldReq := dto.CreateFieldRequest{
+					TableID:  newTableID,
+					Name:     field.Name,
+					Type:     field.Type,
+					Required: field.Required,
+					Unique:   field.Unique,
+					Options:  field.Options,
+				}
+				if _, err := s.fieldService.CreateField(ctx, fieldReq, userID); err != nil {
+					logger.Warn("复制字段失败",
+						logger.String("field_name", field.Name),
+						logger.ErrorField(err))
+				}
+			}
+		}
+	}
+
+	// 9. 复制视图（如果需要）
+	if req.WithViews && s.viewService != nil {
+		views, err := s.viewService.ListViewsByTable(ctx, tableID)
+		if err != nil {
+			logger.Warn("获取原表格视图失败", logger.ErrorField(err))
+		} else {
+			for _, view := range views {
+				// 类型断言 ColumnMeta
+				var columnMeta []map[string]interface{}
+				if view.ColumnMeta != nil {
+					if cm, ok := view.ColumnMeta.([]map[string]interface{}); ok {
+						columnMeta = cm
+					}
+				}
+
+				viewReq := dto.CreateViewRequest{
+					TableID:     newTableID,
+					Name:        view.Name + " (副本)",
+					Type:        view.Type,
+					Description: view.Description,
+					ColumnMeta:  columnMeta,
+				}
+				if _, err := s.viewService.CreateView(ctx, viewReq, userID); err != nil {
+					logger.Warn("复制视图失败",
+						logger.String("view_name", view.Name),
+						logger.ErrorField(err))
+				}
+			}
+		}
+	}
+
+	// 10. 复制数据（如果需要）
+	if req.WithData {
+		// TODO: 实现数据复制逻辑
+		// 1. 获取原表格的所有记录
+		// 2. 批量插入到新表格
+		logger.Info("数据复制功能待实现", logger.String("new_table_id", newTableID))
+	}
+
+	logger.Info("表格复制成功",
+		logger.String("original_table_id", tableID),
+		logger.String("new_table_id", newTableID),
+		logger.String("new_name", newName.String()),
+		logger.Bool("with_data", req.WithData),
+		logger.Bool("with_views", req.WithViews),
+		logger.Bool("with_fields", req.WithFields))
+
+	return dto.FromTableEntity(newTable), nil
+}
+
+// GetTableUsage 获取表用量信息
+func (s *TableService) GetTableUsage(ctx context.Context, tableID string) (*dto.TableUsageResponse, error) {
+	// 1. 查找表格
+	table, err := s.tableRepo.GetByID(ctx, tableID)
+	if err != nil {
+		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查找表格失败: %v", err))
+	}
+	if table == nil {
+		return nil, pkgerrors.ErrNotFound.WithDetails("表格不存在")
+	}
+
+	// 2. 统计记录数量
+	var recordCount int64
+	if s.recordRepo != nil {
+		recordCount, err = s.recordRepo.CountByTableID(ctx, tableID)
+		if err != nil {
+			logger.Warn("统计记录数量失败", logger.ErrorField(err))
+			recordCount = 0
+		}
+	}
+
+	// 3. 计算存储大小（可选实现）
+	var storageSize int64
+	// TODO: 实现存储大小计算
+	// 可以通过查询数据库表的统计信息来获取
+
+	// 4. 设置限制值（可以根据业务需求配置）
+	maxRecords := int64(20000)                 // 默认最大记录数
+	maxStorageSize := int64(100 * 1024 * 1024) // 默认最大存储100MB
+
+	// 5. 计算使用百分比
+	var usagePercentage float64
+	if maxRecords > 0 {
+		usagePercentage = float64(recordCount) / float64(maxRecords) * 100
+	}
+
+	usage := &dto.TableUsageResponse{
+		RecordCount:     recordCount,
+		MaxRecords:      maxRecords,
+		UsagePercentage: usagePercentage,
+		StorageSize:     storageSize,
+		MaxStorageSize:  maxStorageSize,
+	}
+
+	logger.Info("获取表用量成功",
+		logger.String("table_id", tableID),
+		logger.Int64("record_count", recordCount),
+		logger.Float64("usage_percentage", usagePercentage))
+
+	return usage, nil
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/easyspace-ai/luckdb/server/internal/domain/table/entity"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/table/repository"
+	"github.com/easyspace-ai/luckdb/server/internal/domain/table/valueobject"
 	"github.com/easyspace-ai/luckdb/server/internal/infrastructure/database/models"
 	"github.com/easyspace-ai/luckdb/server/internal/infrastructure/repository/mapper"
 )
@@ -138,6 +139,24 @@ func (r *TableRepositoryImpl) Exists(ctx context.Context, id string) (bool, erro
 		Where("deleted_time IS NULL").
 		Count(&count).Error
 
+	return count > 0, err
+}
+
+// ExistsByNameInBase 检查Base下是否存在指定名称的表格
+func (r *TableRepositoryImpl) ExistsByNameInBase(ctx context.Context, baseID string, name valueobject.TableName, excludeID *string) (bool, error) {
+	var count int64
+	query := r.db.WithContext(ctx).
+		Table("table_meta").
+		Where("base_id = ?", baseID).
+		Where("name = ?", name.String()).
+		Where("deleted_time IS NULL")
+
+	// 如果指定了排除ID，则排除该ID
+	if excludeID != nil {
+		query = query.Where("id != ?", *excludeID)
+	}
+
+	err := query.Count(&count).Error
 	return count > 0, err
 }
 

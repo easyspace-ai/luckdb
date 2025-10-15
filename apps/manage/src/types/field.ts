@@ -90,6 +90,13 @@ export interface FieldTypeInfo {
 export const FIELD_TYPES: FieldTypeInfo[] = [
   // 基础类型
   {
+    type: FieldType.Formula,
+    name: '公式',
+    description: '基于其他字段计算的值。',
+    icon: '🧮',
+    category: 'basic',
+  },
+  {
     type: FieldType.SingleLineText,
     name: '单行文本',
     description: '可输入单行文本，或为每个新单元格预填充一个默认值。',
@@ -181,13 +188,6 @@ export const FIELD_TYPES: FieldTypeInfo[] = [
     category: 'basic',
   },
   // 高级类型
-  {
-    type: FieldType.Formula,
-    name: '公式',
-    description: '基于其他字段计算的值。',
-    icon: '🧮',
-    category: 'advanced',
-  },
   {
     type: FieldType.Link,
     name: '关联',

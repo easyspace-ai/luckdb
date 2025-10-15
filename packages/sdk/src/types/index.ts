@@ -246,6 +246,65 @@ export interface UpdateTableRequest {
   icon?: string;
 }
 
+/**
+ * 重命名表请求
+ */
+export interface RenameTableRequest {
+  name: string;
+}
+
+/**
+ * 复制表请求
+ */
+export interface DuplicateTableRequest {
+  name: string;
+  withData?: boolean;    // 是否复制数据
+  withViews?: boolean;   // 是否复制视图
+  withFields?: boolean;  // 是否复制字段配置
+}
+
+/**
+ * 表用量响应
+ */
+export interface TableUsageResponse {
+  recordCount: number;        // 记录数量
+  maxRecords: number;         // 最大记录数限制
+  usagePercentage: number;    // 使用百分比
+  storageSize: number;        // 存储大小（字节）
+  maxStorageSize: number;     // 最大存储限制（字节）
+}
+
+/**
+ * 表管理菜单响应
+ */
+export interface TableManagementMenu {
+  table: Table;
+  usage: TableUsageResponse;
+  actions: {
+    rename: {
+      enabled: boolean;
+      label: string;
+      icon: string;
+    };
+    duplicate: {
+      enabled: boolean;
+      label: string;
+      icon: string;
+    };
+    move: {
+      enabled: boolean;
+      label: string;
+      icon: string;
+    };
+    delete: {
+      enabled: boolean;
+      label: string;
+      icon: string;
+      danger?: boolean;
+    };
+  };
+}
+
 // ==================== 字段相关类型 ====================
 
 /**

@@ -9,6 +9,10 @@ import type {
   Table,
   CreateTableRequest,
   UpdateTableRequest,
+  RenameTableRequest,
+  DuplicateTableRequest,
+  TableUsageResponse,
+  TableManagementMenu,
   PaginationParams,
   PaginatedResponse
 } from '../types';
@@ -75,18 +79,39 @@ export class TableClient {
 
   /**
    * 删除数据表（DELETE /api/v1/tables/:id）
-   * 注：当前API可能未实现，仅预留接口
    */
   public async deleteTable(tableId: string): Promise<void> {
     await this.httpClient.delete(`/api/v1/tables/${tableId}`);
   }
 
+  // ==================== 表管理功能 ====================
+
   /**
-   * 复制数据表
-   * 注：当前API可能未实现，仅预留接口
+   * 重命名表（PUT /api/v1/tables/:tableId/rename）
    */
-  public async duplicateTable(tableId: string, newName: string): Promise<Table> {
-    return this.httpClient.post<Table>(`/api/v1/tables/${tableId}/duplicate`, { name: newName });
+  public async renameTable(tableId: string, request: RenameTableRequest): Promise<Table> {
+    return this.httpClient.put<Table>(`/api/v1/tables/${tableId}/rename`, request);
+  }
+
+  /**
+   * 复制表（POST /api/v1/tables/:tableId/duplicate）
+   */
+  public async duplicateTable(tableId: string, request: DuplicateTableRequest): Promise<Table> {
+    return this.httpClient.post<Table>(`/api/v1/tables/${tableId}/duplicate`, request);
+  }
+
+  /**
+   * 获取表用量信息（GET /api/v1/tables/:tableId/usage）
+   */
+  public async getTableUsage(tableId: string): Promise<TableUsageResponse> {
+    return this.httpClient.get<TableUsageResponse>(`/api/v1/tables/${tableId}/usage`);
+  }
+
+  /**
+   * 获取表管理菜单（GET /api/v1/tables/:tableId/menu）
+   */
+  public async getTableManagementMenu(tableId: string): Promise<TableManagementMenu> {
+    return this.httpClient.get<TableManagementMenu>(`/api/v1/tables/${tableId}/menu`);
   }
 
   /**

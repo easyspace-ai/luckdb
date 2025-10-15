@@ -235,6 +235,7 @@ func (c *Container) initServices() {
 		c.tableRepository,
 		c.baseRepository,
 		c.spaceRepository,
+		c.recordRepository, // ✅ 注入RecordRepository
 		c.fieldService,
 		c.viewService, // ✅ 注入ViewService
 		c.dbProvider,  // ✅ 注入DBProvider

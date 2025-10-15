@@ -23,6 +23,7 @@ import {
 } from '@luckdb/grid';
 import { createGridSdkAdapter, getCurrentUserInfo, getWebSocketUrl } from '@/lib/grid-sdk-adapter';
 import { useAuthStore } from '@/stores/auth-store';
+import { ViewTabs } from '@/components/views/ViewTabs';
 
 export default function TableEditor() {
   const { baseId, tableId, viewId } = useParams<{
@@ -51,6 +52,7 @@ export default function TableEditor() {
   const [base, setBase] = useState<Base | null>(null);
   const [table, setTable] = useState<Table | null>(null);
   const [view, setView] = useState<View | null>(null);
+  const [views, setViews] = useState<View[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
   const [records, setRecords] = useState<Record[]>([]);
   const [loading, setLoading] = useState(true);
@@ -187,6 +189,26 @@ export default function TableEditor() {
         isNull: value === null,
         isUndefined: value === undefined
       });
+
+      // ✅ 专门调试公式字段
+      if (field.type === 'formula') {
+        console.log(`🧮 Formula field "${field.name}" debug:`, {
+          fieldId: field.id,
+          fieldName: field.name,
+          fieldType: field.type,
+          value: value,
+          valueType: typeof value,
+          isNull: value === null,
+          isUndefined: value === undefined,
+          isEmpty: value === '' || value === null || value === undefined,
+          recordData: record.data,
+          allFieldValues: Object.keys(record.data || {}).map(key => ({
+            key,
+            value: record.data[key],
+            type: typeof record.data[key]
+          }))
+        });
+      }
       
       // 使用小写比较，更宽松的匹配
       const fieldType = (field.type || '').toLowerCase();
@@ -651,9 +673,13 @@ export default function TableEditor() {
       const tableData = await luckdb.getTable(tableId);
       setTable(tableData);
 
-      // 3. 获取 View 信息
-      const viewData = await luckdb.getView(viewId);
+      // 3. 获取 View 信息 & 视图列表
+      const [viewData, viewsList] = await Promise.all([
+        luckdb.getView(viewId),
+        luckdb.listViews({ tableId })
+      ]);
       setView(viewData);
+      setViews(viewsList);
 
       // 4. 并行加载字段和记录数据
       const [fieldsData, recordsResponse] = await Promise.all([
@@ -755,6 +781,59 @@ export default function TableEditor() {
     }
   };
 
+  // 视图操作
+  const handleSelectView = useCallback((vid: string) => {
+    if (!baseId || !tableId) return;
+    navigate(`/base/${baseId}/${tableId}/${vid}`);
+  }, [baseId, tableId, navigate]);
+
+  const handleCreateView = useCallback(async (type: 'grid' | 'kanban') => {
+    if (!tableId) return;
+    try {
+      const defaultNameBase = type === 'grid' ? '表格视图' : '看板视图';
+      const index = views.filter(v => v.type === type).length + 1;
+      const name = `${defaultNameBase} ${index}`;
+      const newView = await luckdb.createView({ tableId, name, type });
+      setViews(prev => [...prev, newView]);
+      handleSelectView(newView.id);
+      toast.success('视图已创建');
+    } catch (e: any) {
+      toast.error(e?.message || '创建视图失败');
+    }
+  }, [tableId, views, handleSelectView]);
+
+  const handleRenameView = useCallback(async (vid: string) => {
+    try {
+      const current = views.find(v => v.id === vid);
+      const newName = window.prompt('重命名视图', current?.name || '');
+      if (!newName || newName === current?.name) return;
+      const updated = await luckdb.updateView(vid, { name: newName });
+      setViews(prev => prev.map(v => v.id === vid ? updated : v));
+      if (view?.id === vid) setView(updated);
+    } catch (e: any) {
+      toast.error(e?.message || '重命名失败');
+    }
+  }, [views, view]);
+
+  const handleDeleteView = useCallback(async (vid: string) => {
+    if (views.length <= 1) {
+      toast.error('至少保留一个视图');
+      return;
+    }
+    try {
+      await luckdb.deleteView(vid);
+      const remain = views.filter(v => v.id !== vid);
+      setViews(remain);
+      if (view?.id === vid) {
+        const next = remain[0];
+        if (next && baseId && tableId) navigate(`/base/${baseId}/${tableId}/${next.id}`);
+      }
+      toast.success('已删除视图');
+    } catch (e: any) {
+      toast.error(e?.message || '删除失败');
+    }
+  }, [views, view, baseId, tableId, navigate]);
+
   // 条件渲染 - 必须在所有 hooks 之后
   if (loading) {
     return (
@@ -787,20 +866,23 @@ export default function TableEditor() {
   return (
     <TableEditorLayout>
       <div className="h-screen flex flex-col">
-        {/* 工具栏 */}
-        <div className="border-b p-4 bg-background flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">{table.name}</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {view.name} · {records.length} 条记录 · {fields.length} 个字段
-              </p>
+        {/* 顶部：标题 + 视图标签 */}
+        <div className="border-b p-3 bg-background flex-shrink-0">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold truncate">{table.name}</h1>
+              <p className="text-xs text-muted-foreground mt-1 truncate">{records.length} 条记录 · {fields.length} 个字段</p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="px-3 py-1 text-sm rounded-md border bg-muted/50">
-                视图: {view.name}
-              </div>
-            </div>
+          </div>
+          <div className="mt-3">
+            <ViewTabs
+              views={views}
+              activeViewId={view?.id}
+              onSelect={handleSelectView}
+              onCreate={handleCreateView}
+              onRename={handleRenameView}
+              onDelete={handleDeleteView}
+            />
           </div>
         </div>
 

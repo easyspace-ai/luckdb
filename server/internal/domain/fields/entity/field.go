@@ -1,6 +1,9 @@
 package entity
 
 import (
+	"encoding/json"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/easyspace-ai/luckdb/server/internal/domain/fields"
@@ -502,6 +505,233 @@ func (f *Field) validateOptions(options *valueobject.FieldOptions) error {
 	return nil
 }
 
+// ConvertCellValueToDBValue 将单元格值转换为数据库值（参考 teable 设计）
+// 解决 "cannot find encode plan" 错误：确保数值类型正确转换为数据库期望的类型
+func (f *Field) ConvertCellValueToDBValue(value interface{}) interface{} {
+	if value == nil {
+		return nil
+	}
+
+	// 根据字段类型进行转换
+	switch f.fieldType.String() {
+	case valueobject.TypeFormula:
+		return f.convertFormulaValueToDB(value)
+	case valueobject.TypeRollup:
+		return f.convertRollupValueToDB(value)
+	case valueobject.TypeLookup:
+		return f.convertLookupValueToDB(value)
+	case valueobject.TypeCount:
+		return f.convertCountValueToDB(value)
+	case valueobject.TypeAI:
+		return f.convertAIValueToDB(value)
+	default:
+		// 其他字段类型直接返回原值
+		return value
+	}
+}
+
+// convertFormulaValueToDB 转换公式字段值
+func (f *Field) convertFormulaValueToDB(value interface{}) interface{} {
+	// 公式字段使用TEXT类型存储，需要转换为字符串
+	switch v := value.(type) {
+	case string:
+		return v
+	case int, int32, int64:
+		return fmt.Sprintf("%d", v)
+	case float32, float64:
+		return fmt.Sprintf("%g", v) // %g 自动选择最紧凑的表示
+	case bool:
+		if v {
+			return "true"
+		}
+		return "false"
+	default:
+		// 其他类型转换为JSON字符串
+		jsonBytes, err := json.Marshal(v)
+		if err != nil {
+			// 如果JSON序列化失败，转换为字符串
+			return fmt.Sprintf("%v", v)
+		}
+		return string(jsonBytes)
+	}
+}
+
+// convertRollupValueToDB 转换汇总字段值
+func (f *Field) convertRollupValueToDB(value interface{}) interface{} {
+	// 汇总字段使用NUMERIC类型存储
+	switch v := value.(type) {
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	case int:
+		return float64(v)
+	case int32:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case string:
+		// 尝试解析字符串为数字
+		if parsed, err := strconv.ParseFloat(v, 64); err == nil {
+			return parsed
+		}
+		// 解析失败，返回0
+		return 0.0
+	default:
+		// 其他类型转换为0
+		return 0.0
+	}
+}
+
+// convertLookupValueToDB 转换查找字段值
+func (f *Field) convertLookupValueToDB(value interface{}) interface{} {
+	// 查找字段使用JSONB类型存储
+	jsonBytes, err := json.Marshal(value)
+	if err != nil {
+		// 如果JSON序列化失败，返回null
+		return nil
+	}
+	return jsonBytes
+}
+
+// convertCountValueToDB 转换计数字段值
+func (f *Field) convertCountValueToDB(value interface{}) interface{} {
+	// 计数字段使用INTEGER类型存储
+	switch v := value.(type) {
+	case int, int32, int64:
+		return v
+	case float32:
+		return int64(v)
+	case float64:
+		return int64(v)
+	case string:
+		// 尝试解析字符串为整数
+		if parsed, err := strconv.ParseInt(v, 10, 64); err == nil {
+			return parsed
+		}
+		// 解析失败，返回0
+		return int64(0)
+	default:
+		// 其他类型转换为0
+		return int64(0)
+	}
+}
+
+// convertAIValueToDB 转换AI字段值
+func (f *Field) convertAIValueToDB(value interface{}) interface{} {
+	// AI字段使用TEXT类型存储，转换为字符串
+	switch v := value.(type) {
+	case string:
+		return v
+	case int, int32, int64:
+		return fmt.Sprintf("%d", v)
+	case float32, float64:
+		return fmt.Sprintf("%g", v)
+	case bool:
+		if v {
+			return "true"
+		}
+		return "false"
+	default:
+		// 其他类型转换为JSON字符串
+		jsonBytes, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Sprintf("%v", v)
+		}
+		return string(jsonBytes)
+	}
+}
+
+// ConvertDBValueToCellValue 将数据库值转换为单元格值（参考 teable 设计）
+func (f *Field) ConvertDBValueToCellValue(value interface{}) interface{} {
+	if value == nil {
+		return nil
+	}
+
+	// 根据字段类型进行转换
+	switch f.fieldType.String() {
+	case valueobject.TypeFormula:
+		return f.convertFormulaValueFromDB(value)
+	case valueobject.TypeRollup:
+		return f.convertRollupValueFromDB(value)
+	case valueobject.TypeLookup:
+		return f.convertLookupValueFromDB(value)
+	case valueobject.TypeCount:
+		return f.convertCountValueFromDB(value)
+	case valueobject.TypeAI:
+		return f.convertAIValueFromDB(value)
+	default:
+		// 其他字段类型直接返回原值
+		return value
+	}
+}
+
+// convertFormulaValueFromDB 从数据库转换公式字段值
+func (f *Field) convertFormulaValueFromDB(value interface{}) interface{} {
+	// 公式字段存储为TEXT，尝试解析为合适的类型
+	if str, ok := value.(string); ok {
+		// 尝试解析为数字
+		if num, err := strconv.ParseFloat(str, 64); err == nil {
+			return num
+		}
+		// 尝试解析为布尔值
+		if str == "true" {
+			return true
+		}
+		if str == "false" {
+			return false
+		}
+		// 保持为字符串
+		return str
+	}
+	return value
+}
+
+// convertRollupValueFromDB 从数据库转换汇总字段值
+func (f *Field) convertRollupValueFromDB(value interface{}) interface{} {
+	// 汇总字段存储为NUMERIC，保持数值类型
+	return value
+}
+
+// convertLookupValueFromDB 从数据库转换查找字段值
+func (f *Field) convertLookupValueFromDB(value interface{}) interface{} {
+	// 查找字段存储为JSONB，需要解析
+	if jsonBytes, ok := value.([]byte); ok {
+		var result interface{}
+		if err := json.Unmarshal(jsonBytes, &result); err == nil {
+			return result
+		}
+	}
+	return value
+}
+
+// convertCountValueFromDB 从数据库转换计数字段值
+func (f *Field) convertCountValueFromDB(value interface{}) interface{} {
+	// 计数字段存储为INTEGER，保持整数类型
+	return value
+}
+
+// convertAIValueFromDB 从数据库转换AI字段值
+func (f *Field) convertAIValueFromDB(value interface{}) interface{} {
+	// AI字段存储为TEXT，尝试解析为合适的类型
+	if str, ok := value.(string); ok {
+		// 尝试解析为数字
+		if num, err := strconv.ParseFloat(str, 64); err == nil {
+			return num
+		}
+		// 尝试解析为布尔值
+		if str == "true" {
+			return true
+		}
+		if str == "false" {
+			return false
+		}
+		// 保持为字符串
+		return str
+	}
+	return value
+}
+
 // determineDBFieldType 确定数据库字段类型
 func determineDBFieldType(fieldType valueobject.FieldType) string {
 	// 根据字段类型映射到数据库类型（PostgreSQL）
@@ -534,10 +764,17 @@ func determineDBFieldType(fieldType valueobject.FieldType) string {
 	case valueobject.TypeAutoNumber:
 		return "SERIAL"
 
-	// 虚拟字段不存储在数据库中
-	case valueobject.TypeFormula, valueobject.TypeRollup, valueobject.TypeLookup,
-		valueobject.TypeAI, valueobject.TypeCount:
-		return "VIRTUAL"
+	// 虚拟字段存储在数据库中（存储计算结果）
+	case valueobject.TypeFormula:
+		return "TEXT" // 公式结果可能是任意类型，用TEXT存储
+	case valueobject.TypeRollup:
+		return "NUMERIC" // 聚合结果
+	case valueobject.TypeLookup:
+		return "JSONB" // 查找结果（可能是多个值）
+	case valueobject.TypeCount:
+		return "INTEGER" // 计数结果
+	case valueobject.TypeAI:
+		return "TEXT" // AI生成的结果
 
 	default:
 		return "TEXT"

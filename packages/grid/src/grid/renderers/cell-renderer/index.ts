@@ -46,6 +46,11 @@ export const getCellRenderer = (cellType: CellType): IInternalCellRenderer<ICell
       return dateCellRenderer as IInternalCellRenderer<ICell>;
     case CellType.Attachment:
       return attachmentCellRenderer as IInternalCellRenderer<ICell>;
+    case CellType.Formula:
+    case CellType.Lookup:
+    case CellType.Rollup:
+      // ✅ 修复：公式字段使用文本渲染器显示计算结果
+      return textCellRenderer as IInternalCellRenderer<ICell>;
     case CellType.Loading:
     default:
       return loadingCellRenderer as IInternalCellRenderer<ICell>;

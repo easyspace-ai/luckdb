@@ -41,26 +41,68 @@ type FieldOptions struct {
 
 	// Rating 选项
 	Rating *RatingOptions
+
+	// 通用配置（可选，某些字段类型会使用）
+	ShowAs     *ShowAsOptions     `json:"showAs,omitempty"`
+	Formatting *FormattingOptions `json:"formatting,omitempty"`
+}
+
+// ShowAsOptions 显示方式配置（参考 Teable）
+type ShowAsOptions struct {
+	Type   string                 `json:"type,omitempty"`   // bar, line, ring, etc.
+	Color  string                 `json:"color,omitempty"`  // 颜色配置
+	Config map[string]interface{} `json:"config,omitempty"` // 其他显示配置
+}
+
+// FormattingOptions 格式化选项（通用）
+type FormattingOptions struct {
+	Type       string `json:"type,omitempty"`       // number, date, text
+	Precision  *int   `json:"precision,omitempty"`  // 数字精度
+	DateFormat string `json:"dateFormat,omitempty"` // 日期格式
+	TimeFormat string `json:"timeFormat,omitempty"` // 时间格式
+	TimeZone   string `json:"timeZone,omitempty"`   // 时区
+	ShowCommas bool   `json:"showCommas,omitempty"` // 显示千分位
+	Currency   string `json:"currency,omitempty"`   // 货币类型
+}
+
+// FilterOptions 过滤选项（用于 Link 字段等）
+type FilterOptions struct {
+	Conjunction string            `json:"conjunction,omitempty"` // and, or
+	Conditions  []FilterCondition `json:"conditions,omitempty"`
+}
+
+// FilterCondition 过滤条件
+type FilterCondition struct {
+	FieldID  string      `json:"fieldId"`
+	Operator string      `json:"operator"` // is, isNot, contains, etc.
+	Value    interface{} `json:"value"`
 }
 
 // FormulaOptions 公式字段选项
 type FormulaOptions struct {
 	Expression string             `json:"expression"`
+	TimeZone   string             `json:"timeZone,omitempty"` // 时区配置（参考 Teable）
 	Formatting *FormattingOptions `json:"formatting,omitempty"`
+	ShowAs     *ShowAsOptions     `json:"showAs,omitempty"` // 显示配置（参考 Teable）
 }
 
 // RollupOptions Rollup字段选项
 type RollupOptions struct {
-	LinkFieldID         string `json:"link_field_id"`
-	RollupFieldID       string `json:"rollup_field_id"`
-	AggregationFunction string `json:"aggregation_function"` // sum, count, avg, min, max, etc.
-	Expression          string `json:"expression,omitempty"`
+	LinkFieldID         string             `json:"link_field_id"`
+	RollupFieldID       string             `json:"rollup_field_id"`
+	AggregationFunction string             `json:"aggregation_function"` // sum, count, avg, min, max, etc.
+	Expression          string             `json:"expression,omitempty"`
+	TimeZone            string             `json:"timeZone,omitempty"`   // 时区配置（参考 Teable）
+	Formatting          *FormattingOptions `json:"formatting,omitempty"` // 格式化配置（参考 Teable）
+	ShowAs              *ShowAsOptions     `json:"showAs,omitempty"`     // 显示配置（参考 Teable）
 }
 
 // LookupOptions Lookup字段选项
 type LookupOptions struct {
-	LinkFieldID   string `json:"link_field_id"`
-	LookupFieldID string `json:"lookup_field_id"`
+	LinkFieldID   string             `json:"link_field_id"`
+	LookupFieldID string             `json:"lookup_field_id"`
+	Formatting    *FormattingOptions `json:"formatting,omitempty"` // 格式化配置（参考 Teable）
+	ShowAs        *ShowAsOptions     `json:"showAs,omitempty"`     // 显示配置（参考 Teable）
 }
 
 // LinkOptions 链接字段选项
@@ -71,11 +113,23 @@ type LinkOptions struct {
 	Relationship      string `json:"relationship"` // one_to_one, one_to_many, many_to_one, many_to_many
 	IsSymmetric       bool   `json:"is_symmetric"`
 	AllowMultiple     bool   `json:"allow_multiple"`
+	// 高级功能（参考 Teable）
+	BaseID          string         `json:"baseId,omitempty"`          // 跨 Base 链接支持
+	LookupFieldID   string         `json:"lookupFieldId,omitempty"`   // 显示字段
+	FilterByViewID  *string        `json:"filterByViewId,omitempty"`  // 视图过滤
+	VisibleFieldIDs []string       `json:"visibleFieldIds,omitempty"` // 可见字段列表
+	Filter          *FilterOptions `json:"filter,omitempty"`          // 复杂过滤条件
+	// 数据库实现细节（可选，用于兼容旧版）
+	FkHostTableName string `json:"fkHostTableName,omitempty"` // 存储外键的表名
+	SelfKeyName     string `json:"selfKeyName,omitempty"`     // 自身主键字段名
+	ForeignKeyName  string `json:"foreignKeyName,omitempty"`  // 外键字段名
 }
 
 // SelectOptions 选择字段选项
 type SelectOptions struct {
-	Choices []SelectChoice `json:"choices"`
+	Choices               []SelectChoice `json:"choices"`
+	DefaultValue          interface{}    `json:"defaultValue,omitempty"`          // 默认值（单选为 string，多选为 []string）
+	PreventAutoNewOptions bool           `json:"preventAutoNewOptions,omitempty"` // 防止自动添加新选项（参考 Teable）
 }
 
 // SelectChoice 选择项
@@ -87,22 +141,25 @@ type SelectChoice struct {
 
 // NumberOptions 数字字段选项
 type NumberOptions struct {
-	Precision  *int   `json:"precision,omitempty"`   // 小数位数
-	Format     string `json:"format,omitempty"`      // decimal, percent, currency
-	Currency   string `json:"currency,omitempty"`    // USD, CNY, EUR, etc.
-	ShowCommas bool   `json:"show_commas,omitempty"` // 是否显示千分位
-	Min        *int   `json:"min,omitempty"`         // 最小值（仍保留，用于兼容）
-	Max        *int   `json:"max,omitempty"`         // 最大值（仍保留，用于兼容）
-	MinValue   *int   `json:"minValue,omitempty"`    // 最小值（API使用camelCase）
-	MaxValue   *int   `json:"maxValue,omitempty"`    // 最大值（API使用camelCase）
+	Precision    *int           `json:"precision,omitempty"`    // 小数位数
+	Format       string         `json:"format,omitempty"`       // decimal, percent, currency
+	Currency     string         `json:"currency,omitempty"`     // USD, CNY, EUR, etc.
+	ShowCommas   bool           `json:"show_commas,omitempty"`  // 是否显示千分位
+	Min          *int           `json:"min,omitempty"`          // 最小值（仍保留，用于兼容）
+	Max          *int           `json:"max,omitempty"`          // 最大值（仍保留，用于兼容）
+	MinValue     *int           `json:"minValue,omitempty"`     // 最小值（API使用camelCase）
+	MaxValue     *int           `json:"maxValue,omitempty"`     // 最大值（API使用camelCase）
+	DefaultValue *float64       `json:"defaultValue,omitempty"` // 默认值（参考 Teable）
+	ShowAs       *ShowAsOptions `json:"showAs,omitempty"`       // 显示配置（参考 Teable）
 }
 
 // DateOptions 日期字段选项
 type DateOptions struct {
-	Format      string `json:"format,omitempty"`       // YYYY-MM-DD, MM/DD/YYYY, etc.
-	IncludeTime bool   `json:"include_time,omitempty"` // 是否包含时间
-	TimeFormat  string `json:"time_format,omitempty"`  // 12h, 24h
-	TimeZone    string `json:"timezone,omitempty"`     // UTC, Asia/Shanghai, etc.
+	Format       string  `json:"format,omitempty"`       // YYYY-MM-DD, MM/DD/YYYY, etc.
+	IncludeTime  bool    `json:"include_time,omitempty"` // 是否包含时间
+	TimeFormat   string  `json:"time_format,omitempty"`  // 12h, 24h
+	TimeZone     string  `json:"timezone,omitempty"`     // UTC, Asia/Shanghai, etc.
+	DefaultValue *string `json:"defaultValue,omitempty"` // 默认值，如 "now" 或具体日期字符串（参考 Teable）
 }
 
 // AIOptions AI字段选项
@@ -111,12 +168,6 @@ type AIOptions struct {
 	Model    string                 `json:"model"`            // gpt-4, claude-3, etc.
 	Prompt   string                 `json:"prompt"`           // AI提示词
 	Config   map[string]interface{} `json:"config,omitempty"` // 其他配置
-}
-
-// FormattingOptions 格式化选项
-type FormattingOptions struct {
-	Type      string `json:"type,omitempty"`      // number, date, text
-	Precision *int   `json:"precision,omitempty"` // 小数位数
 }
 
 // CountOptions Count字段选项

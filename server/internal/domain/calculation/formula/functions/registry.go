@@ -23,6 +23,8 @@ func NewFunctionRegistry() *FunctionRegistry {
 func (r *FunctionRegistry) registerBuiltinFunctions() {
 	// 文本函数 (16个)
 	r.Register(NewConcatenateFunc())
+	// ✅ 添加常用函数别名
+	r.RegisterAlias("CONCAT", "CONCATENATE")
 	r.Register(NewLeftFunc())
 	r.Register(NewRightFunc())
 	r.Register(NewUpperFunc())
@@ -128,6 +130,15 @@ func (r *FunctionRegistry) Register(fn FormulaFunc) {
 	// 函数名大写（对齐原版：函数名不区分大小写）
 	name := strings.ToUpper(fn.Name())
 	r.functions[name] = fn
+}
+
+// RegisterAlias 注册函数别名
+func (r *FunctionRegistry) RegisterAlias(alias, targetName string) {
+	alias = strings.ToUpper(alias)
+	targetName = strings.ToUpper(targetName)
+	if targetFunc, exists := r.functions[targetName]; exists {
+		r.functions[alias] = targetFunc
+	}
 }
 
 // GetFunction 获取函数

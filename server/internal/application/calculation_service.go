@@ -615,7 +615,18 @@ func (s *CalculationService) calculateFormula(
 			logger.Any("result_value", result.Value),
 			logger.String("result_type", string(result.Type)),
 		)
-		return result.Value, nil
+
+		// ✅ 关键修复：使用字段实体的类型转换方法（参考 teable 设计）
+		convertedValue := field.ConvertCellValueToDBValue(result.Value)
+
+		logger.Info("✅ 数据库类型转换成功",
+			logger.String("field_id", field.ID().String()),
+			logger.String("field_name", field.Name().String()),
+			logger.Any("original_value", result.Value),
+			logger.Any("converted_value", convertedValue),
+			logger.String("db_field_type", field.DBFieldType()))
+
+		return convertedValue, nil
 	}
 
 	logger.Warn("⚠️ 公式求值返回nil",

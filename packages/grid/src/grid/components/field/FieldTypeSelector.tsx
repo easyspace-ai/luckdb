@@ -58,6 +58,7 @@ const FieldTypeSelectorBase: ForwardRefRenderFunction<
   if (!visible) return null;
 
   const fieldTypes: Array<{ type: IFieldType; label: string; icon: string }> = [
+    { type: 'formula', label: '公式', icon: '🧮' },
     { type: 'text', label: '单行文本', icon: '📝' },
     { type: 'number', label: '数字', icon: '🔢' },
     { type: 'checkbox', label: '复选框', icon: '☑️' },
@@ -87,6 +88,8 @@ const FieldTypeSelectorBase: ForwardRefRenderFunction<
         padding: '8px',
         boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
         zIndex: 10000,
+        maxHeight: '300px',
+        overflowY: 'auto',
       }}
     >
       {fieldTypes.map(({ type, label, icon }) => (

@@ -48,6 +48,7 @@ export interface IFieldTypeSelectModalProps {
 
 // 基础字段类型分组
 const BASE_FIELD_TYPES: IFieldTypeOption[] = [
+  { type: 'formula', name: '公式', icon: '🧮', description: '基于其他字段计算得出' },
   { type: 'singleLineText', name: '单行文本', icon: '📝', description: '用于输入短文本内容' },
   { type: 'longText', name: '长文本', icon: '📄', description: '用于输入多行文本内容' },
   { type: 'number', name: '数字', icon: '🔢', description: '用于输入数值' },
@@ -63,7 +64,6 @@ const BASE_FIELD_TYPES: IFieldTypeOption[] = [
 const ADVANCED_FIELD_TYPES: IFieldTypeOption[] = [
   { type: 'attachment', name: '附件', icon: '📎', description: '上传文件附件' },
   { type: 'link', name: '关联', icon: '🔗', description: '关联其他表格记录' },
-  { type: 'formula', name: '公式', icon: '🧮', description: '基于其他字段计算得出' },
   { type: 'rollup', name: '汇总', icon: '📊', description: '汇总关联字段的数据' },
   { type: 'autoNumber', name: '自动编号', icon: '#️⃣', description: '自动生成递增数字' },
 ];
@@ -82,25 +82,43 @@ const FieldTypeSelectModalBase: ForwardRefRenderFunction<
 > = ({ onConfirm, onCancel }, ref) => {
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [adjustedPosition, setAdjustedPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [mode, setMode] = useState<'create' | 'edit'>('create');
-  const [selectedType, setSelectedType] = useState<IFieldTypeModal>('singleLineText');
+  const [selectedType, setSelectedType] = useState<IFieldTypeModal>('formula');
   const [fieldName, setFieldName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isConfiguring, setIsConfiguring] = useState(false);
   const [fieldOptions, setFieldOptions] = useState<IFormulaFieldConfigOptions | IRollupFieldConfigOptions | undefined>();
   const modalRef = useRef<HTMLDivElement>(null);
   const virtualFieldConfigRef = useRef<IVirtualFieldConfigRef>(null);
+  // 记录待打开的虚拟字段配置类型，避免在子组件尚未挂载时调用 ref
+  const [pendingVirtual, setPendingVirtual] = useState<{
+    type: 'formula' | 'rollup';
+    options?: IFormulaFieldConfigOptions | IRollupFieldConfigOptions;
+  } | null>(null);
+  // 数字字段配置状态
+  const [numberFormatType, setNumberFormatType] = useState<'decimal' | 'percent' | 'currency'>('decimal');
+  const [numberPrecision, setNumberPrecision] = useState<number>(2);
+  const [numberDefaultValue, setNumberDefaultValue] = useState<string>('');
+  const [numberDisplay, setNumberDisplay] = useState<'number' | 'ring' | 'bar'>('number');
 
   useImperativeHandle(ref, () => ({
     show: (pos = { x: 100, y: 100 }, modalMode = 'create', initialData) => {
       setPosition(pos);
       setMode(modalMode);
-      setSelectedType(initialData?.type || 'singleLineText');
+      setSelectedType(initialData?.type || 'formula');
       setFieldName(initialData?.name || '');
       setFieldOptions(initialData?.options);
       setIsCreating(false);
       setIsConfiguring(false);
+      // 重置数字字段配置
+      setNumberFormatType('decimal');
+      setNumberPrecision(2);
+      setNumberDefaultValue('');
+      setNumberDisplay('number');
       setVisible(true);
+      // 初次显示时，先用传入位置，渲染后再根据弹窗尺寸进行防遮挡调整
+      setAdjustedPosition(pos);
     },
     hide: () => {
       setVisible(false);
@@ -140,13 +158,43 @@ const FieldTypeSelectModalBase: ForwardRefRenderFunction<
     };
   }, [visible, onCancel]);
 
+  // 可视区域防遮挡：在可见且渲染后根据尺寸调整位置
+  useEffect(() => {
+    if (!visible) return;
+    const el = modalRef.current;
+    if (!el) return;
+    // 下一帧读取尺寸，避免拿到旧值
+    const id = window.requestAnimationFrame(() => {
+      const rect = el.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const margin = 12;
+      let x = position.x;
+      let y = position.y;
+
+      // 如果右侧溢出，向左移；若左侧溢出，贴边
+      if (x + rect.width > vw - margin) x = Math.max(margin, vw - rect.width - margin);
+      if (x < margin) x = margin;
+
+      // 如果底部溢出，向上移；若顶部溢出，贴边
+      if (y + rect.height > vh - margin) y = Math.max(margin, vh - rect.height - margin);
+      if (y < margin) y = margin;
+
+      // 微调：若仍与右侧很近，给出2px间距防止视觉遮挡
+      x = Math.round(x) + 2;
+      y = Math.round(y);
+      setAdjustedPosition({ x, y });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [visible, position]);
+
   const handleTypeSelect = (type: IFieldTypeModal) => {
     setSelectedType(type);
     
     // 检查是否需要配置虚拟字段
     if (type === 'formula' || type === 'rollup') {
       setIsConfiguring(true);
-      virtualFieldConfigRef.current?.show(type, fieldOptions);
+      setPendingVirtual({ type, options: fieldOptions });
     } else {
       setIsCreating(true);
     }
@@ -168,13 +216,26 @@ const FieldTypeSelectModalBase: ForwardRefRenderFunction<
     setIsCreating(false);
   };
 
+  // 当进入配置模式且子组件已经挂载时再调用 show，确保可见
+  useEffect(() => {
+    if (!isConfiguring || !pendingVirtual) return;
+    const timer = window.requestAnimationFrame(() => {
+      virtualFieldConfigRef.current?.show(pendingVirtual.type, pendingVirtual.options);
+    });
+    return () => window.cancelAnimationFrame(timer);
+  }, [isConfiguring, pendingVirtual]);
+
   const handleConfirm = () => {
     if (fieldName.trim()) {
-      onConfirm?.({ 
-        type: selectedType, 
-        name: fieldName.trim(),
-        options: fieldOptions
-      });
+      let options: any = fieldOptions;
+      if (selectedType === 'number') {
+        options = {
+          formatting: { type: numberFormatType, precision: numberPrecision },
+          defaultValue: numberDefaultValue !== '' ? Number(numberDefaultValue) : undefined,
+          display: numberDisplay,
+        };
+      }
+      onConfirm?.({ type: selectedType, name: fieldName.trim(), options });
       setVisible(false);
     }
   };
@@ -209,8 +270,8 @@ const FieldTypeSelectModalBase: ForwardRefRenderFunction<
       ref={modalRef}
       style={{
         position: 'fixed',
-        left: position.x,
-        top: position.y,
+        left: adjustedPosition.x,
+        top: adjustedPosition.y,
         backgroundColor: 'white',
         border: '2px solid #e5e7eb',
         borderRadius: '12px',
@@ -270,10 +331,14 @@ const FieldTypeSelectModalBase: ForwardRefRenderFunction<
             </p>
           )}
         </div>
-      </div>
+          </div>
 
       {/* 内容区域 */}
-      <div style={{ padding: '16px 24px' }}>
+      <div style={{ 
+        padding: '16px 24px',
+        maxHeight: '500px',
+        overflowY: 'auto'
+      }}>
         {!isCreating ? (
           // 字段类型选择
           <div>
@@ -505,6 +570,7 @@ const FieldTypeSelectModalBase: ForwardRefRenderFunction<
               backgroundColor: '#f9fafb',
               borderRadius: '8px',
               border: '1px solid #e5e7eb',
+              marginBottom: '12px',
             }}>
               <div style={{ 
                 fontSize: '14px', 
@@ -552,6 +618,78 @@ const FieldTypeSelectModalBase: ForwardRefRenderFunction<
                 </div>
               )}
             </div>
+
+            {/* 数字字段配置 */}
+            {selectedType === 'number' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500, color: '#374151' }}>
+                    格式类型
+                  </label>
+                  <select
+                    value={numberFormatType}
+                    onChange={(e) => setNumberFormatType(e.target.value as any)}
+                    style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                  >
+                    <option value="decimal">小数 (1.23)</option>
+                    <option value="percent">百分比 (12%)</option>
+                    <option value="currency">货币 (¥1.23)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500, color: '#374151' }}>
+                    精度
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={numberPrecision}
+                    onChange={(e) => setNumberPrecision(parseInt(e.target.value) || 0)}
+                    style={{ width: '120px', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500, color: '#374151' }}>
+                    默认值
+                  </label>
+                  <input
+                    type="number"
+                    value={numberDefaultValue}
+                    onChange={(e) => setNumberDefaultValue(e.target.value)}
+                    placeholder="请输入默认值"
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500, color: '#374151' }}>
+                    显示样式
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {[
+                      { id: 'number', name: '数字' },
+                      { id: 'ring', name: '环形' },
+                      { id: 'bar', name: '条形' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setNumberDisplay(opt.id as any)}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          border: numberDisplay === (opt.id as any) ? '2px solid #3b82f6' : '1px solid #d1d5db',
+                          background: numberDisplay === (opt.id as any) ? '#eff6ff' : 'white',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                        }}
+                      >
+                        {opt.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

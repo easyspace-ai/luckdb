@@ -106,6 +106,7 @@ func (r *RecordRepositoryDynamic) FindByIDs(ctx context.Context, tableID string,
 		"__version",
 	}
 
+	// 选择所有字段的数据库列（包括虚拟字段的计算结果列）
 	for _, field := range fields {
 		selectCols = append(selectCols, field.DBFieldName().String())
 	}
@@ -203,6 +204,7 @@ func (r *RecordRepositoryDynamic) FindByTableID(ctx context.Context, tableID str
 		"__version",
 	}
 
+	// 选择所有字段的数据库列（包括虚拟字段的计算结果列）
 	for _, field := range fields {
 		selectCols = append(selectCols, field.DBFieldName().String())
 	}
@@ -312,8 +314,14 @@ func (r *RecordRepositoryDynamic) Save(ctx context.Context, record *entity.Recor
 		// 获取字段值
 		value, _ := recordData.Get(fieldID)
 
-		// 转换值（根据字段类型）
-		convertedValue := r.convertValueForDB(field, value)
+		// ✅ 关键修复：使用字段实体的类型转换方法（参考 teable 设计）
+		// field.ConvertCellValueToDBValue 会根据字段类型和数据库类型进行正确的转换
+		convertedValue := field.ConvertCellValueToDBValue(value)
+
+		// ✅ 对于JSONB类型，需要包装为 datatypes.JSON
+		if field.DBFieldType() == "JSONB" || field.DBFieldType() == "JSON" {
+			convertedValue = r.wrapJSONBValue(convertedValue)
+		}
 
 		data[dbFieldName] = convertedValue
 	}
@@ -519,6 +527,7 @@ func (r *RecordRepositoryDynamic) List(ctx context.Context, filter recordRepo.Re
 		"__version",
 	}
 
+	// 选择所有字段的数据库列（包括虚拟字段的计算结果列）
 	for _, field := range fields {
 		selectCols = append(selectCols, field.DBFieldName().String())
 	}
@@ -660,7 +669,40 @@ func (r *RecordRepositoryDynamic) toDomainEntity(
 	), nil
 }
 
-// convertValueForDB 将应用层值转换为数据库值
+// wrapJSONBValue 包装JSONB值为 datatypes.JSON（GORM专用）
+func (r *RecordRepositoryDynamic) wrapJSONBValue(value interface{}) interface{} {
+	if value == nil {
+		return nil
+	}
+
+	// 如果值已经是 datatypes.JSON，直接返回
+	if _, ok := value.(datatypes.JSON); ok {
+		return value
+	}
+
+	// 如果值已经是[]byte（字段实体已经转换为JSON字节），包装为 datatypes.JSON
+	if jsonBytes, ok := value.([]byte); ok {
+		return datatypes.JSON(jsonBytes)
+	}
+
+	// 如果值已经是字符串，假设它是JSON格式，包装为 datatypes.JSON
+	if str, ok := value.(string); ok {
+		return datatypes.JSON(str)
+	}
+
+	// 否则，序列化为JSON并包装为 datatypes.JSON
+	jsonData, err := json.Marshal(value)
+	if err != nil {
+		logger.Error("序列化字段值为JSON失败", logger.Any("value", value), logger.ErrorField(err))
+		return nil
+	}
+
+	// 返回 datatypes.JSON 类型，GORM 会正确处理
+	return datatypes.JSON(jsonData)
+}
+
+// convertValueForDB 将应用层值转换为数据库值（已弃用，保留用于兼容）
+// ⚠️ 新代码应使用 field.ConvertCellValueToDBValue() 方法
 func (r *RecordRepositoryDynamic) convertValueForDB(field *fieldEntity.Field, value interface{}) interface{} {
 	if value == nil {
 		return nil

@@ -181,6 +181,12 @@ func setupTableRoutes(rg *gin.RouterGroup, cont *container.Container) {
 		tables.GET("/:tableId", handler.GetTable)
 		tables.PATCH("/:tableId", handler.UpdateTable) // ✅ 部分更新使用PATCH
 		tables.DELETE("/:tableId", handler.DeleteTable)
+
+		// 表管理路由
+		tables.PUT("/:tableId/rename", handler.RenameTable)          // 重命名表
+		tables.POST("/:tableId/duplicate", handler.DuplicateTable)   // 复制表
+		tables.GET("/:tableId/usage", handler.GetTableUsage)         // 获取表用量
+		tables.GET("/:tableId/menu", handler.GetTableManagementMenu) // 获取表管理菜单
 	}
 }
 

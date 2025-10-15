@@ -4,6 +4,7 @@ import { ProtectedRoute } from '@/components/auth/protected-route'
 
 // Lazy load components for better performance
 const LoginPage = lazy(() => import('@/app/auth/login/page'))
+const RegisterPage = lazy(() => import('@/app/auth/register/page'))
 const Dashboard2 = lazy(() => import('@/app/dashboard-2/page'))
 const SpaceDetail = lazy(() => import('@/app/space/[id]/page'))
 const TableEditor = lazy(() => import('@/app/table-editor/page'))
@@ -18,10 +19,20 @@ export interface RouteConfig {
 }
 
 export const routes: RouteConfig[] = [
-  // Login route (public)
+  // Auth routes (public)
+  {
+    path: "/auth/login",
+    element: <LoginPage />
+  },
+  {
+    path: "/auth/register",
+    element: <RegisterPage />
+  },
+  
+  // Legacy login route (redirect)
   {
     path: "/login",
-    element: <LoginPage />
+    element: <Navigate to="/auth/login" replace />
   },
 
   // Default route - redirect to dashboard

@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Plus, Sparkles } from 'lucide-react';
 import { FieldTypeSelector } from './FieldTypeSelector';
 import { FieldType, getFieldTypeInfo } from '@/types/field';
-import type { CreateFieldRequest } from '@/types/field';
+import type { CreateFieldRequest, FieldOption } from '@/types/field';
 
 interface AddFieldDialogProps {
   open: boolean;
@@ -33,25 +33,33 @@ export function AddFieldDialog({
     console.log('[AddFieldDialog] render open=true');
   }
   const [fieldName, setFieldName] = useState('');
-  const [fieldType, setFieldType] = useState<FieldType>(FieldType.SingleLineText);
+  const [fieldType, setFieldType] = useState<FieldType>(FieldType.Formula);
   const [description, setDescription] = useState('');
   const [showDescription, setShowDescription] = useState(false);
   const [defaultValue, setDefaultValue] = useState('');
   const [isUnique, setIsUnique] = useState(false);
   const [displayStyle, setDisplayStyle] = useState<'text' | 'url' | 'email' | 'phone'>('text');
   const [isSaving, setIsSaving] = useState(false);
+  // 选择类：单选/多选 选项
+  const [choiceInput, setChoiceInput] = useState('');
+  const [choices, setChoices] = useState<FieldOption[]>([]);
+  // 公式字段：表达式
+  const [formulaExpression, setFormulaExpression] = useState('');
 
   // 重置表单
   useEffect(() => {
     if (!open) {
       setFieldName('');
-      setFieldType(FieldType.SingleLineText);
+      setFieldType(FieldType.Formula);
       setDescription('');
       setShowDescription(false);
       setDefaultValue('');
       setIsUnique(false);
       setDisplayStyle('text');
       setIsSaving(false);
+      setChoices([]);
+      setChoiceInput('');
+      setFormulaExpression('');
     }
   }, [open]);
 
@@ -71,7 +79,11 @@ export function AddFieldDialog({
           defaultValue: defaultValue.trim() || undefined,
           isUnique,
           displayStyle: fieldType === FieldType.SingleLineText ? displayStyle : undefined,
-        },
+          // 旧版：select/multipleSelect 使用 choices 数组
+          choices: (fieldType === FieldType.SingleSelect || fieldType === FieldType.MultipleSelect) ? choices : undefined,
+          // 旧版：公式字段使用 options.expression
+          ...(fieldType === FieldType.Formula ? { expression: formulaExpression } : {}),
+        } as any,
       };
 
       await onSave(fieldData);
@@ -85,6 +97,8 @@ export function AddFieldDialog({
 
   const fieldTypeInfo = getFieldTypeInfo(fieldType);
   const isTextType = fieldType === FieldType.SingleLineText;
+  const isSelectType = fieldType === FieldType.SingleSelect || fieldType === FieldType.MultipleSelect;
+  const isFormulaType = fieldType === FieldType.Formula;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -149,6 +163,70 @@ export function AddFieldDialog({
               {fieldTypeInfo?.description}
             </p>
           </div>
+
+          {/* 多选/单选 - 选项配置（旧版风格） */}
+          {isSelectType && (
+            <div className="space-y-2">
+              <Label>选项</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="输入后按回车添加（如：重要）"
+                  value={choiceInput}
+                  onChange={(e) => setChoiceInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && choiceInput.trim()) {
+                      const id = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+                      setChoices((prev) => [...prev, { id, name: choiceInput.trim() }]);
+                      setChoiceInput('');
+                    }
+                  }}
+                  disabled={isSaving}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    if (!choiceInput.trim()) return;
+                    const id = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+                    setChoices((prev) => [...prev, { id, name: choiceInput.trim() }]);
+                    setChoiceInput('');
+                  }}
+                  disabled={isSaving}
+                >添加</Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {choices.map((c) => (
+                  <span key={c.id} className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs">
+                    {c.name}
+                    <button
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => setChoices((prev) => prev.filter((x) => x.id !== c.id))}
+                      type="button"
+                    >×</button>
+                  </span>
+                ))}
+                {choices.length === 0 && (
+                  <span className="text-xs text-muted-foreground">暂无选项</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 公式字段 - 表达式（旧版风格） */}
+          {isFormulaType && (
+            <div className="space-y-2">
+              <Label htmlFor="formula">公式</Label>
+              <Textarea
+                id="formula"
+                placeholder="例如：CONCAT({姓名}, ' - ', {部门}) 或 SUM({金额})"
+                value={formulaExpression}
+                onChange={(e) => setFormulaExpression(e.target.value)}
+                rows={3}
+                disabled={isSaving}
+              />
+              <p className="text-xs text-muted-foreground">支持旧版公式语法，将以 options.expression 持久化。</p>
+            </div>
+          )}
 
           {/* 字段值验证规则 */}
           <div className="space-y-2">

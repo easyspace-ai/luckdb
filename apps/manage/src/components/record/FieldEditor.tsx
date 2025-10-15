@@ -134,7 +134,7 @@ export function FieldEditor({ field, value, onChange }: FieldEditorProps) {
         );
 
       case 'rating':
-        const maxRating = field.options?.maxRating || 5;
+        const maxRating = (field.options as any)?.maxRating || 5;
         return (
           <div className="flex space-x-1">
             {Array.from({ length: maxRating }, (_, i) => (

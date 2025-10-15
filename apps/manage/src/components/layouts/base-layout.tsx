@@ -16,9 +16,11 @@ interface BaseLayoutProps {
   children: React.ReactNode
   title?: string
   description?: string
+  spaces?: Array<{ id: string; name: string; description?: string; bases?: Array<{ id: string; name: string; description?: string }> }>
+  onCreateSpace?: () => void
 }
 
-export function BaseLayout({ children, title, description }: BaseLayoutProps) {
+export function BaseLayout({ children, title, description, spaces, onCreateSpace }: BaseLayoutProps) {
   const [themeCustomizerOpen, setThemeCustomizerOpen] = React.useState(false)
   const { config } = useSidebarConfig()
 
@@ -38,10 +40,12 @@ export function BaseLayout({ children, title, description }: BaseLayoutProps) {
           <AppSidebar 
             variant={config.variant} 
             collapsible={config.collapsible} 
-            side={config.side} 
+            side={config.side}
+            spaces={spaces}
+            onCreateSpace={onCreateSpace}
           />
           <SidebarInset>
-            <SiteHeader />
+            <SiteHeader spaces={spaces} onCreateSpace={onCreateSpace} />
             <div className="flex flex-1 flex-col">
               <div className="@container/main flex flex-1 flex-col gap-2">
                 <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
@@ -59,13 +63,13 @@ export function BaseLayout({ children, title, description }: BaseLayoutProps) {
                 </div>
               </div>
             </div>
-            <SiteFooter />
+           
           </SidebarInset>
         </>
       ) : (
         <>
           <SidebarInset>
-            <SiteHeader />
+            <SiteHeader spaces={spaces} onCreateSpace={onCreateSpace} />
             <div className="flex flex-1 flex-col">
               <div className="@container/main flex flex-1 flex-col gap-2">
                 <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
@@ -83,7 +87,7 @@ export function BaseLayout({ children, title, description }: BaseLayoutProps) {
                 </div>
               </div>
             </div>
-            <SiteFooter />
+           
           </SidebarInset>
           <AppSidebar 
             variant={config.variant} 
@@ -99,7 +103,7 @@ export function BaseLayout({ children, title, description }: BaseLayoutProps) {
         open={themeCustomizerOpen} 
         onOpenChange={setThemeCustomizerOpen} 
       />
-      <UpgradeToProButton />
+     
     </SidebarProvider>
   )
 }

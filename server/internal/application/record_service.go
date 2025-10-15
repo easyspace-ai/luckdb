@@ -466,6 +466,27 @@ func (s *RecordService) ListRecords(ctx context.Context, tableID string, limit, 
 		return nil, 0, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查询记录列表失败: %v", err))
 	}
 
+	// ✅ 关键修复：计算虚拟字段（参考 teable 设计）
+	// 虚拟字段需要在返回给前端之前计算，确保显示正确的值
+	if s.calculationService != nil && len(records) > 0 {
+		logger.Info("开始计算记录列表的虚拟字段",
+			logger.String("table_id", tableID),
+			logger.Int("record_count", len(records)))
+
+		for _, record := range records {
+			if err := s.calculationService.CalculateRecordFields(ctx, record); err != nil {
+				logger.Warn("计算记录虚拟字段失败",
+					logger.String("record_id", record.ID().String()),
+					logger.ErrorField(err))
+				// 不中断整个列表，继续处理其他记录
+			}
+		}
+
+		logger.Info("记录列表虚拟字段计算完成",
+			logger.String("table_id", tableID),
+			logger.Int("record_count", len(records)))
+	}
+
 	// 转换为 DTO
 	return dto.FromRecordEntities(records), total, nil
 }

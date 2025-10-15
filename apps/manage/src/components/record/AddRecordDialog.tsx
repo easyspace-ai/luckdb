@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import type { Field } from '@/types/field';
-import type { Record } from '@luckdb/sdk';
 import { RecordEditor } from './RecordEditor';
 
 interface AddRecordDialogProps {

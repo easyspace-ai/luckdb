@@ -658,8 +658,7 @@ export default function FullFeatureGridExample() {
                 remainingColumns.splice(dropColIndex, 0, ...draggedColumns);
                 setLocalColumns(remainingColumns);
               }}
-              // 字段操作回调
-              onAddColumn={handleAddColumn}
+              // 字段操作回调（保留其他操作；不传 onAddColumn 以启用内置弹窗）
               onEditColumn={handleEditColumn}
               onDuplicateColumn={handleDuplicateColumn}
               onDeleteColumn={handleDeleteColumn}

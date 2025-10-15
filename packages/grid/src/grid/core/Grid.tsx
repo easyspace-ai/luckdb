@@ -716,6 +716,18 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     }
   }, []);
 
+  // 列头双击：若上层未自定义处理，则默认打开字段编辑弹窗
+  const handleHeaderDblClick = useCallback(
+    (colIndex: number, bounds: IRectangle) => {
+      if (onColumnHeaderDblClick) {
+        onColumnHeaderDblClick(colIndex, bounds);
+        return;
+      }
+      openEditFieldAtColumn(colIndex);
+    },
+    [onColumnHeaderDblClick, openEditFieldAtColumn]
+  );
+
   return (
     <div 
       ref={ref}
@@ -830,7 +842,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onColumnOrdered={onColumnOrdered}
             onColumnHeaderClick={onColumnHeaderClick}
             onColumnStatisticClick={onColumnStatisticClick}
-            onColumnHeaderDblClick={onColumnHeaderDblClick}
+            onColumnHeaderDblClick={handleHeaderDblClick}
             onColumnHeaderMenuClick={handleColumnHeaderMenuClick}
             onRowHeaderMenuClick={handleRowHeaderMenuClick}
             onCellContextMenu={handleCellContextMenu}

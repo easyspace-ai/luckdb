@@ -5,6 +5,7 @@ import (
 
 	fieldEntity "github.com/easyspace-ai/luckdb/server/internal/domain/fields/entity"
 	tableEntity "github.com/easyspace-ai/luckdb/server/internal/domain/table/entity"
+	"github.com/easyspace-ai/luckdb/server/internal/domain/table/valueobject"
 )
 
 // TableRepository 表格仓储接口
@@ -26,6 +27,9 @@ type TableRepository interface {
 
 	// Exists 检查表格是否存在
 	Exists(ctx context.Context, id string) (bool, error)
+
+	// ExistsByNameInBase 检查Base下是否存在指定名称的表格
+	ExistsByNameInBase(ctx context.Context, baseID string, name valueobject.TableName, excludeID *string) (bool, error)
 
 	// Count 统计表格数量
 	Count(ctx context.Context, baseID string) (int64, error)

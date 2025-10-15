@@ -5,14 +5,7 @@ import { useNavigate } from "react-router-dom"
 import { Command as CommandPrimitive } from "cmdk"
 import {
   Search,
-  LayoutPanelLeft,
   LayoutDashboard,
-  Mail,
-  CheckSquare,
-  MessageCircle,
-  Calendar,
-  Shield,
-  AlertTriangle,
   Settings,
   HelpCircle,
   CreditCard,
@@ -20,6 +13,9 @@ import {
   Bell,
   Link2,
   Palette,
+  Folder,
+  Database,
+  Plus,
   type LucideIcon,
 } from "lucide-react"
 
@@ -120,39 +116,40 @@ interface SearchItem {
 interface CommandSearchProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  spaces?: Array<{ id: string; name: string; description?: string; bases?: Array<{ id: string; name: string; description?: string }> }>
+  onCreateSpace?: () => void
 }
 
-export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
+export function CommandSearch({ open, onOpenChange, spaces = [], onCreateSpace }: CommandSearchProps) {
   const navigate = useNavigate()
   const commandRef = React.useRef<HTMLDivElement>(null)
 
+  // 构建动态搜索项
   const searchItems: SearchItem[] = [
-    // Dashboards
-    { title: "Dashboard 1", url: "/dashboard", group: "Dashboards", icon: LayoutDashboard },
-    { title: "Dashboard 2", url: "/dashboard-2", group: "Dashboards", icon: LayoutPanelLeft },
+    // 快捷操作
+    ...(onCreateSpace ? [{ title: "创建新空间", url: "create-space", group: "快捷操作", icon: Plus }] : []),
+    
+    // 空间和数据库
+    ...spaces.map(space => ({
+      title: space.name,
+      url: `/space/${space.id}`,
+      group: "空间",
+      icon: Folder,
+    })),
+    
+    ...spaces.flatMap(space => 
+      (space.bases || []).map(base => ({
+        title: `${base.name} (${space.name})`,
+        url: `/base/${base.id}`,
+        group: "数据库",
+        icon: Database,
+      }))
+    ),
 
-    // Apps
-    { title: "Mail", url: "/mail", group: "Apps", icon: Mail },
-    { title: "Tasks", url: "/tasks", group: "Apps", icon: CheckSquare },
-    { title: "Chat", url: "/chat", group: "Apps", icon: MessageCircle },
-    { title: "Calendar", url: "/calendar", group: "Apps", icon: Calendar },
+    // 静态页面
+    { title: "Dashboard", url: "/dashboard", group: "导航", icon: LayoutDashboard },
 
-    // Auth Pages
-    { title: "Sign In 1", url: "/auth/sign-in", group: "Auth Pages", icon: Shield },
-    { title: "Sign In 2", url: "/auth/sign-in-2", group: "Auth Pages", icon: Shield },
-    { title: "Sign Up 1", url: "/auth/sign-up", group: "Auth Pages", icon: Shield },
-    { title: "Sign Up 2", url: "/auth/sign-up-2", group: "Auth Pages", icon: Shield },
-    { title: "Forgot Password 1", url: "/auth/forgot-password", group: "Auth Pages", icon: Shield },
-    { title: "Forgot Password 2", url: "/auth/forgot-password-2", group: "Auth Pages", icon: Shield },
-
-    // Errors
-    { title: "Unauthorized", url: "/errors/unauthorized", group: "Errors", icon: AlertTriangle },
-    { title: "Forbidden", url: "/errors/forbidden", group: "Errors", icon: AlertTriangle },
-    { title: "Not Found", url: "/errors/not-found", group: "Errors", icon: AlertTriangle },
-    { title: "Internal Server Error", url: "/errors/internal-server-error", group: "Errors", icon: AlertTriangle },
-    { title: "Under Maintenance", url: "/errors/under-maintenance", group: "Errors", icon: AlertTriangle },
-
-    // Settings
+    // 设置
     { title: "User Settings", url: "/settings/user", group: "Settings", icon: User },
     { title: "Account Settings", url: "/settings/account", group: "Settings", icon: Settings },
     { title: "Plans & Billing", url: "/settings/billing", group: "Settings", icon: CreditCard },
@@ -160,7 +157,7 @@ export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
     { title: "Notifications", url: "/settings/notifications", group: "Settings", icon: Bell },
     { title: "Connections", url: "/settings/connections", group: "Settings", icon: Link2 },
 
-    // Pages
+    // 页面
     { title: "FAQs", url: "/faqs", group: "Pages", icon: HelpCircle },
     { title: "Pricing", url: "/pricing", group: "Pages", icon: CreditCard },
   ]
@@ -174,7 +171,11 @@ export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
   }, {} as Record<string, SearchItem[]>)
 
   const handleSelect = (url: string) => {
-    navigate(url)
+    if (url === "create-space") {
+      onCreateSpace?.()
+    } else {
+      navigate(url)
+    }
     onOpenChange(false)
     // Bounce effect like Vercel
     if (commandRef.current) {
@@ -195,7 +196,7 @@ export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
           ref={commandRef}
           className="transition-transform duration-100 ease-out"
         >
-          <CommandInput placeholder="What do you need?" autoFocus />
+          <CommandInput placeholder="搜索空间、数据库或执行操作..." autoFocus />
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
             {Object.entries(groupedItems).map(([group, items]) => (

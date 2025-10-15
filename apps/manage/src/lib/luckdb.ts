@@ -7,4 +7,3 @@ export const luckdb = new LuckDB({
 });
 
 export default luckdb;
-

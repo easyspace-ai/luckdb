@@ -41,6 +41,28 @@ type UpdateTableRequest struct {
 	Description *string `json:"description"`
 }
 
+// RenameTableRequest 重命名表请求
+type RenameTableRequest struct {
+	Name string `json:"name" binding:"required"`
+}
+
+// DuplicateTableRequest 复制表请求
+type DuplicateTableRequest struct {
+	Name       string `json:"name" binding:"required"`
+	WithData   bool   `json:"withData"`   // 是否复制数据
+	WithViews  bool   `json:"withViews"`  // 是否复制视图
+	WithFields bool   `json:"withFields"` // 是否复制字段配置
+}
+
+// TableUsageResponse 表用量响应
+type TableUsageResponse struct {
+	RecordCount     int64   `json:"recordCount"`     // 记录数量
+	MaxRecords      int64   `json:"maxRecords"`      // 最大记录数限制
+	UsagePercentage float64 `json:"usagePercentage"` // 使用百分比
+	StorageSize     int64   `json:"storageSize"`     // 存储大小（字节）
+	MaxStorageSize  int64   `json:"maxStorageSize"`  // 最大存储限制（字节）
+}
+
 // TableListFilter 表列表过滤器
 type TableListFilter struct {
 	BaseID    *string    `json:"baseId"`
