@@ -286,8 +286,9 @@ export const drawRoundPoly = (ctx: CanvasRenderingContext2D, props: IRoundPolyPr
   ctx.beginPath();
   if (fill) {ctx.fillStyle = fill;}
   if (stroke) {ctx.strokeStyle = stroke;}
+  let p2 = p1;
   for (let i = 0; i < len; i++) {
-    const p2 = points[i % len];
+    p2 = points[i % len];
     const p3 = points[(i + 1) % len];
     if (!p2 || !p3) continue;
 

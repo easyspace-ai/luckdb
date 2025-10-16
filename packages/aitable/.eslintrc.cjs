@@ -53,7 +53,6 @@ module.exports = {
     'no-var': 'error',
     'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'warn',
     'no-alert': 'error',
-    'no-confirm': 'error',
     
     // 代码质量
     'eqeqeq': ['error', 'always'],
