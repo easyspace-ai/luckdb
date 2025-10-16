@@ -1,0 +1,4 @@
+packages:
+  - 'table-core'
+  - 'react-table'
+  - 'demo'

@@ -1,0 +1,13 @@
+{
+  "name": "renewtable-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter renewtable-demo dev",
+    "build": "pnpm --filter @luckdb/table-core build && pnpm --filter @luckdb/react-table build",
+    "test": "pnpm --filter @luckdb/table-core test"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
