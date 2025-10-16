@@ -17,6 +17,21 @@
       "import": "./dist/index.js",
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./store": {
+      "import": "./dist/store/index.js",
+      "require": "./dist/store/index.js",
+      "types": "./dist/store/index.d.ts"
+    },
+    "./api": {
+      "import": "./dist/api/index.js",
+      "require": "./dist/api/index.js",
+      "types": "./dist/api/index.d.ts"
+    },
+    "./grid/error-handling": {
+      "import": "./dist/grid/error-handling/index.js",
+      "require": "./dist/grid/error-handling/index.js",
+      "types": "./dist/grid/error-handling/index.d.ts"
     }
   },
   "files": [

@@ -7,6 +7,9 @@ export default defineConfig({
   server: { port: 5174 },
   resolve: {
     preserveSymlinks: true,
+    alias: {
+      '@luckdb/aitable': path.resolve(__dirname, '../../src/index.ts'),
+    },
   },
   optimizeDeps: {
     exclude: ['@luckdb/aitable'],

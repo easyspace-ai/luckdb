@@ -23,8 +23,6 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": false,
     "noUncheckedIndexedAccess": false,
-    
-    "skipLibCheck": true,
     "baseUrl": ".",
     "resolveJsonModule": true
   },
