@@ -736,9 +736,26 @@ export class SDKAdapter {
    * Handle errors
    */
   private handleError(error: any): void {
+    console.error('API Error:', error);
+    
+    // 处理网络错误
+    if (error.name === 'fetchError' || error.message?.includes('Failed to fetch')) {
+      console.error('网络连接失败，请检查网络连接或服务器状态');
+    }
+    
+    // 处理认证错误
     if (error?.response?.status === 401) {
+      console.error('认证失败，请重新登录');
       this.config.onUnauthorized?.();
     }
+    
+    // 处理其他错误
+    if (error?.response?.status >= 500) {
+      console.error('服务器错误，请稍后重试');
+    } else if (error?.response?.status >= 400) {
+      console.error('请求错误:', error.response?.data?.message || error.message);
+    }
+    
     this.config.onError?.(error);
   }
 }

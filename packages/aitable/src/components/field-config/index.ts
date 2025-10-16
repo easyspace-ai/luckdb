@@ -1,0 +1,25 @@
+/**
+ * Field Configuration Components
+ * 字段配置组件
+ */
+
+// 对话框组件
+export { AddFieldDialog } from './AddFieldDialog';
+export { AddFieldDialog as AddFieldDialogV2 } from './AddFieldDialog.v2';
+export { AddFieldMenu } from './AddFieldMenu';
+export { EditFieldDialog } from './EditFieldDialog';
+
+// 配置面板组件
+export { FieldConfigPanel } from './FieldConfigPanel';
+export { FieldConfigCombobox } from './FieldConfigCombobox';
+export { FieldContextMenu } from './FieldContextMenu';
+
+// 字段配置工具
+export * from './field-configurations';
+
+// 类型导出
+export type { AddFieldDialogProps } from './AddFieldDialog';
+export type { EditFieldDialogProps, FieldConfig as EditFieldConfig } from './EditFieldDialog';
+export type { FieldConfig } from './AddFieldDialog.v2';
+export type { FieldContextMenuProps } from './FieldContextMenu';
+export type { FieldConfigComboboxProps } from './FieldConfigCombobox';

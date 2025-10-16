@@ -4,6 +4,8 @@ import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { useRafState } from 'react-use';
 import { LoadingIndicator, ColumnManagement, type IColumnManagementRef } from '../components';
+import { AddFieldMenu } from '../../components/field-config/AddFieldMenu';
+import type { IFieldTypeModal } from '../components/field/FieldTypeSelectModal';
 import { RowContextMenu, type IRowContextMenuRef } from '../components/context-menu/RowContextMenu';
 import { DeleteConfirmDialog, type IDeleteConfirmDialogRef, type DeleteType } from '../components/dialogs/DeleteConfirmDialog';
 import type { IGridTheme } from '../configs';
@@ -320,12 +322,14 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const [activeCell, setActiveCell] = useRafState<ICellItem | null>(null);
   const [cellLoadings, setCellLoadings] = useState<ICellItem[]>([]);
   const [columnLoadings, setColumnLoadings] = useState<IColumnLoading[]>([]);
+  const [isAddFieldMenuOpen, setIsAddFieldMenuOpen] = useState(false);
   const scrollerRef = useRef<ScrollerRef | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const interactionLayerRef = useRef<IInteractionLayerRef | null>(null);
   const columnManagementRef = useRef<IColumnManagementRef | null>(null);
   const rowContextMenuRef = useRef<IRowContextMenuRef | null>(null);
   const deleteConfirmDialogRef = useRef<IDeleteConfirmDialogRef | null>(null);
+  const addFieldMenuTriggerRef = useRef<HTMLDivElement | null>(null);
   const { ref, width, height } = useResizeObserver<HTMLDivElement>();
 
   const [activeColumnIndex, activeRowIndex] = activeCell ?? [];
@@ -568,37 +572,44 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     scrollerRef.current?.scrollBy(deltaX, deltaY);
   }, []);
 
-  // 点击右侧"+"添加列时，优先使用onAddColumn回调，否则显示字段类型选择弹窗
+  // 点击右侧"+"添加列时，显示字段类型选择弹窗
   const handleAppendColumnClick = useCallback(() => {
-    // 如果提供了onAddColumn回调，优先使用它
-    if (onAddColumn) {
-      onAddColumn('text', columns.length);
-      return;
+    // 计算 + 号按钮的位置，用于菜单定位
+    const containerEl = containerRef.current;
+    if (containerEl) {
+      const rect = containerEl.getBoundingClientRect();
+      const { totalWidth } = coordInstance;
+      const { scrollLeft } = scrollState;
+      
+      // 创建一个虚拟的触发器元素用于定位
+      const triggerElement = {
+        getBoundingClientRect: () => ({
+          left: rect.left + totalWidth - scrollLeft,
+          top: rect.top,
+          right: rect.left + totalWidth - scrollLeft + 40, // 按钮宽度
+          bottom: rect.top + columnHeaderHeight,
+          width: 40,
+          height: columnHeaderHeight,
+        }),
+      } as HTMLElement;
+      
+      addFieldMenuTriggerRef.current = triggerElement;
     }
 
-    // 计算浮层位置：
-    // - 顶部与第一行顶部对齐（columnHeaderHeight 下方）
-    // - 右侧与最后一列右边缘对齐（容器内坐标转换为页面坐标由上层容器处理，这里使用相对容器的 left/top）
-    // 计算面板在页面中的定位（与 append 列按钮一致）
-    const containerEl = containerRef.current;
-    const rect = containerEl?.getBoundingClientRect();
-    const pageLeft = (rect?.left ?? 0) + window.scrollX;
-    const pageTop = (rect?.top ?? 0) + window.scrollY;
-    const { totalWidth } = coordInstance;
-    const { scrollLeft } = scrollState;
+    // 显示新的 Airtable 风格菜单
+    setIsAddFieldMenuOpen(true);
+  }, [coordInstance, scrollState.scrollLeft, columnHeaderHeight]);
 
-    // append 区域（最后一列右缘）的可视 x 为 totalWidth - scrollLeft
-    const appendRightX = totalWidth - scrollLeft;
-    // 弹窗左边缘与最后一列最右边对齐（紧贴在其右侧显示）
-    const x = pageLeft + appendRightX + 1;
-    const y = pageTop + columnHeaderHeight; // 与第一行顶部对齐（表头下沿）
+  // 新菜单的最终确认：直接创建字段
+  const handleAddFieldConfirm = useCallback((payload: { type: string; name?: string; options?: any }) => {
+    onAddColumn?.(payload.type, columns.length, payload.name, payload.options);
+    setIsAddFieldMenuOpen(false);
+  }, [onAddColumn, columns.length]);
 
-    // 使用新的字段类型选择弹窗
-    columnManagementRef.current?.showFieldTypeSelectModal(
-      { x: Math.max(x, pageLeft), y },
-      'create'
-    );
-  }, [onAddColumn, columns.length, coordInstance, scrollState.scrollLeft, columnHeaderHeight]);
+  // 关闭菜单
+  const handleCloseAddFieldMenu = useCallback(() => {
+    setIsAddFieldMenuOpen(false);
+  }, []);
 
   // 处理列头右键菜单 - bounds现在包含实际的clientX/clientY
   const handleColumnHeaderMenuClick = useCallback((colIndex: number, bounds: IRectangle) => {
@@ -883,6 +894,15 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         onDeleteColumn={onDeleteColumn}
         onStartEditColumn={onStartEditColumn}
       />
+
+      {/* Airtable 风格的字段添加菜单 */}
+      <AddFieldMenu
+        isOpen={isAddFieldMenuOpen}
+        onClose={handleCloseAddFieldMenu}
+        onConfirm={handleAddFieldConfirm}
+        triggerRef={addFieldMenuTriggerRef}
+      />
+
       <RowContextMenu
         ref={rowContextMenuRef}
         onDeleteRow={(rowIndex) => {
