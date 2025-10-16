@@ -5,7 +5,42 @@ import { useState, useRef, useMemo, useCallback, useEffect, useImperativeHandle,
 import { useRafState } from 'react-use';
 import { LoadingIndicator, ColumnManagement, type IColumnManagementRef } from '../components';
 import { AddFieldMenu } from '../../components/field-config/AddFieldMenu';
+import { EditFieldMenu } from '../../components/field-config/EditFieldMenu';
 import type { IFieldTypeModal } from '../components/field/FieldTypeSelectModal';
+
+/**
+ * 将 API 字段类型映射为菜单字段类型
+ */
+const mapAPITypeToMenuType = (apiType: string): string => {
+  const typeMapping: Record<string, string> = {
+    // 文本类型
+    'text': 'text',
+    'singleLineText': 'text',
+    'longText': 'longText',
+    
+    // 数字类型
+    'number': 'number',
+    
+    // 选择类型
+    'select': 'singleSelect',  // API 的 select 对应前端的 singleSelect
+    'singleSelect': 'singleSelect',
+    'multipleSelect': 'multipleSelect',  // API 的 multipleSelect 对应前端的 multipleSelect
+    
+    // 日期时间
+    'date': 'date',
+    
+    // 其他类型
+    'checkbox': 'checkbox',
+    'attachment': 'attachment',
+    'link': 'link',
+    'user': 'user',
+    'rating': 'rating',
+    'formula': 'formula',
+    'email': 'email',
+    'phone': 'phone',
+  };
+  return typeMapping[apiType] || 'text';
+};
 import { RowContextMenu, type IRowContextMenuRef } from '../components/context-menu/RowContextMenu';
 import { DeleteConfirmDialog, type IDeleteConfirmDialogRef, type DeleteType } from '../components/dialogs/DeleteConfirmDialog';
 import type { IGridTheme } from '../configs';
@@ -323,6 +358,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const [cellLoadings, setCellLoadings] = useState<ICellItem[]>([]);
   const [columnLoadings, setColumnLoadings] = useState<IColumnLoading[]>([]);
   const [isAddFieldMenuOpen, setIsAddFieldMenuOpen] = useState(false);
+  const [isEditFieldMenuOpen, setIsEditFieldMenuOpen] = useState(false);
+  const [editingColumnIndex, setEditingColumnIndex] = useState(-1);
   const scrollerRef = useRef<ScrollerRef | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const interactionLayerRef = useRef<IInteractionLayerRef | null>(null);
@@ -330,6 +367,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const rowContextMenuRef = useRef<IRowContextMenuRef | null>(null);
   const deleteConfirmDialogRef = useRef<IDeleteConfirmDialogRef | null>(null);
   const addFieldMenuTriggerRef = useRef<HTMLDivElement | null>(null);
+  const editFieldMenuTriggerRef = useRef<HTMLDivElement | null>(null);
   const { ref, width, height } = useResizeObserver<HTMLDivElement>();
 
   const [activeColumnIndex, activeRowIndex] = activeCell ?? [];
@@ -609,6 +647,57 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   // 关闭菜单
   const handleCloseAddFieldMenu = useCallback(() => {
     setIsAddFieldMenuOpen(false);
+  }, []);
+
+  // 处理编辑字段
+  const handleEditField = useCallback((columnIndex: number) => {
+    const column = columns[columnIndex];
+    if (!column) return;
+
+    // 计算列头位置，用于菜单定位
+    const containerEl = containerRef.current;
+    if (containerEl) {
+      const rect = containerEl.getBoundingClientRect();
+      const columnX = coordInstance.getColumnRelativeOffset(columnIndex, scrollState.scrollLeft);
+      
+      // 创建一个虚拟的触发器元素用于定位
+      const triggerElement = {
+        getBoundingClientRect: () => ({
+          left: rect.left + columnX,
+          top: rect.top,
+          right: rect.left + columnX + (column.width || defaultColumnWidth),
+          bottom: rect.top + columnHeaderHeight,
+          width: column.width || defaultColumnWidth,
+          height: columnHeaderHeight,
+        }),
+      } as HTMLElement;
+      
+      editFieldMenuTriggerRef.current = triggerElement;
+    }
+
+    setEditingColumnIndex(columnIndex);
+    setIsEditFieldMenuOpen(true);
+  }, [columns, coordInstance, scrollState.scrollLeft, columnHeaderHeight]);
+
+  // 处理编辑字段确认
+  const handleEditFieldConfirm = useCallback((payload: { type: string; name: string; options?: any }) => {
+    if (editingColumnIndex >= 0) {
+      const updatedColumn = {
+        ...columns[editingColumnIndex],
+        name: payload.name,
+        type: payload.type,
+        options: payload.options,
+      };
+      onEditColumn?.(editingColumnIndex, updatedColumn);
+    }
+    setIsEditFieldMenuOpen(false);
+    setEditingColumnIndex(-1);
+  }, [editingColumnIndex, columns, onEditColumn]);
+
+  // 关闭编辑字段菜单
+  const handleCloseEditFieldMenu = useCallback(() => {
+    setIsEditFieldMenuOpen(false);
+    setEditingColumnIndex(-1);
   }, []);
 
   // 处理列头右键菜单 - bounds现在包含实际的clientX/clientY
@@ -892,7 +981,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         onEditColumn={onEditColumn}
         onDuplicateColumn={onDuplicateColumn}
         onDeleteColumn={onDeleteColumn}
-        onStartEditColumn={onStartEditColumn}
+        onStartEditColumn={handleEditField}
       />
 
       {/* Airtable 风格的字段添加菜单 */}
@@ -901,6 +990,20 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         onClose={handleCloseAddFieldMenu}
         onConfirm={handleAddFieldConfirm}
         triggerRef={addFieldMenuTriggerRef}
+      />
+
+      {/* Airtable 风格的字段编辑菜单 */}
+      <EditFieldMenu
+        isOpen={isEditFieldMenuOpen}
+        onClose={handleCloseEditFieldMenu}
+        onConfirm={handleEditFieldConfirm}
+        triggerRef={editFieldMenuTriggerRef}
+        initialData={editingColumnIndex >= 0 ? {
+          type: mapAPITypeToMenuType((columns[editingColumnIndex] as any)?.type || 'text'),
+          name: columns[editingColumnIndex]?.name || '',
+          options: (columns[editingColumnIndex] as any)?.options || {},
+          description: (columns[editingColumnIndex] as any)?.description || '',
+        } : undefined}
       />
 
       <RowContextMenu

@@ -7,6 +7,7 @@
 export { AddFieldDialog } from './AddFieldDialog';
 export { AddFieldDialog as AddFieldDialogV2 } from './AddFieldDialog.v2';
 export { AddFieldMenu } from './AddFieldMenu';
+export { EditFieldMenu } from './EditFieldMenu';
 export { EditFieldDialog } from './EditFieldDialog';
 
 // 配置面板组件

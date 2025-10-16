@@ -172,9 +172,14 @@ const ColumnManagementBase: ForwardRefRenderFunction<
   };
 
   const handleDeleteField = (columnIndex: number) => {
+    console.log('🗑️ handleDeleteField 被调用:', { columnIndex, column: columns[columnIndex] });
     const column = columns[columnIndex];
     if (column) {
-      deleteConfirmDialogRef.current?.show('column', column.name, columnIndex);
+      console.log('🗑️ 准备调用 onDeleteColumn:', { columnIndex, columnName: column.name });
+      // 直接调用删除接口，不显示确认对话框
+      onDeleteColumn?.(columnIndex);
+    } else {
+      console.error('🗑️ 无法找到要删除的列:', columnIndex);
     }
   };
 

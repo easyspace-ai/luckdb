@@ -92,6 +92,8 @@ export interface StandardDataViewProps {
   onFieldFreeze?: (fieldId: string) => void; // 冻结字段
   onAddField?: (fieldName: string, fieldType: string) => void; // 添加新字段
   onAddColumn?: (fieldType: string, insertIndex?: number, fieldName?: string, options?: any) => void; // 添加新列（用于 AddFieldMenu）
+  onEditColumn?: (columnIndex: number, updatedColumn: any) => void; // 编辑字段（用于 EditFieldMenu）
+  onDeleteColumn?: (columnIndex: number) => void; // 删除字段（用于右键菜单）
   onUpdateField?: (fieldName: string, fieldType: string) => void; // 更新字段
   fieldConfigMode?: 'panel' | 'combobox'; // 字段配置模式：面板或下拉框
 
@@ -164,9 +166,11 @@ export function StandardDataView(props: StandardDataViewProps) {
   onFieldFilter,
   onFieldSort,
   onFieldFreeze,
-  onAddField,
-  onAddColumn,
-  onUpdateField,
+    onAddField,
+    onAddColumn,
+    onEditColumn,
+    onDeleteColumn,
+    onUpdateField,
     fieldConfigMode = 'combobox', // 默认使用 combobox 模式
     // 行高配置参数
     rowHeight = 'medium',
@@ -806,7 +810,7 @@ export function StandardDataView(props: StandardDataViewProps) {
               </div>
             ) : (
             <GridErrorBoundary>
-                <Grid ref={gridRef} {...gridProps} rowHeight={resolvedRowHeight} onAddColumn={onAddColumn} />
+                <Grid ref={gridRef} {...gridProps} rowHeight={resolvedRowHeight} onAddColumn={onAddColumn} onEditColumn={onEditColumn} onDeleteColumn={onDeleteColumn} />
             </GridErrorBoundary>
             )}
           </div>

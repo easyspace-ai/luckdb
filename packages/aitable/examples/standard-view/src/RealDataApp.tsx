@@ -198,6 +198,7 @@ function RealDataApp() {
     type: string;
   } | null>(null);
   const [showEditFieldDialog, setShowEditFieldDialog] = useState(false);
+  const [isUpdatingField, setIsUpdatingField] = useState(false);
 
   const handleFieldEdit = useCallback((fieldId: string) => {
     console.log(`编辑字段: ${fieldId}`);
@@ -218,6 +219,50 @@ function RealDataApp() {
     console.log(`删除字段: ${fieldId}`);
     // TODO: 实现字段删除的 API 调用
   }, []);
+
+  // 处理删除字段（通过列索引）
+  const handleDeleteColumn = useCallback(async (columnIndex: number) => {
+    console.log('🚀 handleDeleteColumn 被调用:', { columnIndex, tableId, apiClient: !!apiClient });
+    
+    if (!tableId || !apiClient) {
+      console.error('无法删除字段：缺少表格ID或API客户端', { tableId, hasApiClient: !!apiClient });
+      alert('无法删除字段：缺少必要的配置信息');
+      return;
+    }
+
+    try {
+      // 获取要删除的字段信息
+      const fieldToDelete = fields[columnIndex];
+      if (!fieldToDelete) {
+        console.error('无法找到要删除的字段');
+        alert('无法找到要删除的字段');
+        return;
+      }
+
+      console.log('准备删除字段:', fieldToDelete);
+
+      // 调用 API 删除字段
+      await apiClient.deleteField(tableId, fieldToDelete.id);
+
+      console.log('✅ 字段删除成功');
+      
+      // 刷新表格数据以显示删除后的结果
+      if (loadTableData) {
+        await loadTableData();
+        console.log('✅ 表格数据已刷新');
+      }
+      
+      // 显示成功消息
+      console.log(`✅ 字段 "${fieldToDelete.name}" 删除成功！`);
+      
+    } catch (error: any) {
+      console.error('❌ 删除字段失败:', error);
+      
+      // 显示详细的错误消息
+      const errorMessage = error?.response?.data?.message || error?.message || '未知错误';
+      alert(`删除字段失败: ${errorMessage}`);
+    }
+  }, [tableId, apiClient, loadTableData, fields]);
 
   const handleFieldGroup = useCallback((fieldId: string) => {
     console.log(`创建字段编组: ${fieldId}`);
@@ -255,15 +300,24 @@ function RealDataApp() {
     // TODO: 实现字段冻结的 API 调用
   }, []);
 
-  // 字段类型映射函数
+  // 字段类型映射函数（前端类型 -> API 类型）
   const mapFieldTypeToAPI = useCallback((dialogFieldType: string): string => {
     const typeMapping: Record<string, string> = {
-      'text': 'singleLineText',
+      // 文本类型
+      'text': 'text',  // 根据 API 返回，使用 'text' 而不是 'singleLineText'
       'longText': 'longText',
+      
+      // 数字类型
       'number': 'number',
-      'singleSelect': 'singleSelect',
-      'multipleSelect': 'multipleSelect',
+      
+      // 选择类型
+      'singleSelect': 'select',  // 根据 API 返回，使用 'select' 而不是 'singleSelect'
+      'multipleSelect': 'multipleSelect',  // API 直接支持 multipleSelect
+      
+      // 日期时间
       'date': 'date',
+      
+      // 其他类型
       'checkbox': 'checkbox',
       'attachment': 'attachment',
       'link': 'link',
@@ -272,10 +326,11 @@ function RealDataApp() {
       'location': 'location',
       'rating': 'rating',
       'progress': 'progress',
+      'formula': 'formula',
       'user': 'user',
     };
     
-    return typeMapping[dialogFieldType] || 'singleLineText';
+    return typeMapping[dialogFieldType] || 'text';
   }, []);
 
   const handleAddField = useCallback(async (fieldName: string, fieldType: string) => {
@@ -375,7 +430,7 @@ function RealDataApp() {
       }
       
       // 显示成功消息
-      alert(`字段 "${finalFieldName}" 创建成功！`);
+     // alert(`字段 "${finalFieldName}" 创建成功！`);
       
     } catch (error) {
       console.error('❌ 创建字段失败:', error);
@@ -384,6 +439,123 @@ function RealDataApp() {
       alert(`创建字段失败: ${error.message || '未知错误'}`);
     }
   }, [tableId, apiClient, loadTableData, mapFieldTypeToAPI]);
+
+  // 处理字段编辑
+  const handleEditColumn = useCallback(async (columnIndex: number, updatedColumn: any) => {
+    console.log('🚀 handleEditColumn 被调用:', { columnIndex, updatedColumn, tableId, apiClient: !!apiClient });
+    
+    if (!tableId || !apiClient) {
+      console.error('无法编辑字段：缺少表格ID或API客户端', { tableId, hasApiClient: !!apiClient });
+      alert('无法编辑字段：缺少必要的配置信息');
+      return;
+    }
+
+    try {
+      // 获取当前字段信息
+      const currentField = fields[columnIndex];
+      if (!currentField) {
+        console.error('无法找到要编辑的字段');
+        alert('无法找到要编辑的字段');
+        return;
+      }
+
+      console.log('当前字段信息:', currentField);
+      console.log('更新后的字段信息:', updatedColumn);
+
+      // 验证字段名称
+      if (!updatedColumn.name || updatedColumn.name.trim() === '') {
+        alert('字段名称不能为空');
+        return;
+      }
+
+      // 映射字段类型到 API 期望的格式
+      const apiFieldType = mapFieldTypeToAPI(updatedColumn.type);
+      console.log(`字段类型映射: ${updatedColumn.type} -> ${apiFieldType}`);
+
+      // 准备更新字段的数据
+      const updateFieldData: any = {
+        name: updatedColumn.name.trim(),
+        type: apiFieldType as any,
+        description: updatedColumn.options?.description || `用户编辑的字段: ${updatedColumn.name}`,
+      };
+
+      // 根据字段类型处理配置选项
+      if (updatedColumn.type === 'singleSelect' || updatedColumn.type === 'multipleSelect') {
+        const options = updatedColumn.options?.options || [];
+        if (options.length === 0) {
+          alert('选择类型字段至少需要一个选项');
+          return;
+        }
+        updateFieldData.options = {
+          choices: options.map((opt: any) => ({
+            id: opt.id,
+            name: opt.label || opt.name,
+            color: opt.color,
+          })),
+          allowOther: updatedColumn.options?.allowOther || false,
+        };
+      } else if (updatedColumn.type === 'formula') {
+        if (!updatedColumn.options?.formula || updatedColumn.options.formula.trim() === '') {
+          alert('公式字段不能为空');
+          return;
+        }
+        updateFieldData.options = {
+          expression: updatedColumn.options.formula.trim(),
+          description: updatedColumn.options.description || '',
+        };
+      } else if (updatedColumn.type === 'number') {
+        updateFieldData.options = {
+          format: updatedColumn.options?.format || 'number',
+          precision: updatedColumn.options?.precision ?? 0,
+          min: updatedColumn.options?.min,
+          max: updatedColumn.options?.max,
+          prefix: updatedColumn.options?.prefix,
+          suffix: updatedColumn.options?.suffix,
+        };
+      } else if (updatedColumn.type === 'date') {
+        updateFieldData.options = {
+          includeTime: updatedColumn.options?.includeTime || false,
+          dateFormat: updatedColumn.options?.dateFormat || 'YYYY-MM-DD',
+          timeFormat: updatedColumn.options?.timeFormat || '24h',
+        };
+      } else if (updatedColumn.type === 'rating') {
+        updateFieldData.options = {
+          maxRating: updatedColumn.options?.maxRating ?? 5,
+          icon: updatedColumn.options?.icon || 'star',
+          color: updatedColumn.options?.color || '#f59e0b',
+        };
+      }
+
+      console.log('准备调用 updateField，参数:', updateFieldData);
+      
+      // 设置加载状态
+      setIsUpdatingField(true);
+      
+      // 调用 API 更新字段
+      const updatedField = await apiClient.updateField(tableId, currentField.id, updateFieldData);
+
+      console.log('✅ 字段更新成功:', updatedField);
+      
+      // 刷新表格数据以显示更新后的字段
+      if (loadTableData) {
+        await loadTableData();
+        console.log('✅ 表格数据已刷新');
+      }
+      
+      // 显示成功消息
+      console.log(`✅ 字段 "${updatedColumn.name}" 更新成功！`);
+      
+    } catch (error: any) {
+      console.error('❌ 更新字段失败:', error);
+      
+      // 显示详细的错误消息
+      const errorMessage = error?.response?.data?.message || error?.message || '未知错误';
+      alert(`更新字段失败: ${errorMessage}`);
+    } finally {
+      // 清除加载状态
+      setIsUpdatingField(false);
+    }
+  }, [tableId, apiClient, loadTableData, mapFieldTypeToAPI, fields]);
 
   const handleUpdateField = useCallback(async (fieldName: string, fieldType: string) => {
     if (!tableId || !apiClient || !editingField) {
@@ -981,6 +1153,9 @@ function RealDataApp() {
           onFieldInsertLeft={handleFieldInsertLeft}
           onFieldInsertRight={handleFieldInsertRight}
           onFieldFilter={handleFieldFilter}
+          // 字段编辑属性
+          onEditColumn={handleEditColumn}
+          onDeleteColumn={handleDeleteColumn}
           onFieldSort={handleFieldSort}
           onFieldFreeze={handleFieldFreeze}
           onAddField={handleAddField}
