@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import { GridErrorBoundary, FeatureErrorBoundary } from '../error-handling';
 import { Grid, type IGridExternalProps } from './Grid';

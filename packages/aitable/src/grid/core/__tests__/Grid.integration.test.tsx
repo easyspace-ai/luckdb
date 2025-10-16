@@ -2,7 +2,6 @@
  * Grid 组件集成测试
  * 测试Grid的核心功能和交互
  */
-// @ts-nocheck
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Grid } from '../Grid';

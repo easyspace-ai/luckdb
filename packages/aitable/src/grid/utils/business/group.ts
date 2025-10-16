@@ -1,4 +1,3 @@
-// @ts-nocheck
 export interface IGroupPoint {
   id: string;
   value: unknown;

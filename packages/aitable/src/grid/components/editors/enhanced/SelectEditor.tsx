@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useMemo, useCallback, useRef, useEffect, forwardRef } from 'react';
 import Fuse from 'fuse.js';
 import type { ISelectCell, IMultiSelectCell } from '../../../renderers/cell-renderer/interface';

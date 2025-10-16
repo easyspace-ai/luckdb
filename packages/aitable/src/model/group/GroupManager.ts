@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Group Manager
  * 管理记录分组功能，支持嵌套分组和折叠展开

@@ -1,7 +1,6 @@
 /**
  * Type Guards 单元测试
  */
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import {
   isString,

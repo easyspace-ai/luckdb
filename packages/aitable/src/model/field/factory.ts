@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Field Factory
  * Creates field instances based on field type

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Field Type Select Modal Component
  * 字段类型选择弹窗组件

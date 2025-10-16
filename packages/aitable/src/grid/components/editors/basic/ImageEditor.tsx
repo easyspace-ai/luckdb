@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ForwardRefRenderFunction } from 'react';
 import type { IImageCell } from '../../../renderers/cell-renderer/interface';

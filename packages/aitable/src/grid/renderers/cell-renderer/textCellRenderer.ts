@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { GRID_DEFAULT } from '../../configs';
 import { drawMultiLineText } from '../base-renderer/baseRenderer';
 import { CellType } from './interface';

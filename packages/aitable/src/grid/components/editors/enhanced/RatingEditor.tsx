@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useMemo, forwardRef, type FC } from 'react';
 import type { RatingIcon } from '../../../../types/field';
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { GRID_DEFAULT } from '../../configs';
 import { hexToRGBA, inRange } from '../../utils';
 import { CellRegionType, CellType } from './interface';

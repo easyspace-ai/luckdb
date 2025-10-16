@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Link Field Model
  * Record link/relationship fields

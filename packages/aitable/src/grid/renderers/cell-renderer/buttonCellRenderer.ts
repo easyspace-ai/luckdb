@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Colors, ColorUtils } from '../../../utils/color';
 import { LRUCache } from 'lru-cache';
 import colors from 'tailwindcss/colors';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { throttle } from 'lodash';
 import type { ICellItem, IRectangle } from '../../interface';
 

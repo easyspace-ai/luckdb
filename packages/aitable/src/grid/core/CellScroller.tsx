@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { ForwardRefRenderFunction, MutableRefObject, ReactNode, UIEvent } from 'react';
 import { useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { GRID_DEFAULT } from '../configs';

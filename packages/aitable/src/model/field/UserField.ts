@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * User Field Model
  * User/collaborator selection fields

@@ -2,7 +2,6 @@
  * Grid 事件处理 Hook
  * 提取Grid.tsx中的事件处理逻辑
  */
-// @ts-nocheck
 import { useCallback } from 'react';
 import type { ICellItem, IPosition, IRectangle } from '../../types/grid';
 import type { CombinedSelection } from '../../managers';

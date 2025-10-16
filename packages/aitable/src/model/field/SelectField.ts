@@ -1,4 +1,3 @@
-// @ts-nocheck - 暂时禁用类型检查，待Field基类完善后移除
 /**
  * Select Field Model
  * Single select and multiple select fields

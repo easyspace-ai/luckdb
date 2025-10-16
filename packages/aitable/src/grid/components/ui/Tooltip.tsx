@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, type FC } from 'react';
 import { useGridTooltipStore } from './tooltip-store';
 

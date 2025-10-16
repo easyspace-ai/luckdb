@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useMemo, useCallback, useRef, useEffect, type FC } from 'react';
 import Fuse from 'fuse.js';
 import type { IUserEditorProps, IUserInfo } from '../../../types/editor';

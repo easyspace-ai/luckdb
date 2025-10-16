@@ -1,966 +1,628 @@
 /**
- * 统一的 Grid 状态管理 Store
+ * Grid Store - 重构版本
  * 
- * 使用 Zustand 替换 Context 嵌套地狱
- * 特性：
- * - 类型安全的状态管理
- * - 精确的状态订阅（避免无脑重渲染）
- * - 支持中间件（devtools, persist, immer）
+ * 使用强类型的 Zustand Store
+ * - 完整的类型安全
  * - 清晰的状态分片
- * 
- * TODO: 完善ApiClient类型定义和API调用方式
+ * - 精确的状态订阅
  */
 
-// @ts-nocheck - 暂时禁用类型检查，待ApiClient类型完善后移除
-
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
+import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { enableMapSet } from 'immer';
 import type { ApiClient } from '../api/client';
+import type { 
+  GridStore, 
+  TypedRecord, 
+  Base, 
+  Table, 
+  View, 
+  Permission,
+  Collaborator,
+  UserSelection,
+  ContextMenuState,
+} from './types';
+import type { Field } from '../model/field/Field';
+import type { CellValue } from '../types/core/cell-values';
 
-// ============= 类型定义 =============
+// Enable Map/Set support in Immer
+enableMapSet();
 
-export interface Base {
-  id: string;
-  name: string;
-  description?: string;
-  icon?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+/**
+ * 默认权限
+ */
+const DEFAULT_PERMISSIONS: Permission = {
+  canRead: true,
+  canWrite: false,
+  canDelete: false,
+  canManageFields: false,
+  canManageViews: false,
+  canManagePermissions: false,
+};
 
-export interface Table {
-  id: string;
-  baseId: string;
-  name: string;
-  description?: string;
-  icon?: string;
-  order: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface Field {
-  id: string;
-  tableId: string;
-  name: string;
-  type: string;
-  description?: string;
-  config: Record<string, unknown>;
-  order: number;
-  required: boolean;
-  unique: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface GridRecord {
-  id: string;
-  tableId: string;
-  fields: Record<string, unknown>;
-  createdBy?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface View {
-  id: string;
-  tableId: string;
-  name: string;
-  type: 'grid' | 'kanban' | 'calendar' | 'gallery';
-  filter?: Record<string, unknown>;
-  sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
-  group?: Array<{ fieldId: string }>;
-  columnOrder?: string[];
-  columnWidths?: Record<string, number>;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface Permission {
-  canRead: boolean;
-  canWrite: boolean;
-  canDelete: boolean;
-  canManageFields: boolean;
-  canManageViews: boolean;
-  canManagePermissions: boolean;
-}
-
-export interface Session {
-  userId?: string;
-  userName?: string;
-  userEmail?: string;
-  token?: string;
-  expiresAt?: Date;
-}
-
-// ============= 状态分片接口 =============
-
-interface DataSlice {
-  // 当前数据
-  currentBase: Base | null;
-  currentTable: Table | null;
-  currentView: View | null;
-  
-  // 数据集合
-  bases: Map<string, Base>;
-  tables: Map<string, Table>;
-  fields: Map<string, Field>;
-  records: Map<string, GridRecord>;
-  views: Map<string, View>;
-  
-  // 加载状态
-  isLoadingBases: boolean;
-  isLoadingTables: boolean;
-  isLoadingFields: boolean;
-  isLoadingRecords: boolean;
-  isLoadingViews: boolean;
-  
-  // 错误状态
-  error: Error | null;
-}
-
-interface UISlice {
-  // 滚动状态
-  scrollTop: number;
-  scrollLeft: number;
-  
-  // 鼠标状态
-  mousePosition: { x: number; y: number } | null;
-  hoveredCell: { rowIndex: number; columnIndex: number } | null;
-  
-  // 拖拽状态
-  isDragging: boolean;
-  dragTarget: 'row' | 'column' | 'cell' | null;
-  dragStartPosition: { x: number; y: number } | null;
-  
-  // 对话框状态
-  openDialogs: Set<string>;
-  
-  // 主题
-  theme: 'light' | 'dark' | 'auto';
-}
-
-interface SelectionSlice {
-  // 选择范围
-  selectedRanges: Array<{
-    startRow: number;
-    endRow: number;
-    startColumn: number;
-    endColumn: number;
-  }>;
-  
-  // 活动单元格
-  activeCell: { rowIndex: number; columnIndex: number } | null;
-  
-  // 选择模式
-  isMultiSelect: boolean;
-}
-
-interface EditingSlice {
-  // 编辑状态
-  isEditing: boolean;
-  editingCell: { rowIndex: number; columnIndex: number } | null;
-  editingValue: unknown;
-  
-  // 历史记录
-  canUndo: boolean;
-  canRedo: boolean;
-}
-
-interface PermissionSlice {
-  permissions: Permission;
-}
-
-interface SessionSlice {
-  session: Session;
-}
-
-// ============= Actions 接口 =============
-
-interface DataActions {
-  // Base 操作
-  setCurrentBase: (base: Base | null) => void;
-  loadBases: (apiClient: ApiClient) => Promise<void>;
-  createBase: (apiClient: ApiClient, data: Partial<Base>) => Promise<Base>;
-  updateBase: (apiClient: ApiClient, id: string, data: Partial<Base>) => Promise<void>;
-  deleteBase: (apiClient: ApiClient, id: string) => Promise<void>;
-  
-  // Table 操作
-  setCurrentTable: (table: Table | null) => void;
-  loadTables: (apiClient: ApiClient, baseId: string) => Promise<void>;
-  createTable: (apiClient: ApiClient, baseId: string, data: Partial<Table>) => Promise<Table>;
-  updateTable: (apiClient: ApiClient, id: string, data: Partial<Table>) => Promise<void>;
-  deleteTable: (apiClient: ApiClient, id: string) => Promise<void>;
-  
-  // Field 操作
-  loadFields: (apiClient: ApiClient, tableId: string) => Promise<void>;
-  createField: (apiClient: ApiClient, tableId: string, data: Partial<Field>) => Promise<Field>;
-  updateField: (apiClient: ApiClient, id: string, data: Partial<Field>) => Promise<void>;
-  deleteField: (apiClient: ApiClient, id: string) => Promise<void>;
-  
-  // Record 操作
-  loadRecords: (apiClient: ApiClient, tableId: string) => Promise<void>;
-  createRecord: (apiClient: ApiClient, tableId: string, data: Partial<Record>) => Promise<Record>;
-  updateRecord: (apiClient: ApiClient, id: string, data: Partial<Record>) => Promise<void>;
-  deleteRecord: (apiClient: ApiClient, id: string) => Promise<void>;
-  bulkUpdateRecords: (apiClient: ApiClient, updates: Array<{ id: string; data: Partial<Record> }>) => Promise<void>;
-  
-  // View 操作
-  setCurrentView: (view: View | null) => void;
-  loadViews: (apiClient: ApiClient, tableId: string) => Promise<void>;
-  createView: (apiClient: ApiClient, tableId: string, data: Partial<View>) => Promise<View>;
-  updateView: (apiClient: ApiClient, id: string, data: Partial<View>) => Promise<void>;
-  deleteView: (apiClient: ApiClient, id: string) => Promise<void>;
-  
-  // 错误处理
-  setError: (error: Error | null) => void;
-  clearError: () => void;
-}
-
-interface UIActions {
-  // 滚动
-  setScroll: (scrollTop: number, scrollLeft: number) => void;
-  
-  // 鼠标
-  setMousePosition: (position: { x: number; y: number } | null) => void;
-  setHoveredCell: (cell: { rowIndex: number; columnIndex: number } | null) => void;
-  
-  // 拖拽
-  startDrag: (target: 'row' | 'column' | 'cell', position: { x: number; y: number }) => void;
-  endDrag: () => void;
-  
-  // 对话框
-  openDialog: (dialogId: string) => void;
-  closeDialog: (dialogId: string) => void;
-  
-  // 主题
-  setTheme: (theme: 'light' | 'dark' | 'auto') => void;
-}
-
-interface SelectionActions {
-  // 选择
-  setSelectedRanges: (ranges: SelectionSlice['selectedRanges']) => void;
-  addSelectedRange: (range: SelectionSlice['selectedRanges'][0]) => void;
-  clearSelection: () => void;
-  
-  // 活动单元格
-  setActiveCell: (cell: { rowIndex: number; columnIndex: number } | null) => void;
-  
-  // 多选
-  setMultiSelect: (enabled: boolean) => void;
-}
-
-interface EditingActions {
-  // 编辑
-  startEditing: (cell: { rowIndex: number; columnIndex: number }, initialValue: unknown) => void;
-  updateEditingValue: (value: unknown) => void;
-  commitEdit: () => void;
-  cancelEdit: () => void;
-  
-  // 历史
-  undo: () => void;
-  redo: () => void;
-}
-
-interface PermissionActions {
-  setPermissions: (permissions: Permission) => void;
-  loadPermissions: (apiClient: ApiClient, baseId: string, tableId?: string) => Promise<void>;
-}
-
-interface SessionActions {
-  setSession: (session: Session) => void;
-  clearSession: () => void;
-}
-
-// ============= 完整 Store 类型 =============
-
-export type GridStore = 
-  & DataSlice
-  & UISlice
-  & SelectionSlice
-  & EditingSlice
-  & PermissionSlice
-  & SessionSlice
-  & DataActions
-  & UIActions
-  & SelectionActions
-  & EditingActions
-  & PermissionActions
-  & SessionActions;
-
-// ============= Store 创建 =============
-
+/**
+ * 创建 Grid Store
+ */
 export const useGridStore = create<GridStore>()(
   devtools(
-    persist(
-      immer((set, get) => ({
-        // ===== 初始状态 =====
-        
-        // Data Slice
-        currentBase: null,
-        currentTable: null,
-        currentView: null,
-        bases: new Map(),
-        tables: new Map(),
-        fields: new Map(),
-        records: new Map(),
-        views: new Map(),
-        isLoadingBases: false,
-        isLoadingTables: false,
-        isLoadingFields: false,
-        isLoadingRecords: false,
-        isLoadingViews: false,
-        error: null,
-        
-        // UI Slice
-        scrollTop: 0,
-        scrollLeft: 0,
-        mousePosition: null,
-        hoveredCell: null,
-        isDragging: false,
-        dragTarget: null,
-        dragStartPosition: null,
-        openDialogs: new Set(),
-        theme: 'light',
-        
-        // Selection Slice
-        selectedRanges: [],
-        activeCell: null,
-        isMultiSelect: false,
-        
-        // Editing Slice
-        isEditing: false,
-        editingCell: null,
-        editingValue: undefined,
-        canUndo: false,
-        canRedo: false,
-        
-        // Permission Slice
-        permissions: {
-          canRead: true,
-          canWrite: false,
-          canDelete: false,
-          canManageFields: false,
-          canManageViews: false,
-          canManagePermissions: false,
-        },
-        
-        // Session Slice
-        session: {},
-        
-        // ===== Data Actions =====
-        
-        setCurrentBase: (base) => {
-          set((state) => {
-            state.currentBase = base;
+    immer((set, get) => ({
+      // ============= Data Slice =============
+      
+      // 当前数据
+      base: null,
+      table: null,
+      view: null,
+      fields: new Map<string, Field>(),
+      records: new Map<string, TypedRecord>(),
+
+      // 加载状态
+      isLoadingBase: false,
+      isLoadingTable: false,
+      isLoadingView: false,
+      isLoadingFields: false,
+      isLoadingRecords: false,
+
+      // 错误状态
+      baseError: null,
+      tableError: null,
+      viewError: null,
+      fieldsError: null,
+      recordsError: null,
+
+      // Data Actions
+      setBase: (base: Base | null) => {
+        set((state) => {
+          state.base = base;
+        });
+      },
+
+      setTable: (table: Table | null) => {
+        set((state) => {
+          state.table = table;
+        });
+      },
+
+      setView: (view: View | null) => {
+        set((state) => {
+          state.view = view;
+        });
+      },
+
+      setFields: (fields: Field[]) => {
+        set((state) => {
+          const newMap = new Map<string, Field>();
+          fields.forEach((field) => {
+            newMap.set(field.id, field);
           });
-        },
-        
-        loadBases: async (apiClient) => {
-          set((state) => {
-            state.isLoadingBases = true;
-            state.error = null;
+          state.fields = newMap as any;
+        });
+      },
+
+      setRecords: (records: TypedRecord[]) => {
+        set((state) => {
+          const newMap = new Map<string, TypedRecord>();
+          records.forEach((record) => {
+            newMap.set(record.id, record);
           });
+          state.records = newMap as any;
+        });
+      },
+
+      // Async Load Actions
+      loadBase: async (baseId: string) => {
+        const { api } = get();
+        if (!api) {
+          throw new Error('API client not initialized');
+        }
+
+        set((state) => {
+          state.isLoadingBase = true;
+          state.baseError = null;
+        });
+
+        try {
+          const base = await api.getBase(baseId);
+          set((state) => {
+            state.base = base;
+            state.isLoadingBase = false;
+          });
+        } catch (error) {
+          set((state) => {
+            state.baseError = error as Error;
+            state.isLoadingBase = false;
+          });
+          throw error;
+        }
+      },
+
+      loadTable: async (tableId: string) => {
+        const { api } = get();
+        if (!api) {
+          throw new Error('API client not initialized');
+        }
+
+        set((state) => {
+          state.isLoadingTable = true;
+          state.tableError = null;
+        });
+
+        try {
+          const table = await api.getTable(tableId);
+          set((state) => {
+            state.table = table;
+            state.isLoadingTable = false;
+          });
+        } catch (error) {
+          set((state) => {
+            state.tableError = error as Error;
+            state.isLoadingTable = false;
+          });
+          throw error;
+        }
+      },
+
+      loadView: async (viewId: string) => {
+        const { api } = get();
+        if (!api) {
+          throw new Error('API client not initialized');
+        }
+
+        set((state) => {
+          state.isLoadingView = true;
+          state.viewError = null;
+        });
+
+        try {
+          const view = await api.getView(viewId);
+          set((state) => {
+            state.view = view;
+            state.isLoadingView = false;
+          });
+        } catch (error) {
+          set((state) => {
+            state.viewError = error as Error;
+            state.isLoadingView = false;
+          });
+          throw error;
+        }
+      },
+
+      loadFields: async (tableId: string) => {
+        const { api } = get();
+        if (!api) {
+          throw new Error('API client not initialized');
+        }
+
+        set((state) => {
+          state.isLoadingFields = true;
+          state.fieldsError = null;
+        });
+
+        try {
+          const fields = await api.getFields(tableId);
+          set((state) => {
+            state.fields.clear();
+            fields.forEach((field: Field) => {
+              state.fields.set(field.id, field);
+            });
+            state.isLoadingFields = false;
+          });
+        } catch (error) {
+          set((state) => {
+            state.fieldsError = error as Error;
+            state.isLoadingFields = false;
+          });
+          throw error;
+        }
+      },
+
+      loadRecords: async (tableId: string, viewId?: string) => {
+        const { api } = get();
+        if (!api) {
+          throw new Error('API client not initialized');
+        }
+
+        set((state) => {
+          state.isLoadingRecords = true;
+          state.recordsError = null;
+        });
+
+        try {
+          const records = await api.getRecords(tableId, { viewId });
+          set((state) => {
+            state.records.clear();
+            records.forEach((record: TypedRecord) => {
+              state.records.set(record.id, record);
+            });
+            state.isLoadingRecords = false;
+          });
+        } catch (error) {
+          set((state) => {
+            state.recordsError = error as Error;
+            state.isLoadingRecords = false;
+          });
+          throw error;
+        }
+      },
+
+      // CRUD Operations
+      createRecord: async (tableId: string, fields: Record<string, CellValue>) => {
+        const { api } = get();
+        if (!api) {
+          throw new Error('API client not initialized');
+        }
+
+        const newRecord = await api.createRecord(tableId, { fields });
+        
+        set((state) => {
+          state.records.set(newRecord.id, newRecord);
+        });
+
+        return newRecord;
+      },
+
+      updateRecord: async (recordId: string, fields: Record<string, CellValue>) => {
+        const { api } = get();
+        if (!api) {
+          throw new Error('API client not initialized');
+        }
+
+        const updatedRecord = await api.updateRecord(recordId, { fields });
+        
+        set((state) => {
+          state.records.set(recordId, updatedRecord);
+        });
+
+        return updatedRecord;
+      },
+
+      deleteRecord: async (recordId: string) => {
+        const { api } = get();
+        if (!api) {
+          throw new Error('API client not initialized');
+        }
+
+        await api.deleteRecord(recordId);
+        
+        set((state) => {
+          state.records.delete(recordId);
+        });
+      },
+
+      deleteRecords: async (recordIds: string[]) => {
+        const { api } = get();
+        if (!api) {
+          throw new Error('API client not initialized');
+        }
+
+        await api.deleteRecords(recordIds);
+        
+        set((state) => {
+          recordIds.forEach((id) => {
+            state.records.delete(id);
+          });
+        });
+      },
+
+      // ============= UI Slice =============
+      
+      selectedCells: new Set<string>(),
+      selectedRows: new Set<number>(),
+      selectedColumns: new Set<number>(),
+      activeCell: null,
+
+      isEditing: false,
+      editingCell: null,
+      editingValue: null,
+
+      contextMenu: null,
+
+      dialogs: {
+        deleteConfirm: false,
+        fieldConfig: false,
+        viewConfig: false,
+      },
+
+      // UI Actions
+      setSelectedCells: (cells: Set<string>) => {
+        set((state) => {
+          state.selectedCells = new Set(cells);
+        });
+      },
+
+      setSelectedRows: (rows: Set<number>) => {
+        set((state) => {
+          state.selectedRows = new Set(rows);
+        });
+      },
+
+      setSelectedColumns: (columns: Set<number>) => {
+        set((state) => {
+          state.selectedColumns = new Set(columns);
+        });
+      },
+
+      setActiveCell: (cell: [number, number] | null) => {
+        set((state) => {
+          state.activeCell = cell;
+        });
+      },
+
+      clearSelectionUI: () => {
+        set((state) => {
+          state.selectedCells.clear();
+          state.selectedRows.clear();
+          state.selectedColumns.clear();
+          state.activeCell = null;
+        });
+      },
+
+      startEditing: (cell: [number, number], initialValue: CellValue) => {
+        set((state) => {
+          state.isEditing = true;
+          state.editingCell = cell;
+          state.editingValue = initialValue as any;
+        });
+      },
+
+      stopEditing: (save: boolean) => {
+        if (save) {
+          const { editingCell, editingValue, records, fields } = get();
+          if (editingCell && editingValue !== null) {
+            const [colIndex, rowIndex] = editingCell;
+            const recordId = Array.from(records.keys())[rowIndex];
+            const fieldId = Array.from(fields.keys())[colIndex];
+            
+            if (recordId && fieldId) {
+              get().updateRecord(recordId, { [fieldId]: editingValue });
+            }
+          }
+        }
+        
+        set((state) => {
+          state.isEditing = false;
+          state.editingCell = null;
+          state.editingValue = null;
+        });
+      },
+
+      setEditingValue: (value: CellValue) => {
+        set((state) => {
+          state.editingValue = value as any;
+        });
+      },
+
+      showContextMenu: (menu: ContextMenuState) => {
+        set((state) => {
+          state.contextMenu = menu;
+        });
+      },
+
+      hideContextMenu: () => {
+        set((state) => {
+          state.contextMenu = null;
+        });
+      },
+
+      showDialog: (dialog: keyof GridStore['dialogs']) => {
+        set((state) => {
+          state.dialogs[dialog] = true;
+        });
+      },
+
+      hideDialog: (dialog: keyof GridStore['dialogs']) => {
+        set((state) => {
+          state.dialogs[dialog] = false;
+        });
+      },
+
+      // ============= Collaboration Slice =============
+      
+      collaborators: new Map<string, Collaborator>(),
+      selections: new Map<string, UserSelection>(),
+
+      addCollaborator: (collaborator: Collaborator) => {
+        set((state) => {
+          state.collaborators.set(collaborator.id, collaborator);
+        });
+      },
+
+      removeCollaborator: (userId: string) => {
+        set((state) => {
+          state.collaborators.delete(userId);
+          state.selections.delete(userId);
+        });
+      },
+
+      updateCollaborator: (userId: string, updates: Partial<Collaborator>) => {
+        set((state) => {
+          const existing = state.collaborators.get(userId);
+          if (existing) {
+            state.collaborators.set(userId, { ...existing, ...updates });
+          }
+        });
+      },
+
+      updateUserSelection: (userId: string, selection: UserSelection) => {
+        set((state) => {
+          state.selections.set(userId, selection);
+        });
+      },
+
+      clearUserSelection: (userId: string) => {
+        set((state) => {
+          state.selections.delete(userId);
+        });
+      },
+
+      // ============= Permission Slice =============
+      
+      permissions: DEFAULT_PERMISSIONS,
+
+      setPermissions: (permissions: Permission) => {
+        set((state) => {
+          state.permissions = permissions;
+        });
+      },
+
+      checkPermission: (action: keyof Permission) => {
+        const { permissions } = get();
+        return permissions[action];
+      },
+
+      // ============= History Slice =============
+      
+      canUndo: false,
+      canRedo: false,
+      historyIndex: 0,
+
+      undo: () => {
+        // TODO: Implement undo logic
+        console.warn('Undo not implemented yet');
+      },
+
+      redo: () => {
+        // TODO: Implement redo logic
+        console.warn('Redo not implemented yet');
+      },
+
+      clearHistory: () => {
+        set((state) => {
+          state.canUndo = false;
+          state.canRedo = false;
+          state.historyIndex = 0;
+        });
+      },
+
+      // ============= Global =============
+      
+      api: null,
+
+      setApi: (api: any) => {
+        set((state) => {
+          state.api = api;
+        });
+      },
+
+      reset: () => {
+        set((state) => {
+          // Data
+          state.base = null;
+          state.table = null;
+          state.view = null;
+          state.fields.clear();
+          state.records.clear();
           
-          try {
-            // @ts-expect-error - ApiClient方法调用，暂时忽略类型问题
-            const response = await apiClient.getBases();
-            set((state) => {
-              state.bases = new Map(response.map((base: any) => [base.id, base]));
-              state.isLoadingBases = false;
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-              state.isLoadingBases = false;
-            });
-            throw error;
-          }
-        },
-        
-        createBase: async (apiClient, data) => {
-          try {
-            const newBase = await apiClient.createBase(data);
-            set((state) => {
-              state.bases.set(newBase.id, newBase);
-            });
-            return newBase;
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        updateBase: async (apiClient, id, data) => {
-          try {
-            const updatedBase = await apiClient.updateBase(id, data);
-            set((state) => {
-              state.bases.set(id, updatedBase);
-              if (state.currentBase?.id === id) {
-                state.currentBase = updatedBase;
-              }
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        deleteBase: async (apiClient, id) => {
-          try {
-            await apiClient.deleteBase(id);
-            set((state) => {
-              state.bases.delete(id);
-              if (state.currentBase?.id === id) {
-                state.currentBase = null;
-              }
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        setCurrentTable: (table) => {
-          set((state) => {
-            state.currentTable = table;
-          });
-        },
-        
-        loadTables: async (apiClient, baseId) => {
-          set((state) => {
-            state.isLoadingTables = true;
-            state.error = null;
-          });
+          // UI
+          state.selectedCells.clear();
+          state.selectedRows.clear();
+          state.selectedColumns.clear();
+          state.activeCell = null;
+          state.isEditing = false;
+          state.editingCell = null;
+          state.editingValue = null;
+          state.contextMenu = null;
           
-          try {
-            const response = await apiClient.getTables(baseId);
-            set((state) => {
-              state.tables = new Map(response.map(table => [table.id, table]));
-              state.isLoadingTables = false;
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-              state.isLoadingTables = false;
-            });
-            throw error;
-          }
-        },
-        
-        createTable: async (apiClient, baseId, data) => {
-          try {
-            const newTable = await apiClient.createTable(baseId, data);
-            set((state) => {
-              state.tables.set(newTable.id, newTable);
-            });
-            return newTable;
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        updateTable: async (apiClient, id, data) => {
-          try {
-            const updatedTable = await apiClient.updateTable(id, data);
-            set((state) => {
-              state.tables.set(id, updatedTable);
-              if (state.currentTable?.id === id) {
-                state.currentTable = updatedTable;
-              }
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        deleteTable: async (apiClient, id) => {
-          try {
-            await apiClient.deleteTable(id);
-            set((state) => {
-              state.tables.delete(id);
-              if (state.currentTable?.id === id) {
-                state.currentTable = null;
-              }
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        loadFields: async (apiClient, tableId) => {
-          set((state) => {
-            state.isLoadingFields = true;
-            state.error = null;
-          });
+          // Collaboration
+          state.collaborators.clear();
+          state.selections.clear();
           
-          try {
-            const response = await apiClient.getFields(tableId);
-            set((state) => {
-              state.fields = new Map(response.map(field => [field.id, field]));
-              state.isLoadingFields = false;
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-              state.isLoadingFields = false;
-            });
-            throw error;
-          }
-        },
-        
-        createField: async (apiClient, tableId, data) => {
-          try {
-            const newField = await apiClient.createField(tableId, data);
-            set((state) => {
-              state.fields.set(newField.id, newField);
-            });
-            return newField;
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        updateField: async (apiClient, id, data) => {
-          try {
-            const updatedField = await apiClient.updateField(id, data);
-            set((state) => {
-              state.fields.set(id, updatedField);
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        deleteField: async (apiClient, id) => {
-          try {
-            await apiClient.deleteField(id);
-            set((state) => {
-              state.fields.delete(id);
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        loadRecords: async (apiClient, tableId) => {
-          set((state) => {
-            state.isLoadingRecords = true;
-            state.error = null;
-          });
+          // Permissions
+          state.permissions = DEFAULT_PERMISSIONS;
           
-          try {
-            const response = await apiClient.getRecords(tableId);
-            set((state) => {
-              state.records = new Map(response.map(record => [record.id, record]));
-              state.isLoadingRecords = false;
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-              state.isLoadingRecords = false;
-            });
-            throw error;
-          }
-        },
-        
-        createRecord: async (apiClient, tableId, data) => {
-          try {
-            const newRecord = await apiClient.createRecord(tableId, data);
-            set((state) => {
-              state.records.set(newRecord.id, newRecord);
-            });
-            return newRecord;
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        updateRecord: async (apiClient, id, data) => {
-          try {
-            const updatedRecord = await apiClient.updateRecord(id, data);
-            set((state) => {
-              state.records.set(id, updatedRecord);
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        deleteRecord: async (apiClient, id) => {
-          try {
-            await apiClient.deleteRecord(id);
-            set((state) => {
-              state.records.delete(id);
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        bulkUpdateRecords: async (apiClient, updates) => {
-          try {
-            await Promise.all(
-              updates.map(({ id, data }) => apiClient.updateRecord(id, data))
-            );
-            set((state) => {
-              updates.forEach(({ id, data }) => {
-                const existing = state.records.get(id);
-                if (existing) {
-                  state.records.set(id, { ...existing, ...data });
-                }
-              });
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        setCurrentView: (view) => {
-          set((state) => {
-            state.currentView = view;
-          });
-        },
-        
-        loadViews: async (apiClient, tableId) => {
-          set((state) => {
-            state.isLoadingViews = true;
-            state.error = null;
-          });
-          
-          try {
-            const response = await apiClient.getViews(tableId);
-            set((state) => {
-              state.views = new Map(response.map(view => [view.id, view]));
-              state.isLoadingViews = false;
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-              state.isLoadingViews = false;
-            });
-            throw error;
-          }
-        },
-        
-        createView: async (apiClient, tableId, data) => {
-          try {
-            const newView = await apiClient.createView(tableId, data);
-            set((state) => {
-              state.views.set(newView.id, newView);
-            });
-            return newView;
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        updateView: async (apiClient, id, data) => {
-          try {
-            const updatedView = await apiClient.updateView(id, data);
-            set((state) => {
-              state.views.set(id, updatedView);
-              if (state.currentView?.id === id) {
-                state.currentView = updatedView;
-              }
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        deleteView: async (apiClient, id) => {
-          try {
-            await apiClient.deleteView(id);
-            set((state) => {
-              state.views.delete(id);
-              if (state.currentView?.id === id) {
-                state.currentView = null;
-              }
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        setError: (error) => {
-          set((state) => {
-            state.error = error;
-          });
-        },
-        
-        clearError: () => {
-          set((state) => {
-            state.error = null;
-          });
-        },
-        
-        // ===== UI Actions =====
-        
-        setScroll: (scrollTop, scrollLeft) => {
-          set((state) => {
-            state.scrollTop = scrollTop;
-            state.scrollLeft = scrollLeft;
-          });
-        },
-        
-        setMousePosition: (position) => {
-          set((state) => {
-            state.mousePosition = position;
-          });
-        },
-        
-        setHoveredCell: (cell) => {
-          set((state) => {
-            state.hoveredCell = cell;
-          });
-        },
-        
-        startDrag: (target, position) => {
-          set((state) => {
-            state.isDragging = true;
-            state.dragTarget = target;
-            state.dragStartPosition = position;
-          });
-        },
-        
-        endDrag: () => {
-          set((state) => {
-            state.isDragging = false;
-            state.dragTarget = null;
-            state.dragStartPosition = null;
-          });
-        },
-        
-        openDialog: (dialogId) => {
-          set((state) => {
-            state.openDialogs.add(dialogId);
-          });
-        },
-        
-        closeDialog: (dialogId) => {
-          set((state) => {
-            state.openDialogs.delete(dialogId);
-          });
-        },
-        
-        setTheme: (theme) => {
-          set((state) => {
-            state.theme = theme;
-          });
-        },
-        
-        // ===== Selection Actions =====
-        
-        setSelectedRanges: (ranges) => {
-          set((state) => {
-            state.selectedRanges = ranges;
-          });
-        },
-        
-        addSelectedRange: (range) => {
-          set((state) => {
-            state.selectedRanges.push(range);
-          });
-        },
-        
-        clearSelection: () => {
-          set((state) => {
-            state.selectedRanges = [];
-            state.activeCell = null;
-          });
-        },
-        
-        setActiveCell: (cell) => {
-          set((state) => {
-            state.activeCell = cell;
-          });
-        },
-        
-        setMultiSelect: (enabled) => {
-          set((state) => {
-            state.isMultiSelect = enabled;
-          });
-        },
-        
-        // ===== Editing Actions =====
-        
-        startEditing: (cell, initialValue) => {
-          set((state) => {
-            state.isEditing = true;
-            state.editingCell = cell;
-            state.editingValue = initialValue;
-          });
-        },
-        
-        updateEditingValue: (value) => {
-          set((state) => {
-            state.editingValue = value;
-          });
-        },
-        
-        commitEdit: () => {
-          set((state) => {
-            state.isEditing = false;
-            state.editingCell = null;
-            state.editingValue = undefined;
-          });
-        },
-        
-        cancelEdit: () => {
-          set((state) => {
-            state.isEditing = false;
-            state.editingCell = null;
-            state.editingValue = undefined;
-          });
-        },
-        
-        undo: () => {
-          // TODO: 实现撤销逻辑
-        },
-        
-        redo: () => {
-          // TODO: 实现重做逻辑
-        },
-        
-        // ===== Permission Actions =====
-        
-        setPermissions: (permissions) => {
-          set((state) => {
-            state.permissions = permissions;
-          });
-        },
-        
-        loadPermissions: async (apiClient, baseId, tableId) => {
-          try {
-            const permissions = await apiClient.permissions.get(baseId, tableId);
-            set((state) => {
-              state.permissions = permissions;
-            });
-          } catch (error) {
-            set((state) => {
-              state.error = error as Error;
-            });
-            throw error;
-          }
-        },
-        
-        // ===== Session Actions =====
-        
-        setSession: (session) => {
-          set((state) => {
-            state.session = session;
-          });
-        },
-        
-        clearSession: () => {
-          set((state) => {
-            state.session = {};
-          });
-        },
-      })),
-      {
-        name: 'grid-store',
-        partialize: (state) => ({
-          // 只持久化必要的状态
-          theme: state.theme,
-          session: state.session,
-        }),
-      }
-    ),
-    {
-      name: 'GridStore',
-    }
+          // History
+          state.canUndo = false;
+          state.canRedo = false;
+          state.historyIndex = 0;
+        });
+      },
+    })),
+    { name: 'GridStore' }
   )
 );
 
-// ============= 选择器 (Selectors) =============
+// ============= Selectors =============
 
-// 这些选择器帮助组件精确订阅需要的状态，避免无脑重渲染
+/**
+ * Get cell value by position
+ */
+export const selectCellValue = (colIndex: number, rowIndex: number) => (state: GridStore): CellValue => {
+  const recordId = Array.from(state.records.keys())[rowIndex];
+  const fieldId = Array.from(state.fields.keys())[colIndex];
+  
+  if (!recordId || !fieldId) return null;
+  
+  const record = state.records.get(recordId);
+  return record?.fields[fieldId] ?? null;
+};
 
-export const selectCurrentBase = (state: GridStore): Base | null => state.currentBase;
-export const selectCurrentTable = (state: GridStore): Table | null => state.currentTable;
-export const selectCurrentView = (state: GridStore): View | null => state.currentView;
+/**
+ * Get field by ID
+ */
+export const selectField = (fieldId: string) => (state: GridStore): Field | undefined => {
+  return state.fields.get(fieldId);
+};
 
-export const selectBases = (state: GridStore): Base[] => Array.from(state.bases.values());
-export const selectTables = (state: GridStore): Table[] => Array.from(state.tables.values());
-export const selectFields = (state: GridStore): Field[] => Array.from(state.fields.values());
-export const selectRecords = (state: GridStore): GridRecord[] => Array.from(state.records.values());
-export const selectViews = (state: GridStore): View[] => Array.from(state.views.values());
+/**
+ * Get all fields as array
+ */
+export const selectFieldsArray = (state: GridStore): Field[] => {
+  return Array.from(state.fields.values());
+};
 
-export const selectIsLoading = (state: GridStore): boolean => 
-  state.isLoadingBases || 
-  state.isLoadingTables || 
-  state.isLoadingFields || 
-  state.isLoadingRecords || 
-  state.isLoadingViews;
+/**
+ * Get all records as array
+ */
+export const selectRecordsArray = (state: GridStore): TypedRecord[] => {
+  return Array.from(state.records.values());
+};
 
-export const selectError = (state: GridStore): Error | null => state.error;
+/**
+ * Check if any data is loading
+ */
+export const selectIsLoading = (state: GridStore): boolean => {
+  return (
+    state.isLoadingBase ||
+    state.isLoadingTable ||
+    state.isLoadingView ||
+    state.isLoadingFields ||
+    state.isLoadingRecords
+  );
+};
 
-export const selectScrollState = (state: GridStore): { scrollTop: number; scrollLeft: number } => ({
-  scrollTop: state.scrollTop,
-  scrollLeft: state.scrollLeft,
-});
+/**
+ * Get any error
+ */
+export const selectError = (state: GridStore): Error | null => {
+  return (
+    state.baseError ||
+    state.tableError ||
+    state.viewError ||
+    state.fieldsError ||
+    state.recordsError
+  );
+};
 
-export const selectSelection = (state: GridStore): SelectionSlice => ({
-  selectedRanges: state.selectedRanges,
-  activeCell: state.activeCell,
-  isMultiSelect: state.isMultiSelect,
-});
+/**
+ * Check if cell is selected
+ */
+export const selectIsCellSelected = (colIndex: number, rowIndex: number) => (state: GridStore): boolean => {
+  const key = `${colIndex},${rowIndex}`;
+  return state.selectedCells.has(key);
+};
 
-export const selectEditing = (state: GridStore): EditingSlice => ({
-  isEditing: state.isEditing,
-  editingCell: state.editingCell,
-  editingValue: state.editingValue,
-  canUndo: state.canUndo,
-  canRedo: state.canRedo,
-});
+/**
+ * Check if row is selected
+ */
+export const selectIsRowSelected = (rowIndex: number) => (state: GridStore): boolean => {
+  return state.selectedRows.has(rowIndex);
+};
 
-export const selectPermissions = (state: GridStore): Permission => state.permissions;
-export const selectSession = (state: GridStore): Session => state.session;
+/**
+ * Check if column is selected
+ */
+export const selectIsColumnSelected = (colIndex: number) => (state: GridStore): boolean => {
+  return state.selectedColumns.has(colIndex);
+};
+

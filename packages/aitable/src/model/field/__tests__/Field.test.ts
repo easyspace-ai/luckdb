@@ -1,7 +1,6 @@
 /**
  * Field 基类测试
  */
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { TextField } from '../TextField';
 import { FIELD_TYPES } from '../../../types/core/field-types';

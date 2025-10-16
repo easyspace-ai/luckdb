@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useCallback, useRef, useEffect, type FC } from 'react';
 import type { INumberEditorProps } from '../../../types/editor';
 import { useGridPopupPosition } from '../../../hooks/business/useGridPopupPosition';

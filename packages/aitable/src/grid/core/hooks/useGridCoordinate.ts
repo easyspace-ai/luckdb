@@ -2,7 +2,6 @@
  * Grid 坐标管理 Hook
  * 提取Grid.tsx中的坐标计算逻辑
  */
-// @ts-nocheck
 import { useMemo, useCallback } from 'react';
 import { CoordinateManager } from '../../managers';
 import { LinearRowType } from '../../types/grid';

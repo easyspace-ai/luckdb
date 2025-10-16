@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Field Domain Model - 领域层字段模型
  * 

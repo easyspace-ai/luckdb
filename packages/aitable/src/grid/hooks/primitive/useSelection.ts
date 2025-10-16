@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useRef, useState } from 'react';
 import { useUnmount, useUpdateEffect } from 'react-use';
 

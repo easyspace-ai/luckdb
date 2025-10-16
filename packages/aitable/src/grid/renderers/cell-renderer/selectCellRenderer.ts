@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { LRUCache } from 'lru-cache';
 import type { IGridTheme } from '../../configs';
 import { GRID_DEFAULT } from '../../configs';

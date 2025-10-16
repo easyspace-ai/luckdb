@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Next.js Image Optimization Parameters
  */

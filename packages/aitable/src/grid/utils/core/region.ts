@@ -1,4 +1,3 @@
-// @ts-nocheck
 /* eslint-disable @typescript-eslint/naming-convention */
 import { GRID_DEFAULT } from '../../configs';
 import { LinearRowType, RegionType, RowControlType } from '../../types/grid';

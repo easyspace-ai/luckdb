@@ -1,7 +1,6 @@
 /**
  * ImageManager 单元测试
  */
-// @ts-nocheck
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ImageManager } from '../ImageManager';
 

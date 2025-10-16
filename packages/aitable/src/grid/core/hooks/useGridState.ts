@@ -2,7 +2,6 @@
  * Grid 状态管理 Hook
  * 提取Grid.tsx中的状态管理逻辑
  */
-// @ts-nocheck
 import { useState, useRef } from 'react';
 import { uniqueId } from 'lodash';
 import { useRafState } from 'react-use';

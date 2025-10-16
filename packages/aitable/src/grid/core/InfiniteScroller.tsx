@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { cn } from '../../utils/string';
 import type { ForwardRefRenderFunction, MutableRefObject, ReactNode, UIEvent } from 'react';
 import { useMemo, useRef, useCallback, forwardRef, useImperativeHandle, useEffect } from 'react';

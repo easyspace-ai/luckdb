@@ -2,7 +2,6 @@
  * Grid 渲染器管理 Hook
  * 提取Grid.tsx中的渲染器相关逻辑
  */
-// @ts-nocheck
 import { useMemo } from 'react';
 import { SpriteManager, ImageManager } from '../../managers';
 import type { ISpriteMap } from '../../managers';

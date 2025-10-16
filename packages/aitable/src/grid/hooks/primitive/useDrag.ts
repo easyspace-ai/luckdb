@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useRef, useState } from 'react';
 import { DEFAULT_DRAG_STATE } from '../../configs';
 import type { IDragState, IMouseState, IRange, IScrollState } from '../../types/grid';

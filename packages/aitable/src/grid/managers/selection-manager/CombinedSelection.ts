@@ -1,4 +1,3 @@
-// @ts-nocheck - 暂时禁用类型检查，待类型定义完善后移除
 import { isEqual } from 'lodash';
 import type { IRange } from '../../interface';
 import { SelectionRegionType } from '../../interface';

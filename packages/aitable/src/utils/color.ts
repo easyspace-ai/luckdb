@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Color utilities - simplified from @teable/core
  */

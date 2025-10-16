@@ -1,4 +1,3 @@
-// @ts-nocheck - 暂时禁用类型检查，待类型定义完善后移除
 import type { IGridTheme } from '../../configs';
 import { GRID_DEFAULT } from '../../configs';
 import type { IRectangle } from '../../interface';

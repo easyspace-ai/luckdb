@@ -2,7 +2,6 @@
  * FieldValidator 单元测试
  * 测试字段验证器的核心功能
  */
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { FieldValidator } from '../field-validator';
 import { FIELD_TYPES } from '../../../types/core/field-types';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { ICellItem, IRange } from '../../types/grid';
 import type { CombinedSelection } from '../../managers';
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { GRID_DEFAULT } from '../../configs';
 import { inRange } from '../../utils';
 import { drawCheckbox } from '../base-renderer';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Dispatch, FC, SetStateAction } from 'react';
 import { useRef } from 'react';
 // 使用 ESM 导入并以 any 断言，避免 TS/React 版本差异造成的 JSX 类型不兼容

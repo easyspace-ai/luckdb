@@ -1,4 +1,3 @@
-// @ts-nocheck
 class PerformanceTracker {
   private startTimes: { [key: string]: number } = {};
   private totalTimes: { [key: string]: number } = {};

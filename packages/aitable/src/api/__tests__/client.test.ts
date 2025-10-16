@@ -1,7 +1,6 @@
 /**
  * API Client 测试
  */
-// @ts-nocheck
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ApiClient } from '../client';
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { IIndicesMap, ICoordinate, ICellMetaData, ICellMetaDataMap } from './interface';
 import { ItemType } from './interface';
 

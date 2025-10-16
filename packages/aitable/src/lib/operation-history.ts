@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Operation History Manager
  * 占位符实现 - 待完善
