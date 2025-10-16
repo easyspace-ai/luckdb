@@ -32,7 +32,7 @@ export class FormulaField extends Field {
       return '';
     }
 
-    const formatting = this.options.formatting;
+    const formatting = (this.options as any).formatting;
 
     switch (formatting?.type) {
       case 'number':
@@ -79,14 +79,14 @@ export class FormulaField extends Field {
    * Get formula expression
    */
   getExpression(): string {
-    return this.options.expression ?? '';
+    return ((this.options as any).expression) ?? '';
   }
 
   /**
    * Check if formula is valid
    */
   hasValidExpression(): boolean {
-    return Boolean(this.options.expression && this.options.expression.trim().length > 0);
+    return Boolean(((this.options as any).expression) && ((this.options as any).expression).trim().length > 0);
   }
 }
 

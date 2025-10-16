@@ -10,7 +10,7 @@ interface TableEditorLayoutProps {
   children: ReactNode;
 }
 
-export function TableEditorLayout({ children }: TableEditorLayoutProps) {
+export function TableEditorLayoutOld({ children }: TableEditorLayoutProps) {
   const navigate = useNavigate();
   const { baseId, tableId, viewId } = useParams<{ 
     baseId: string; 

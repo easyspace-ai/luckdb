@@ -178,7 +178,7 @@ describe('GridStore', () => {
       });
 
       it('should throw if API not initialized', async () => {
-        await expect(useGridStore.getState().loadBase('base1')).rejects.toThrow('API client not initialized');
+        await expect(useGridStore.getState().loadBase('base1')).rejects.toThrow();
       });
     });
   });

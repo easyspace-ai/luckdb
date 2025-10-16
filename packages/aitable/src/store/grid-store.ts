@@ -73,19 +73,19 @@ export const useGridStore = create<GridStore>()(
       // Data Actions
       setBase: (base: Base | null) => {
         set((state) => {
-          state.base = base;
+          state.base = base as any;
         });
       },
 
       setTable: (table: Table | null) => {
         set((state) => {
-          state.table = table;
+          state.table = table as any;
         });
       },
 
       setView: (view: View | null) => {
         set((state) => {
-          state.view = view;
+          state.view = view as any;
         });
       },
 
@@ -93,7 +93,7 @@ export const useGridStore = create<GridStore>()(
         set((state) => {
           const newMap = new Map<string, Field>();
           fields.forEach((field) => {
-            newMap.set(field.id, field);
+            newMap.set(field.id, field as any);
           });
           state.fields = newMap as any;
         });
@@ -103,7 +103,7 @@ export const useGridStore = create<GridStore>()(
         set((state) => {
           const newMap = new Map<string, TypedRecord>();
           records.forEach((record) => {
-            newMap.set(record.id, record);
+            newMap.set(record.id, record as any);
           });
           state.records = newMap as any;
         });
@@ -124,7 +124,7 @@ export const useGridStore = create<GridStore>()(
         try {
           const base = await api.getBase(baseId);
           set((state) => {
-            state.base = base;
+            state.base = base as any;
             state.isLoadingBase = false;
           });
         } catch (error) {
@@ -150,7 +150,7 @@ export const useGridStore = create<GridStore>()(
         try {
           const table = await api.getTable(tableId);
           set((state) => {
-            state.table = table;
+            state.table = table as any;
             state.isLoadingTable = false;
           });
         } catch (error) {
@@ -176,7 +176,7 @@ export const useGridStore = create<GridStore>()(
         try {
           const view = await api.getView(viewId);
           set((state) => {
-            state.view = view;
+            state.view = view as any;
             state.isLoadingView = false;
           });
         } catch (error) {

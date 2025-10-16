@@ -42,7 +42,7 @@ export function GridWithErrorBoundary(props: IGridExternalProps): JSX.Element {
 
   return (
     <GridErrorBoundary onError={handleGridError}>
-      <Grid {...props} />
+      <Grid {...(props as any)} />
     </GridErrorBoundary>
   );
 }

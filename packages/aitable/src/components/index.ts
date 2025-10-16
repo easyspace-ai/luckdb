@@ -10,3 +10,6 @@ export { LoadingIndicator } from '../grid/components/ui/LoadingIndicator';
 export { FieldCreateOrSelectModal } from '../grid/components/field-modal/FieldCreateOrSelectModal';
 export { FieldSetting } from '../grid/components/field-modal/FieldSetting';
 
+// Standard composite component
+export { StandardDataView } from './StandardDataView';
+

@@ -135,7 +135,7 @@ export class UserField extends Field {
    * Check if multiple users are allowed
    */
   isMultiple(): boolean {
-    return this.options.isMultiple ?? false;
+    return (this.options as any).isMultiple ?? false;
   }
 }
 

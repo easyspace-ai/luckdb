@@ -8,7 +8,9 @@ import { LinearRowType } from '../../types/grid';
 import type { IGridColumn, ILinearRow, IGroupCollection } from '../../types/grid';
 import { GRID_DEFAULT } from '../../configs';
 
-const { defaultColumnWidth, defaultRowHeight, defaultColumnHeaderHeight } = GRID_DEFAULT;
+const defaultColumnWidth = (GRID_DEFAULT as any).defaultColumnWidth || GRID_DEFAULT.columnWidth || 100;
+const defaultRowHeight = (GRID_DEFAULT as any).defaultRowHeight || GRID_DEFAULT.rowHeight || 32;
+const defaultColumnHeaderHeight = (GRID_DEFAULT as any).defaultColumnHeaderHeight || GRID_DEFAULT.columnHeadHeight || 40;
 
 interface UseGridCoordinateProps {
   columns: IGridColumn[];

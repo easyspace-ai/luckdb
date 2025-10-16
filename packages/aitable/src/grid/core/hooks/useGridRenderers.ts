@@ -23,8 +23,8 @@ export function useGridRenderers(props: UseGridRenderersProps) {
 
   // Image 管理器
   const imageManager = useMemo<ImageManager>(() => {
-    return new ImageManager({ theme });
-  }, [theme]);
+    return new ImageManager();
+  }, []);
 
   return {
     spriteManager,

@@ -48,7 +48,7 @@ export class RollupField extends Field {
       return '';
     }
 
-    const formatting = this.options.formatting;
+    const formatting = (this.options as any).formatting;
 
     switch (formatting?.type) {
       case 'number':
@@ -95,9 +95,9 @@ export class RollupField extends Field {
    */
   getRollupConfig() {
     return {
-      linkFieldId: this.options.expression?.linkFieldId,
-      foreignFieldId: this.options.expression?.foreignFieldId,
-      func: this.options.expression?.func,
+      linkFieldId: ((this.options as any).expression)?.linkFieldId,
+      foreignFieldId: ((this.options as any).expression)?.foreignFieldId,
+      func: ((this.options as any).expression)?.func,
     };
   }
 
@@ -117,7 +117,7 @@ export class RollupField extends Field {
    * Get rollup function
    */
   getRollupFunc(): RollupFunc | undefined {
-    return this.options.expression?.func;
+    return ((this.options as any).expression)?.func;
   }
 }
 

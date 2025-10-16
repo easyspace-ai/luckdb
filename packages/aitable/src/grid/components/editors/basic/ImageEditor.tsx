@@ -21,7 +21,7 @@ const ImageEditorBase: ForwardRefRenderFunction<IEditorRef<IImageCell>, IEditorP
     },
   }));
 
-  const display = (value || []).map((i) => i.url).join(', ');
+  const display = (value || []).map((i: any) => i.url).join(', ');
 
   const onBlur = () => {
     const items = (inputRef.current?.value || '')

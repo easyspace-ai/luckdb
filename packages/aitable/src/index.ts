@@ -27,3 +27,6 @@ export * from './utils';
 
 // UI (shadcn components)
 export * from './ui';
+
+// Composite Components
+export * from './components';

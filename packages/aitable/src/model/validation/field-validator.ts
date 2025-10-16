@@ -259,7 +259,7 @@ export class FieldValidator {
   private static validateMultipleSelectValue(
     value: unknown,
     options: GetFieldOptions<typeof FIELD_TYPES.MultipleSelect>
-  ): ValidationResult<readonly string[] | null> {
+  ): ValidationResult<string[] | null> {
     if (!isArray(value) || !value.every(isString)) {
       return {
         isValid: false,

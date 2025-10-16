@@ -69,7 +69,7 @@ export const DEFAULT_COLUMN_RESIZE_STATE = {
 
 export const DEFAULT_DRAG_STATE = {
   type: DragRegionType.None,
-  ranges: [],
+  ranges: [] as any[],
   delta: 0,
   isDragging: false,
 };

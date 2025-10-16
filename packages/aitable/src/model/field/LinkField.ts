@@ -83,7 +83,7 @@ export class LinkField extends Field {
     return null;
   }
 
-  toCellValue(value: unknown): string | string[] | ILinkedRecord | ILinkedRecord[] | null {
+  toCellValue(value: unknown): any {
     if (this.isEmpty(value)) {
       return null;
     }
@@ -113,8 +113,8 @@ export class LinkField extends Field {
    */
   isManyRelationship(): boolean {
     return (
-      this.options.relationship === 'manyMany' ||
-      this.options.relationship === 'manyOne'
+      (this.options as any).relationship === 'manyMany' ||
+      (this.options as any).relationship === 'manyOne'
     );
   }
 

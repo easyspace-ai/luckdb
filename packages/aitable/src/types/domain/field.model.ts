@@ -18,7 +18,7 @@ export interface FieldModel<T extends FieldType = FieldType> {
   name: string;
   type: T;
   tableId: string;
-  options?: FieldOptions<T>;
+  options?: any;
   description?: string;
   isComputed: boolean;
   isPrimary: boolean;
@@ -32,7 +32,7 @@ export interface FieldModel<T extends FieldType = FieldType> {
 export interface CreateFieldCommand<T extends FieldType = FieldType> {
   name: string;
   type: T;
-  options?: FieldOptions<T>;
+  options?: any;
   description?: string;
   isPrimary?: boolean;
 }
@@ -43,7 +43,7 @@ export interface CreateFieldCommand<T extends FieldType = FieldType> {
 export interface UpdateFieldCommand<T extends FieldType = FieldType> {
   name?: string;
   type?: T;
-  options?: FieldOptions<T>;
+  options?: any;
   description?: string;
 }
 
@@ -52,6 +52,6 @@ export interface UpdateFieldCommand<T extends FieldType = FieldType> {
  */
 export interface ConvertFieldCommand<T extends FieldType = FieldType> {
   type: T;
-  options?: FieldOptions<T>;
+  options?: any;
 }
 

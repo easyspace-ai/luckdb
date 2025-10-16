@@ -39,39 +39,39 @@ export function createFieldInstance(field: IField): IFieldInstance {
   switch (field.type) {
     case 'singleLineText':
     case 'longText':
-      return new TextField(config);
+      return new TextField(config as any);
     
     case 'number':
-      return new NumberField(config);
+      return new NumberField(config as any);
     
     case 'checkbox':
-      return new BooleanField(config);
+      return new BooleanField(config as any);
     
     case 'singleSelect':
     case 'multipleSelect':
-      return new SelectField(config);
+      return new SelectField(config as any);
     
     case 'date':
-      return new DateField(config);
+      return new DateField(config as any);
     
     case 'rating':
-      return new RatingField(config);
+      return new RatingField(config as any);
     
     case 'link':
-      return new LinkField(config);
+      return new LinkField(config as any) as any;
     
     case 'user':
-      return new UserField(config);
+      return new UserField(config as any);
     
     case 'attachment':
-      return new AttachmentField(config);
+      return new AttachmentField(config as any);
     
     case 'formula':
-      return new FormulaField(config);
+      return new FormulaField(config as any);
     
     case 'rollup':
     case 'count':
-      return new RollupField(config);
+      return new RollupField(config as any);
     
     // Auto number and system fields - treat as text
     case 'autoNumber':
@@ -79,16 +79,16 @@ export function createFieldInstance(field: IField): IFieldInstance {
     case 'lastModifiedTime':
     case 'createdBy':
     case 'lastModifiedBy':
-      return new TextField(config);
+      return new TextField(config as any);
     
     case 'button':
       // Button fields are special, treated as text for now
-      return new TextField(config);
+      return new TextField(config as any);
 
     default:
       // Fallback to TextField for unknown types
       console.warn(`Unknown field type: ${field.type}, using TextField`);
-      return new TextField(config);
+      return new TextField(config as any);
   }
 }
 

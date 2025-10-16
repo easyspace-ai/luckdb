@@ -5,15 +5,25 @@ import React, { forwardRef, type ButtonHTMLAttributes, type HTMLAttributes, type
 export const cn = (...classes: Array<string | undefined | null | false>) =>
   classes.filter(Boolean).join(' ');
 
-export type ShimProps<T = HTMLDivElement> = HTMLAttributes<T> & { children?: React.ReactNode };
+export type ShimProps<T = HTMLDivElement> = HTMLAttributes<T> & { 
+  children?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: any;
+  side?: string;
+  [key: string]: any;
+};
 
 // Button
-export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(function Button(
-  { className, children, ...rest },
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: string;
+  [key: string]: any;
+}
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { className, variant, children, ...rest },
   ref
 ) {
   return (
-    <button ref={ref} className={cn('ld-btn', className)} {...rest}>
+    <button ref={ref} className={cn('ld-btn', variant && `ld-btn-${variant}`, className)} {...rest}>
       {children}
     </button>
   );
@@ -70,7 +80,7 @@ export const PopoverContent: React.FC<ShimProps> = ({ className, children, ...re
 
 // Command palette primitives
 export const Command: React.FC<ShimProps> = ({ children }) => <div className="ld-command">{children}</div>;
-export const CommandInput: React.FC<ShimProps<HTMLInputDivElement>> = ({ className, ...rest }) => (
+export const CommandInput: React.FC<ShimProps<HTMLInputElement>> = ({ className, ...rest }) => (
   <div className={cn('ld-command-input', className)} {...rest} />
 );
 export const CommandList: React.FC<ShimProps> = ({ children }) => <div className="ld-command-list">{children}</div>;

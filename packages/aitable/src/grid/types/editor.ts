@@ -1,9 +1,9 @@
 /**
  * Common editor props
  */
-export interface IBaseEditorProps {
-  value: unknown;
-  onChange: (value: unknown) => void;
+export interface IBaseEditorProps<T = unknown> {
+  value: T;
+  onChange: (value: T) => void;
   onSave?: () => void;
   onCancel?: () => void;
   readonly?: boolean;
@@ -26,7 +26,7 @@ export interface IEditorRect {
 /**
  * Date editor props
  */
-export interface IDateEditorProps extends IBaseEditorProps {
+export interface IDateEditorProps extends IBaseEditorProps<string | null> {
   value: string | null;
   format?: string;
   showTime?: boolean;
@@ -47,7 +47,7 @@ export interface ISelectOption {
 /**
  * Select editor props
  */
-export interface ISelectEditorProps extends IBaseEditorProps {
+export interface ISelectEditorProps extends IBaseEditorProps<string | string[] | null> {
   value: string | string[] | null;
   options: ISelectOption[];
   multiple?: boolean;
@@ -60,7 +60,7 @@ export interface ISelectEditorProps extends IBaseEditorProps {
 /**
  * Number editor props
  */
-export interface INumberEditorProps extends IBaseEditorProps {
+export interface INumberEditorProps extends IBaseEditorProps<number | null> {
   value: number | null;
   min?: number;
   max?: number;
@@ -75,7 +75,7 @@ export interface INumberEditorProps extends IBaseEditorProps {
 /**
  * Link editor props
  */
-export interface ILinkEditorProps extends IBaseEditorProps {
+export interface ILinkEditorProps extends IBaseEditorProps<string | null> {
   value: string | null;
   onChange: (value: string | null) => void;
   validateUrl?: boolean;
@@ -99,7 +99,7 @@ export interface IAttachmentFile {
 /**
  * Attachment editor props
  */
-export interface IAttachmentEditorProps extends IBaseEditorProps {
+export interface IAttachmentEditorProps extends IBaseEditorProps<any> {
   value: IAttachmentFile[] | null;
   maxFiles?: number;
   maxSize?: number;
@@ -122,7 +122,7 @@ export interface IUserInfo {
 /**
  * User editor props
  */
-export interface IUserEditorProps extends IBaseEditorProps {
+export interface IUserEditorProps extends IBaseEditorProps<any> {
   value: string | string[] | null;
   users: IUserInfo[];
   multiple?: boolean;

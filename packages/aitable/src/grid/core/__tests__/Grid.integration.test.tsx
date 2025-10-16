@@ -66,14 +66,14 @@ describe('Grid Integration Tests', () => {
 
     it('应该支持可拖拽配置', () => {
       const { container } = render(
-        <Grid {...defaultProps} draggable="all" />
+        <Grid {...defaultProps} draggable={'all' as any} />
       );
       expect(container.firstChild).toBeTruthy();
     });
 
     it('应该支持可选择配置', () => {
       const { container} = render(
-        <Grid {...defaultProps} selectable="all" />
+        <Grid {...defaultProps} selectable={'all' as any} />
       );
       expect(container.firstChild).toBeTruthy();
     });

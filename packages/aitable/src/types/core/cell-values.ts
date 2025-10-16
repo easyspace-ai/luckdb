@@ -9,30 +9,30 @@ import { FieldType, FIELD_TYPES } from './field-types';
  * User reference interface
  */
 export interface UserReference {
-  readonly id: string;
-  readonly name: string;
-  readonly email?: string;
-  readonly avatar?: string;
+  id: string;
+  name: string;
+  email?: string;
+  avatar?: string;
 }
 
 /**
  * Attachment interface
  */
 export interface Attachment {
-  readonly id: string;
-  readonly name: string;
-  readonly url: string;
-  readonly size: number;
-  readonly type: string;
-  readonly thumbnailUrl?: string;
+  id: string;
+  name: string;
+  url: string;
+  size: number;
+  type: string;
+  thumbnailUrl?: string;
 }
 
 /**
  * Link record reference
  */
 export interface LinkRecord {
-  readonly id: string;
-  readonly title?: string;
+  id: string;
+  title?: string;
 }
 
 /**
@@ -43,15 +43,15 @@ export type CellValueMap = {
   [FIELD_TYPES.LongText]: string | null;
   [FIELD_TYPES.Number]: number | null;
   [FIELD_TYPES.SingleSelect]: string | null;
-  [FIELD_TYPES.MultipleSelect]: readonly string[] | null;
+  [FIELD_TYPES.MultipleSelect]: string[] | null;
   [FIELD_TYPES.Date]: string | null; // ISO date string
   [FIELD_TYPES.Checkbox]: boolean | null;
   [FIELD_TYPES.Rating]: number | null;
-  [FIELD_TYPES.Link]: readonly LinkRecord[] | null;
-  [FIELD_TYPES.User]: readonly UserReference[] | null;
+  [FIELD_TYPES.Link]: LinkRecord[] | null;
+  [FIELD_TYPES.User]: UserReference[] | null;
   [FIELD_TYPES.CreatedBy]: UserReference | null;
   [FIELD_TYPES.LastModifiedBy]: UserReference | null;
-  [FIELD_TYPES.Attachment]: readonly Attachment[] | null;
+  [FIELD_TYPES.Attachment]: Attachment[] | null;
   [FIELD_TYPES.Formula]: string | number | boolean | null;
   [FIELD_TYPES.Rollup]: number | null;
   [FIELD_TYPES.Count]: number | null;
@@ -96,15 +96,15 @@ export type InputValueMap = {
   [FIELD_TYPES.LongText]: string;
   [FIELD_TYPES.Number]: string | number;
   [FIELD_TYPES.SingleSelect]: string;
-  [FIELD_TYPES.MultipleSelect]: readonly string[];
+  [FIELD_TYPES.MultipleSelect]: string[];
   [FIELD_TYPES.Date]: string | Date;
   [FIELD_TYPES.Checkbox]: boolean;
   [FIELD_TYPES.Rating]: number;
-  [FIELD_TYPES.Link]: readonly string[]; // Record IDs
-  [FIELD_TYPES.User]: readonly string[]; // User IDs
+  [FIELD_TYPES.Link]: string[]; // Record IDs
+  [FIELD_TYPES.User]: string[]; // User IDs
   [FIELD_TYPES.CreatedBy]: string; // User ID
   [FIELD_TYPES.LastModifiedBy]: string; // User ID
-  [FIELD_TYPES.Attachment]: readonly File[] | readonly Attachment[];
+  [FIELD_TYPES.Attachment]: File[] | Attachment[];
   [FIELD_TYPES.Formula]: never; // Formulas are computed, not input
   [FIELD_TYPES.Rollup]: never; // Rollups are computed, not input
   [FIELD_TYPES.Count]: never; // Counts are computed, not input
@@ -152,7 +152,7 @@ export const CellValueGuards = {
   /**
    * Check if value is a valid string array cell value
    */
-  isStringArrayValue(value: unknown): value is readonly string[] | null {
+  isStringArrayValue(value: unknown): value is string[] | null {
     return Array.isArray(value) && value.every(item => typeof item === 'string') || value === null;
   },
 
@@ -173,7 +173,7 @@ export const CellValueGuards = {
   /**
    * Check if value is a valid user reference array
    */
-  isUserReferenceArray(value: unknown): value is readonly UserReference[] | null {
+  isUserReferenceArray(value: unknown): value is UserReference[] | null {
     return Array.isArray(value) && value.every(CellValueGuards.isUserReference) || value === null;
   },
 
@@ -200,7 +200,7 @@ export const CellValueGuards = {
   /**
    * Check if value is a valid attachment array
    */
-  isAttachmentArray(value: unknown): value is readonly Attachment[] | null {
+  isAttachmentArray(value: unknown): value is Attachment[] | null {
     return Array.isArray(value) && value.every(CellValueGuards.isAttachment) || value === null;
   },
 
@@ -219,7 +219,7 @@ export const CellValueGuards = {
   /**
    * Check if value is a valid link record array
    */
-  isLinkRecordArray(value: unknown): value is readonly LinkRecord[] | null {
+  isLinkRecordArray(value: unknown): value is LinkRecord[] | null {
     return Array.isArray(value) && value.every(CellValueGuards.isLinkRecord) || value === null;
   },
 };

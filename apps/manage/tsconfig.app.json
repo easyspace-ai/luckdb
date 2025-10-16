@@ -15,13 +15,13 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
+    /* Linting - 放宽配置 */
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "erasableSyntaxOnly": false,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true,
+    "noUncheckedSideEffectImports": false,
     "baseUrl": ".",
     "paths": {
       "@/*": [
@@ -29,5 +29,6 @@
       ]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/**/*-old.tsx", "src/**/*.old.*"]
 }

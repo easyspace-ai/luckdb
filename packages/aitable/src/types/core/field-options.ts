@@ -51,7 +51,7 @@ export interface SelectOption {
  */
 export interface SingleSelectFieldOptions extends BaseFieldOptions {
   readonly type: typeof FIELD_TYPES.SingleSelect;
-  readonly options: readonly SelectOption[];
+  readonly options: SelectOption[];
   readonly defaultValue?: string;
 }
 
@@ -60,8 +60,8 @@ export interface SingleSelectFieldOptions extends BaseFieldOptions {
  */
 export interface MultipleSelectFieldOptions extends BaseFieldOptions {
   readonly type: typeof FIELD_TYPES.MultipleSelect;
-  readonly options: readonly SelectOption[];
-  readonly defaultValue?: readonly string[];
+  readonly options: SelectOption[];
+  readonly defaultValue?: string[];
 }
 
 /**
@@ -118,7 +118,7 @@ export interface UserFieldOptions extends BaseFieldOptions {
  */
 export interface AttachmentFieldOptions extends BaseFieldOptions {
   readonly type: typeof FIELD_TYPES.Attachment;
-  readonly allowedTypes?: readonly string[];
+  readonly allowedTypes?: string[];
   readonly maxSize?: number; // in bytes
   readonly maxCount?: number;
 }
@@ -129,7 +129,7 @@ export interface AttachmentFieldOptions extends BaseFieldOptions {
 export interface FormulaFieldOptions extends BaseFieldOptions {
   readonly type: typeof FIELD_TYPES.Formula;
   readonly expression: string;
-  readonly referencedFieldIds?: readonly string[];
+  readonly referencedFieldIds?: string[];
   readonly formatting?: NumberFieldOptions['formatting'];
 }
 

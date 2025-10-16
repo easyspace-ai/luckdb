@@ -1,7 +1,7 @@
 // Placeholder for grid columns functionality
 export const useGridColumns = () => {
   return {
-    columns: [],
+    columns: [] as any[],
     // Placeholder implementation
   };
 };

@@ -1,10 +1,5 @@
 import { create } from 'zustand';
-
-interface Table {
-  id: string;
-  name: string;
-  description?: string;
-}
+import type { Table } from '../types';
 
 interface TableState {
   tables: Table[];

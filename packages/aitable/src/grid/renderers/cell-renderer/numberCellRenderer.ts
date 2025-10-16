@@ -113,7 +113,7 @@ export const numberCellRenderer: IInternalCellRenderer<INumberCell> = {
     }
 
     let curY = y + cellVerticalPaddingMD;
-    displayData.forEach((text, index) => {
+    displayData.forEach((text: any, index: number) => {
       const isLast = index === displayData.length - 1;
       drawMultiLineText(ctx, {
         x: textX,

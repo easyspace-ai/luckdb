@@ -196,7 +196,7 @@ export function safeMerge<T extends Record<string, unknown>>(
   target: T,
   source: Record<string, unknown>
 ): T {
-  const result = { ...target };
+  const result = { ...target } as any;
   
   for (const [key, value] of Object.entries(source)) {
     if (isObject(value) && isObject(result[key])) {
@@ -229,7 +229,7 @@ export function safeArrayFilter<T>(
     return [];
   }
   
-  return array.filter((item, index) => predicate(item as T, index));
+  return array.filter((item, index) => predicate(item as T, index)) as any;
 }
 
 export function safeArrayFind<T>(

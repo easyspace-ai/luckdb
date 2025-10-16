@@ -18,7 +18,7 @@ export interface StrictFieldConfig<T extends FieldType = FieldType> {
   readonly tableId: string;
   readonly options: GetFieldOptions<T>;
   readonly description?: string;
-  readonly isComputed: boolean;
+  isComputed: boolean;
   readonly isPrimary: boolean;
   readonly createdTime?: string;
   readonly lastModifiedTime?: string;
@@ -35,7 +35,7 @@ export interface IFieldConfig {
   readonly tableId: string;
   readonly options: any;
   readonly description?: string;
-  readonly isComputed: boolean;
+  isComputed: boolean;
   readonly isPrimary: boolean;
   readonly createdTime?: string;
   readonly lastModifiedTime?: string;
@@ -51,7 +51,7 @@ export abstract class Field<T extends FieldType = FieldType> {
   public readonly tableId: string;
   public readonly options: GetFieldOptions<T>;
   public readonly description?: string;
-  public readonly isComputed: boolean;
+  public isComputed: boolean;
   public readonly isPrimary: boolean;
   public readonly createdTime?: string;
   public readonly lastModifiedTime?: string;
