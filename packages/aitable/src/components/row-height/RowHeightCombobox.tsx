@@ -148,7 +148,8 @@ export function RowHeightCombobox({
         )}
         style={{
           borderColor: isOpen ? tokens.colors.border.focus : tokens.colors.border.subtle,
-          focusRingColor: tokens.colors.border.focus,
+          outline: isOpen ? `2px solid ${tokens.colors.border.focus}` : 'none',
+          outlineOffset: '2px',
         }}
         onKeyDown={handleKeyDown}
         aria-expanded={isOpen}

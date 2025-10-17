@@ -638,6 +638,10 @@ export class LuckDB {
     this.httpClient.clearTokens();
   }
 
+  public setTokenRefreshCallback(callback: (accessToken: string, refreshToken: string) => void): void {
+    this.httpClient.setTokenRefreshCallback(callback);
+  }
+
   // ==================== 客户端访问器 ====================
 
   /**

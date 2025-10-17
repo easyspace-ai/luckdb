@@ -25,6 +25,7 @@ export class HttpClient {
   private config: LuckDBConfig;
   private accessToken: string | undefined;
   private refreshToken: string | undefined;
+  private onTokenRefresh?: (accessToken: string, refreshToken: string) => void;
 
   constructor(config: LuckDBConfig) {
     this.config = config;
@@ -193,6 +194,11 @@ export class HttpClient {
 
       // 更新默认请求头
       this.axiosInstance.defaults.headers['Authorization'] = `Bearer ${this.accessToken}`;
+
+      // 触发 token 刷新回调
+      if (this.onTokenRefresh) {
+        this.onTokenRefresh(this.accessToken, this.refreshToken);
+      }
     } catch (error) {
       this.clearTokensInternal();
       throw new AuthenticationError('Failed to refresh access token');
@@ -216,6 +222,10 @@ export class HttpClient {
 
   public clearTokens(): void {
     this.clearTokensInternal();
+  }
+
+  public setTokenRefreshCallback(callback: (accessToken: string, refreshToken: string) => void): void {
+    this.onTokenRefresh = callback;
   }
 
   public async get<T = any>(

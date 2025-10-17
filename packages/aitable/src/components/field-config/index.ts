@@ -21,6 +21,8 @@ export * from './field-configurations';
 // 类型导出
 export type { AddFieldDialogProps } from './AddFieldDialog';
 export type { EditFieldDialogProps, FieldConfig as EditFieldConfig } from './EditFieldDialog';
-export type { FieldConfig } from './AddFieldDialog.v2';
+export type { FieldTypeConfig } from './AddFieldDialog.v2';
 export type { FieldContextMenuProps } from './FieldContextMenu';
 export type { FieldConfigComboboxProps } from './FieldConfigCombobox';
+export type { FieldConfigPanelProps } from './FieldConfigPanel';
+export type { FieldConfig } from './FieldConfigPanel';
