@@ -203,7 +203,7 @@ export default function TableEditor() {
 
   return (
     <TableEditorLayout>
-      <div className="h-screen flex flex-col">
+      <div className="h-full flex flex-col">
         {/* StandardDataView - 极简配置，使用所有内置功能 */}
         {baseId && tableId && viewId ? (
           <AppProviders

@@ -72,3 +72,6 @@ build-errors.log
 /api/swagger/docs.go
 /api/swagger/swagger.json
 /api/swagger/swagger.yaml
+
+# 前端静态文件 (由构建脚本复制)
+/internal/interfaces/http/web/

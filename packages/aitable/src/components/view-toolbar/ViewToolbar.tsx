@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { FieldConfigCombobox, type FieldConfig } from '../field-config';
 import { RowHeightCombobox, type RowHeight } from '../row-height';
+import { FilterManager, type FilterField, type FilterCondition } from '../filter';
 
 export interface ToolbarConfig {
   showUndoRedo?: boolean;
@@ -54,6 +55,12 @@ export interface ViewToolbarProps {
   // 行高配置
   rowHeight?: RowHeight;
   onRowHeightChange?: (rowHeight: RowHeight) => void;
+  
+  // 过滤配置
+  filterFields?: FilterField[];
+  filterConditions?: FilterCondition[];
+  onFilterConditionsChange?: (conditions: FilterCondition[]) => void;
+  onFilteredDataChange?: (filteredData: any[]) => void;
   
   // 操作回调
   onAddRecord?: () => void;
@@ -98,6 +105,10 @@ export function ViewToolbar({
   onFieldFreeze,
   rowHeight = 'medium',
   onRowHeightChange,
+  filterFields,
+  filterConditions = [],
+  onFilterConditionsChange,
+  onFilteredDataChange,
   onAddRecord,
   onUndo,
   onRedo,
@@ -175,15 +186,16 @@ export function ViewToolbar({
 
       {/* 数据操作组 */}
       <div className="flex items-center gap-2">
-        {mergedConfig.showFilter && onFilter && (
-          <Button
-            variant="secondary"
-            size={'sm'}
-            icon={Filter}
-            onClick={onFilter}
-          >
-            {!isMobile && '筛选'}
-          </Button>
+        {mergedConfig.showFilter && filterFields && (
+          <FilterManager
+            data={[]} // 数据由父组件管理
+            fields={filterFields}
+            conditions={filterConditions}
+            onConditionsChange={onFilterConditionsChange || (() => {})}
+            onFilteredDataChange={onFilteredDataChange}
+            buttonVariant="default"
+            buttonSize="sm"
+          />
         )}
 
         {mergedConfig.showSort && onSort && (

@@ -29,6 +29,7 @@ import type { IGridProps, IGridRef } from '../grid/core/Grid';
 import type { EmptyStateProps, ErrorStateProps } from './states';
 import type { FieldConfig } from './field-config';
 import type { RowHeight } from './row-height';
+import type { FilterField, FilterCondition } from './filter';
 import {
   AddFieldDialogV2, 
   EditFieldDialog,
@@ -104,6 +105,12 @@ export interface StandardDataViewProps {
   rowHeight?: RowHeight;
   onRowHeightChange?: (rowHeight: RowHeight) => void;
 
+  // 过滤配置
+  filterFields?: FilterField[];
+  filterConditions?: FilterCondition[];
+  onFilterConditionsChange?: (conditions: FilterCondition[]) => void;
+  onFilteredDataChange?: (filteredData: any[]) => void;
+
   // 工具栏配置
   toolbarConfig?: ToolbarConfig;
   onToolbar?: {
@@ -177,6 +184,10 @@ export function StandardDataView(props: StandardDataViewProps) {
     fieldConfigMode = 'combobox',
     rowHeight: controlledRowHeight = 'medium',
     onRowHeightChange,
+    filterFields,
+    filterConditions = [],
+    onFilterConditionsChange,
+    onFilteredDataChange,
     toolbarConfig,
     onToolbar,
     gridProps,
@@ -541,21 +552,25 @@ export function StandardDataView(props: StandardDataViewProps) {
       {showToolbar && activeKey === 'table' && (
         <ViewToolbar
           config={toolbarConfig}
-             fields={fields}
+          fields={fields}
           fieldConfigMode={fieldConfigMode}
           onFieldToggle={onFieldToggle}
           onFieldReorder={onFieldReorder}
           onFieldEdit={onFieldEdit}
           onFieldDelete={onFieldDelete}
           onFieldGroup={onFieldGroup}
-             onFieldCopy={onFieldCopy}
-             onFieldInsertLeft={onFieldInsertLeft}
-             onFieldInsertRight={onFieldInsertRight}
-             onFieldFilter={onFieldFilter}
-             onFieldSort={onFieldSort}
-             onFieldFreeze={onFieldFreeze}
+          onFieldCopy={onFieldCopy}
+          onFieldInsertLeft={onFieldInsertLeft}
+          onFieldInsertRight={onFieldInsertRight}
+          onFieldFilter={onFieldFilter}
+          onFieldSort={onFieldSort}
+          onFieldFreeze={onFieldFreeze}
           rowHeight={rowHeightState}
           onRowHeightChange={handleRowHeightChange}
+          filterFields={filterFields}
+          filterConditions={filterConditions}
+          onFilterConditionsChange={onFilterConditionsChange}
+          onFilteredDataChange={onFilteredDataChange}
           onAddRecord={() => setShowAddRecordDialog(true)}
           onUndo={onToolbar?.onUndo}
           onRedo={onToolbar?.onRedo}

@@ -1,13 +1,43 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { cn, tokens, transitions, elevation } from '../../grid/design-system';
+/**
+ * FieldConfigCombobox - 字段配置下拉组件（重构版）
+ * 
+ * 设计原则：
+ * 1. 基于统一的 Combobox 基类
+ * 2. 真实图标替代 emoji
+ * 3. 纯 Tailwind 实现
+ * 4. 简化的交互逻辑
+ * 5. 拖拽排序支持
+ */
+
+import React, { useState, useCallback } from 'react';
+import { cn, tokens } from '../../grid/design-system';
+import { Combobox, type ComboboxOption } from '../ui/Combobox';
 import { 
   Eye, 
   EyeOff, 
   GripVertical, 
   MoreHorizontal, 
-  ChevronDown,
   Settings,
-  Lock
+  Lock,
+  Type,
+  Hash,
+  Circle,
+  CheckSquare,
+  Calendar,
+  Paperclip,
+  Mail,
+  Phone,
+  Link,
+  Star,
+  FunctionSquare,
+  Search,
+  Calculator,
+  Clock,
+  Edit3,
+  UserPlus,
+  UserCheck,
+  FileText,
+  type LucideIcon
 } from 'lucide-react';
 import { FieldContextMenu } from './FieldContextMenu';
 
@@ -38,6 +68,169 @@ export interface FieldConfigComboboxProps {
   className?: string;
 }
 
+/**
+ * 字段类型图标映射
+ */
+const FIELD_TYPE_ICONS: Record<string, LucideIcon> = {
+  text: Type,
+  number: Hash,
+  singleSelect: Circle,
+  multipleSelect: CheckSquare,
+  date: Calendar,
+  attachment: Paperclip,
+  checkbox: CheckSquare,
+  email: Mail,
+  phone: Phone,
+  url: Link,
+  rating: Star,
+  formula: FunctionSquare,
+  lookup: Search,
+  rollup: Calculator,
+  createdTime: Clock,
+  lastModifiedTime: Edit3,
+  createdBy: UserPlus,
+  lastModifiedBy: UserCheck,
+};
+
+/**
+ * 获取字段类型图标
+ */
+function getFieldIcon(type: string): LucideIcon {
+  return FIELD_TYPE_ICONS[type] || FileText;
+}
+
+/**
+ * 字段配置选项组件
+ */
+interface FieldOptionProps {
+  field: FieldConfig;
+  index: number;
+  onToggle: (fieldId: string, visible: boolean) => void;
+  onContextMenu: (fieldId: string, event: React.MouseEvent) => void;
+  onDragStart: (index: number, event: React.DragEvent) => void;
+  onDragEnd: (event: React.DragEvent) => void;
+  onDragOver: (event: React.DragEvent) => void;
+  onDrop: (index: number, event: React.DragEvent) => void;
+  isDragging?: boolean;
+}
+
+function FieldOption({
+  field,
+  index,
+  onToggle,
+  onContextMenu,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
+  isDragging = false,
+}: FieldOptionProps) {
+  const FieldIcon = getFieldIcon(field.type);
+  
+  return (
+    <div
+      draggable={!field.locked}
+      onDragStart={(e) => onDragStart(index, e)}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDrop={(e) => onDrop(index, e)}
+      onContextMenu={(e) => !field.locked && onContextMenu(field.id, e)}
+      className={cn(
+        'flex items-center gap-3 px-3 py-2',
+        'border-b border-gray-100 last:border-b-0',
+        'transition-all duration-150',
+        'hover:bg-gray-50',
+        isDragging && 'opacity-50',
+        field.locked && 'bg-gray-50'
+      )}
+      style={{
+        borderBottomColor: tokens.colors.border.subtle,
+      }}
+    >
+      {/* 拖拽手柄 */}
+      {!field.locked && (
+        <GripVertical 
+          size={14} 
+          className="text-gray-400 cursor-grab hover:text-gray-600 flex-shrink-0"
+          style={{ color: tokens.colors.text.tertiary }}
+        />
+      )}
+
+      {/* 锁定图标 */}
+      {field.locked && (
+        <Lock 
+          size={14} 
+          className="text-gray-400 flex-shrink-0"
+          style={{ color: tokens.colors.text.tertiary }}
+        />
+      )}
+
+      {/* 字段图标和名称 */}
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <FieldIcon 
+          size={16} 
+          className="text-gray-500 flex-shrink-0"
+          style={{ color: tokens.colors.text.secondary }}
+        />
+        <div className="flex-1 min-w-0">
+          <div 
+            className={cn(
+              'text-sm truncate',
+              field.locked ? 'font-semibold' : 'font-medium'
+            )}
+            style={{ color: tokens.colors.text.primary }}
+            title={field.name}
+          >
+            {field.name}
+          </div>
+          <div 
+            className="text-xs truncate mt-0.5"
+            style={{ color: tokens.colors.text.tertiary }}
+          >
+            {field.type}
+          </div>
+        </div>
+      </div>
+
+      {/* 显示/隐藏切换 */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle(field.id, !field.visible);
+        }}
+        className={cn(
+          'p-1 rounded transition-colors duration-150',
+          'hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500'
+        )}
+        style={{
+          color: field.visible ? tokens.colors.text.primary : tokens.colors.text.tertiary,
+        }}
+        aria-label={field.visible ? '隐藏字段' : '显示字段'}
+      >
+        {field.visible ? <Eye size={14} /> : <EyeOff size={14} />}
+      </button>
+
+      {/* 更多操作菜单 */}
+      {!field.locked && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onContextMenu(field.id, e);
+          }}
+          className={cn(
+            'p-1 rounded transition-colors duration-150',
+            'hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500'
+          )}
+          style={{ color: tokens.colors.text.secondary }}
+          aria-label="更多操作"
+        >
+          <MoreHorizontal size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function FieldConfigCombobox({
   fields,
   onFieldToggle,
@@ -54,45 +247,12 @@ export function FieldConfigCombobox({
   disabled = false,
   className,
 }: FieldConfigComboboxProps) {
-  const [isOpen, setIsOpen] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [showContextMenu, setShowContextMenu] = useState<string | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
-  
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // 点击外部关闭
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
-        triggerRef.current && 
-        typeof triggerRef.current.contains === 'function' &&
-        !triggerRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-        setShowContextMenu(null);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [isOpen]);
-
-  // 键盘导航
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      setIsOpen(false);
-      setShowContextMenu(null);
-    }
-  }, []);
 
   // 拖拽开始
-  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+  const handleDragStart = useCallback((index: number, e: React.DragEvent) => {
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/html', e.currentTarget.outerHTML);
@@ -120,30 +280,8 @@ export function FieldConfigCombobox({
     setDraggedIndex(null);
   }, [draggedIndex, onFieldReorder]);
 
-  // 获取字段类型图标
-  const getFieldIcon = (type: string) => {
-    switch (type) {
-      case 'text':
-        return '📝';
-      case 'number':
-        return '🔢';
-      case 'singleSelect':
-        return '🔘';
-      case 'multipleSelect':
-        return '☑️';
-      case 'date':
-        return '📅';
-      case 'attachment':
-        return '📎';
-      case 'checkbox':
-        return '☑️';
-      default:
-        return '📄';
-    }
-  };
-
   // 上下文菜单处理
-  const handleContextMenu = useCallback((e: React.MouseEvent, fieldId: string) => {
+  const handleContextMenu = useCallback((fieldId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -155,177 +293,53 @@ export function FieldConfigCombobox({
     setShowContextMenu(fieldId);
   }, []);
 
+  // 构建选项数据
+  const options: ComboboxOption<FieldConfig>[] = fields.map(field => ({
+    value: field,
+    label: field.name,
+    icon: getFieldIcon(field.type),
+    disabled: field.locked,
+    description: field.type,
+  }));
+
+  // 自定义渲染触发器
+  const renderTrigger = useCallback(() => (
+    <div className="flex items-center gap-2">
+      <Settings size={14} />
+      <span>字段配置</span>
+    </div>
+  ), []);
+
+  // 自定义渲染选项
+  const renderOption = useCallback((option: ComboboxOption<FieldConfig>, isSelected: boolean) => (
+    <FieldOption
+      field={option.value}
+      index={fields.findIndex(f => f.id === option.value.id)}
+      onToggle={onFieldToggle}
+      onContextMenu={handleContextMenu}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      isDragging={draggedIndex === fields.findIndex(f => f.id === option.value.id)}
+    />
+  ), [fields, onFieldToggle, handleContextMenu, handleDragStart, handleDragEnd, handleDragOver, handleDrop, draggedIndex]);
+
   return (
     <div className={cn('relative', className)}>
-      {/* 触发器按钮 */}
-      <button
-        ref={triggerRef}
-        onClick={() => setIsOpen(!isOpen)}
+      <Combobox
+        value={null}
+        onChange={() => {}} // 不需要选择，只是展示
+        options={options}
+        placeholder="字段配置"
         disabled={disabled}
-        className={cn(
-          'flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md',
-          'border border-solid transition-all duration-200',
-          'focus:outline-none focus:ring-2 focus:ring-offset-1',
-          disabled 
-            ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
-            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400',
-          isOpen && !disabled && 'bg-gray-50 border-gray-400'
-        )}
-        style={{
-          borderColor: isOpen ? tokens.colors.border.focus : tokens.colors.border.subtle,
-          outline: isOpen ? `2px solid ${tokens.colors.border.focus}` : 'none',
-          outlineOffset: '2px',
-        }}
-        onKeyDown={handleKeyDown}
-        aria-expanded={isOpen}
-        aria-haspopup="listbox"
-        aria-label="字段配置"
-      >
-        <Settings size={14} />
-        字段配置
-        <ChevronDown 
-          size={12} 
-          className={cn(
-            'transition-transform duration-200',
-            isOpen && 'rotate-180'
-          )}
-        />
-      </button>
-
-      {/* 下拉面板 */}
-      {isOpen && !disabled && (
-        <div
-          ref={dropdownRef}
-          className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
-          style={{
-            backgroundColor: tokens.colors.surface.base,
-            borderColor: tokens.colors.border.subtle,
-            boxShadow: elevation.lg,
-          }}
-          onKeyDown={handleKeyDown}
-          role="listbox"
-          aria-label="字段配置列表"
-        >
-          {/* 面板标题 */}
-          <div
-            className="px-4 py-3 border-b border-gray-200"
-            style={{
-              borderBottomColor: tokens.colors.border.subtle,
-            }}
-          >
-            <h3 className="text-sm font-semibold text-gray-900" style={{ color: tokens.colors.text.primary }}>
-              字段配置
-            </h3>
-            <p className="text-xs text-gray-500 mt-1" style={{ color: tokens.colors.text.secondary }}>
-              管理字段的显示、排序和属性
-            </p>
-          </div>
-
-          {/* 字段列表 */}
-          <div className="max-h-80 overflow-y-auto">
-            {fields.map((field, index) => (
-              <div
-                key={field.id}
-                draggable={!field.locked}
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragEnd={handleDragEnd}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, index)}
-                onContextMenu={(e) => !field.locked && handleContextMenu(e, field.id)}
-                className={cn(
-                  'flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-b-0',
-                  'transition-colors duration-150',
-                  'hover:bg-gray-50',
-                  showContextMenu === field.id && 'bg-gray-50'
-                )}
-                style={{
-                  borderBottomColor: tokens.colors.border.subtle,
-                  backgroundColor: showContextMenu === field.id ? tokens.colors.surface.hover : 'transparent',
-                }}
-                role="option"
-                aria-selected={false}
-              >
-                {/* 拖拽手柄 */}
-                {!field.locked && (
-                  <GripVertical 
-                    size={14} 
-                    className="text-gray-400 cursor-grab hover:text-gray-600"
-                    style={{ color: tokens.colors.text.tertiary }}
-                  />
-                )}
-
-                {/* 锁定图标 */}
-                {field.locked && (
-                  <Lock 
-                    size={14} 
-                    className="text-gray-400"
-                    style={{ color: tokens.colors.text.tertiary }}
-                  />
-                )}
-
-                {/* 字段图标和名称 */}
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <span className="text-base flex-shrink-0">
-                    {getFieldIcon(field.type)}
-                  </span>
-                  <span 
-                    className={cn(
-                      'text-sm truncate',
-                      field.locked ? 'font-semibold' : 'font-medium'
-                    )}
-                    style={{ color: tokens.colors.text.primary }}
-                    title={field.name}
-                  >
-                    {field.name}
-                  </span>
-                </div>
-
-                {/* 显示/隐藏切换 */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onFieldToggle(field.id, !field.visible);
-                  }}
-                  className={cn(
-                    'p-1 rounded transition-colors duration-150',
-                    'hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500'
-                  )}
-                  style={{
-                    color: field.visible ? tokens.colors.text.primary : tokens.colors.text.tertiary,
-                  }}
-                  aria-label={field.visible ? '隐藏字段' : '显示字段'}
-                >
-                  {field.visible ? <Eye size={14} /> : <EyeOff size={14} />}
-                </button>
-
-                {/* 更多操作菜单 */}
-                {!field.locked && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      setContextMenuPosition({
-                        x: rect.right,
-                        y: rect.top,
-                      });
-                      setShowContextMenu(showContextMenu === field.id ? null : field.id);
-                    }}
-                    className={cn(
-                      'p-1 rounded transition-colors duration-150',
-                      'hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500'
-                    )}
-                    style={{ color: tokens.colors.text.secondary }}
-                    aria-label="更多操作"
-                  >
-                    <MoreHorizontal size={14} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-
-        </div>
-      )}
+        size="sm"
+        variant="default"
+        searchable
+        renderTrigger={renderTrigger}
+        renderOption={renderOption}
+        className="min-w-[120px]"
+      />
 
       {/* 上下文菜单 */}
       <FieldContextMenu

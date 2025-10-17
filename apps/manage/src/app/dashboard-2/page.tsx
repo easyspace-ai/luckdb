@@ -123,12 +123,12 @@ export default function Dashboard() {
   }
 
 
-  // 监听 Cmd/Ctrl+N 创建空间
+  // 监听 Cmd/Ctrl+N 创建数据库
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === 'n' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
-        setCreateSpaceDialogOpen(true)
+        setCreateBaseDialogOpen(true)
       }
     }
     document.addEventListener('keydown', down)
@@ -242,7 +242,8 @@ export default function Dashboard() {
                 variant="outline"
                 onClick={() => {
                   setCreateBaseDialogOpen(false);
-                  setSelectedSpaceId(null);
+                  setNewBaseName('');
+                  setNewBaseDescription('');
                 }}
                 disabled={creatingBase}
               >

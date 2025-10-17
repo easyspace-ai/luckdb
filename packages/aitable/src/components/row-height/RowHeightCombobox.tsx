@@ -1,18 +1,23 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { cn, tokens, transitions, elevation } from '../../grid/design-system';
-import { 
-  ChevronDown,
-  Check,
-  Minus,
-  Square
-} from 'lucide-react';
+/**
+ * RowHeightCombobox - 行高配置下拉组件（重构版）
+ * 
+ * 设计原则：
+ * 1. 基于统一的 Combobox 基类
+ * 2. 纯 Tailwind 实现
+ * 3. 简化的交互逻辑
+ * 4. 视觉化的行高预览
+ */
+
+import React from 'react';
+import { Combobox, type ComboboxOption } from '../ui/Combobox';
+import { ChevronDown, Check, type LucideIcon } from 'lucide-react';
 
 export type RowHeight = 'short' | 'medium' | 'tall' | 'extra-tall';
 
 export interface RowHeightOption {
   value: RowHeight;
   label: string;
-  icon: React.ComponentType<any>;
+  icon: LucideIcon;
 }
 
 export interface RowHeightComboboxProps {
@@ -22,62 +27,64 @@ export interface RowHeightComboboxProps {
   className?: string;
 }
 
-const rowHeightOptions: RowHeightOption[] = [
+/**
+ * 行高预览图标组件
+ */
+interface RowHeightIconProps {
+  height: RowHeight;
+  size?: number;
+}
+
+function RowHeightIcon({ height, size = 16 }: RowHeightIconProps) {
+  const getGap = () => {
+    switch (height) {
+      case 'short': return 'gap-0.5';
+      case 'medium': return 'gap-1';
+      case 'tall': return 'gap-1.5';
+      case 'extra-tall': return 'gap-2';
+      default: return 'gap-1';
+    }
+  };
+
+  return (
+    <div className={cn('flex items-center gap-1')}>
+      <div className={cn('flex flex-col', getGap())}>
+        <div className="w-3 h-0.5 bg-current opacity-60"></div>
+        <div className="w-4 h-0.5 bg-current"></div>
+        <div className="w-3 h-0.5 bg-current opacity-60"></div>
+      </div>
+      <ChevronDown size={size * 0.75} className="opacity-50" />
+    </div>
+  );
+}
+
+/**
+ * 行高选项配置
+ */
+const rowHeightOptions: ComboboxOption<RowHeight>[] = [
   {
     value: 'short',
     label: '低',
-    icon: () => (
-      <div className="flex items-center gap-1">
-        <div className="flex flex-col gap-0.5">
-          <div className="w-3 h-0.5 bg-current"></div>
-          <div className="w-4 h-0.5 bg-current"></div>
-          <div className="w-3 h-0.5 bg-current"></div>
-        </div>
-        <ChevronDown size={12} className="opacity-50" />
-      </div>
-    ),
+    icon: () => <RowHeightIcon height="short" />,
+    description: '紧凑显示，适合大量数据',
   },
   {
     value: 'medium',
     label: '中等',
-    icon: () => (
-      <div className="flex items-center gap-1">
-        <div className="flex flex-col gap-1">
-          <div className="w-4 h-0.5 bg-current"></div>
-          <div className="w-4 h-0.5 bg-current"></div>
-          <div className="w-4 h-0.5 bg-current"></div>
-        </div>
-        <ChevronDown size={12} className="opacity-50" />
-      </div>
-    ),
+    icon: () => <RowHeightIcon height="medium" />,
+    description: '标准显示，平衡美观与效率',
   },
   {
     value: 'tall',
     label: '高',
-    icon: () => (
-      <div className="flex items-center gap-1">
-        <div className="flex flex-col gap-1.5">
-          <div className="w-4 h-0.5 bg-current"></div>
-          <div className="w-4 h-0.5 bg-current"></div>
-          <div className="w-4 h-0.5 bg-current"></div>
-        </div>
-        <ChevronDown size={12} className="opacity-50" />
-      </div>
-    ),
+    icon: () => <RowHeightIcon height="tall" />,
+    description: '宽松显示，提升可读性',
   },
   {
     value: 'extra-tall',
     label: '超高',
-    icon: () => (
-      <div className="flex items-center gap-1">
-        <div className="flex flex-col gap-2">
-          <div className="w-4 h-0.5 bg-current"></div>
-          <div className="w-4 h-0.5 bg-current"></div>
-          <div className="w-4 h-0.5 bg-current"></div>
-        </div>
-        <ChevronDown size={12} className="opacity-50" />
-      </div>
-    ),
+    icon: () => <RowHeightIcon height="extra-tall" />,
+    description: '最大显示，最佳可读性',
   },
 ];
 
@@ -87,182 +94,55 @@ export function RowHeightCombobox({
   disabled = false,
   className,
 }: RowHeightComboboxProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  // 自定义渲染选项
+  const renderOption = (option: ComboboxOption<RowHeight>, isSelected: boolean) => {
+    const IconComponent = option.icon;
+    
+    return (
+      <div className="flex items-center gap-3 px-3 py-2">
+        {/* 选中状态指示器 */}
+        <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+          {isSelected ? (
+            <Check size={12} className="text-blue-600" />
+          ) : (
+            <div className="w-3 h-3 rounded-full border border-gray-300" />
+          )}
+        </div>
 
-  // 点击外部关闭
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
-        triggerRef.current && 
-        typeof triggerRef.current.contains === 'function' &&
-        !triggerRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
+        {/* 图标 */}
+        <div className="flex-shrink-0">
+          <IconComponent />
+        </div>
 
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [isOpen]);
-
-  // 键盘导航
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      setIsOpen(false);
-    } else if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      setIsOpen(!isOpen);
-    }
-  }, [isOpen]);
-
-  // 选择行高
-  const handleSelect = useCallback((rowHeight: RowHeight) => {
-    onChange?.(rowHeight);
-    setIsOpen(false);
-  }, [onChange]);
-
-  const currentOption = rowHeightOptions.find(option => option.value === value);
+        {/* 内容 */}
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-sm">{option.label}</div>
+          {option.description && (
+            <div className="text-xs text-gray-500 mt-0.5">
+              {option.description}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className={cn('relative', className)}>
-      {/* 触发器按钮 */}
-      <button
-        ref={triggerRef}
-        onClick={() => setIsOpen(!isOpen)}
-        disabled={disabled}
-        className={cn(
-          'flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md',
-          'border border-solid transition-all duration-200',
-          'focus:outline-none focus:ring-2 focus:ring-offset-1',
-          disabled 
-            ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
-            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400',
-          isOpen && !disabled && 'bg-gray-50 border-gray-400'
-        )}
-        style={{
-          borderColor: isOpen ? tokens.colors.border.focus : tokens.colors.border.subtle,
-          outline: isOpen ? `2px solid ${tokens.colors.border.focus}` : 'none',
-          outlineOffset: '2px',
-        }}
-        onKeyDown={handleKeyDown}
-        aria-expanded={isOpen}
-        aria-haspopup="listbox"
-        aria-label="行高配置"
-      >
-        {/* 当前选中的图标 */}
-        {currentOption && (
-          <currentOption.icon />
-        )}
-        
-        {/* 当前选中的标签 */}
-        <span className="text-sm">
-          {currentOption?.label || '中等'}
-        </span>
-        
-        {/* 下拉箭头 */}
-        <ChevronDown 
-          size={14} 
-          className={cn(
-            'transition-transform duration-200',
-            isOpen && 'rotate-180'
-          )}
-        />
-      </button>
-
-      {/* 下拉面板 */}
-      {isOpen && !disabled && (
-        <div
-          ref={dropdownRef}
-          className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
-          style={{
-            backgroundColor: tokens.colors.surface.base,
-            borderColor: tokens.colors.border.subtle,
-            boxShadow: elevation.lg,
-          }}
-          onKeyDown={handleKeyDown}
-          role="listbox"
-          aria-label="行高选项"
-        >
-          {/* 面板标题 */}
-          <div
-            className="px-3 py-2 border-b border-gray-200"
-            style={{
-              borderBottomColor: tokens.colors.border.subtle,
-            }}
-          >
-            <h3 className="text-xs font-medium text-gray-500" style={{ color: tokens.colors.text.secondary }}>
-              行高配置
-            </h3>
-          </div>
-
-          {/* 选项列表 */}
-          <div className="py-1">
-            {rowHeightOptions.map((option) => {
-              const IconComponent = option.icon;
-              const isSelected = value === option.value;
-              
-              return (
-                <button
-                  key={option.value}
-                  onClick={() => handleSelect(option.value)}
-                  className={cn(
-                    'w-full flex items-center gap-3 px-3 py-2 text-sm',
-                    'hover:bg-gray-50 transition-colors duration-150',
-                    'focus:outline-none focus:bg-gray-50'
-                  )}
-                  style={{
-                    backgroundColor: isSelected ? tokens.colors.surface.selected : 'transparent',
-                    color: isSelected ? tokens.colors.text.accent : tokens.colors.text.primary,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isSelected) {
-                      e.currentTarget.style.backgroundColor = tokens.colors.surface.hover;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isSelected) {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }
-                  }}
-                  role="option"
-                  aria-selected={isSelected}
-                >
-                  {/* 选中状态指示器 */}
-                  <div className="w-4 h-4 flex items-center justify-center">
-                    {isSelected ? (
-                      <Check size={14} style={{ color: tokens.colors.text.accent }} />
-                    ) : (
-                      <div className="w-3 h-3 rounded-full border border-gray-300" />
-                    )}
-                  </div>
-
-                  {/* 图标 */}
-                  <div 
-                    className="flex-shrink-0"
-                    style={{ 
-                      color: isSelected ? tokens.colors.text.accent : tokens.colors.text.primary 
-                    }}
-                  >
-                    <IconComponent />
-                  </div>
-
-                  {/* 标签 */}
-                  <span className="flex-1 text-left">
-                    {option.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
+    <Combobox
+      value={value}
+      onChange={onChange}
+      options={rowHeightOptions}
+      placeholder="行高配置"
+      disabled={disabled}
+      size="sm"
+      variant="default"
+      renderOption={renderOption}
+      className={className}
+    />
   );
+}
+
+// 辅助函数：cn
+function cn(...classes: (string | undefined | null | false)[]): string {
+  return classes.filter(Boolean).join(' ');
 }

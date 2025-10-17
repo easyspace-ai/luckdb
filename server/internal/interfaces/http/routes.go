@@ -11,6 +11,9 @@ import (
 
 // SetupRoutes 设置所有API路由
 func SetupRoutes(router *gin.Engine, cont *container.Container) {
+	// 设置静态文件服务（前端应用）
+	setupStaticFiles(router)
+
 	// API v1路由组
 	v1 := router.Group("/api/v1")
 
@@ -358,4 +361,19 @@ func setupMonitoringRoutes(rg *gin.RouterGroup, cont *container.Container) {
 	{
 		monitoring.GET("/db-stats", handler.GetDBStats)
 	}
+}
+
+// setupStaticFiles 设置静态文件服务
+func setupStaticFiles(router *gin.Engine) {
+	// 创建静态文件处理器
+	staticHandler, err := NewStaticHandler(StaticFiles, "web")
+	if err != nil {
+		// 如果静态文件不存在，只打印警告，不影响API服务
+		println("Warning: Failed to setup static files:", err.Error())
+		return
+	}
+
+	// 使用 NoRoute 来处理所有未匹配的路由
+	// 这样可以支持前端的 SPA 路由
+	router.NoRoute(staticHandler.ServeSPA())
 }

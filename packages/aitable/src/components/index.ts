@@ -75,3 +75,10 @@ export type {
   FieldEditorProps 
 } from './add-record';
 
+// UI Components
+export { Combobox } from './ui/Combobox';
+export type { ComboboxProps, ComboboxOption } from './ui/Combobox';
+
+// Filter components
+export * from './filter';
+
