@@ -36,7 +36,7 @@ export const FieldSetting: React.FC<IFieldSettingProps> = (props) => {
           <div className="text-md w-full border-b px-4 py-3 font-semibold">{title}</div>
           <div className="flex-1 overflow-auto p-4">{/* TODO: FieldEditor */}</div>
           <div className="flex w-full shrink-0 justify-end gap-2 p-4">
-            <Button variant="outline" onClick={onCancel}>取消</Button>
+            <Button variant="secondary" onClick={onCancel}>取消</Button>
             <Button onClick={onSave} disabled={saving}>{saving ? '保存中...' : '保存'}</Button>
           </div>
         </div>

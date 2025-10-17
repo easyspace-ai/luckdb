@@ -85,15 +85,6 @@ export function DatabaseHeader({
 
         {/* 右侧：操作按钮 */}
         <div className="flex items-center gap-2">
-          {currentTable && (
-            <Badge variant="secondary" className="gap-1">
-              <Table className="h-3 w-3" />
-              {currentTable.recordCount || 0} 条记录
-            </Badge>
-          )}
-          
-          <Separator orientation="vertical" className="h-4" />
-          
           <Button variant="outline" size="sm" className="gap-2">
             <Share className="h-4 w-4" />
             分享

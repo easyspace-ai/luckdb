@@ -96,7 +96,7 @@ export function DatabaseSidebar({
 
   if (loading) {
     return (
-      <div className="w-64 border-r bg-muted/20 p-4">
+      <div className="w-64 bg-muted/20 p-4" style={{ borderRight: '4px solid #eeeeee' }}>
         <Skeleton className="h-6 w-32 mb-4" />
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
@@ -108,7 +108,7 @@ export function DatabaseSidebar({
   }
 
   return (
-    <div className="w-64 border-r bg-muted/20 flex flex-col">
+    <div className="w-64 bg-muted/20 flex flex-col" style={{ borderRight: '1px solidrgba(239, 229, 229, 0.73)' }}>
       {/* 数据库信息 */}
       <div className="p-3 border-b bg-muted/10">
         <div className="flex items-center gap-2">
@@ -215,9 +215,6 @@ export function DatabaseSidebar({
                   >
                     <Table className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                     <span className="font-medium text-xs truncate flex-1">{table.name}</span>
-                    <Badge variant="outline" className="text-xs h-4 px-1">
-                      {table.recordCount || 0}
-                    </Badge>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -249,12 +246,15 @@ export function DatabaseSidebar({
                                 onClick={async (e) => {
                                   e.stopPropagation()
                                   try {
-                                    const requestData = await luckdb.tables.getDuplicateTableRequestData({
-                                      tableId: table.id,
-                                      hasDuplicateMethod: typeof luckdb.tables.duplicateTable
+                                    const duplicated = await luckdb.tables.duplicateTable(table.id, {
+                                      name: `${table.name} (副本)`,
+                                      withData: true,
+                                      withViews: true,
+                                      withFields: true
                                     })
-                                    const duplicated = await luckdb.tables.duplicateTable(table.id, requestData)
                                     toast.success('复制成功')
+                                    // 刷新页面以显示新表
+                                    window.location.reload()
                                   } catch (err: any) {
                                     toast.error(err?.message || '复制失败')
                                   }

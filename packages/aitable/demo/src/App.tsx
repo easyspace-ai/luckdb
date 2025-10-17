@@ -17,8 +17,11 @@ import {
   AddRecordDialog,
   createGetCellContent,
   convertFieldsToColumns,
+  type FilterField,
+  type FilterCondition,
+  type IGridProps,
+  type FieldConfig,
 } from '@luckdb/aitable';
-import type { IGridProps, FieldConfig } from '@luckdb/aitable';
 import { config } from './config';
 import { StyleTest } from './StyleTest';
 import AddRecordTest from './AddRecordTest';
@@ -297,11 +300,25 @@ function TableView() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'table' | 'test'>('table');
+  
+  // 过滤状态
+  const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
+  const [filteredRecords, setFilteredRecords] = useState<any[]>([]);
 
   // 🎉 使用内置字段映射工具 - 自动处理所有字段类型！
   // 将所有 Hooks 移到条件渲染之前，确保 Hooks 调用顺序一致
   const columns = useMemo(() => convertFieldsToColumns(fields), [fields]);
   const getCellContent = useMemo(() => createGetCellContent(fields, records), [fields, records]);
+
+  // 生成过滤字段配置
+  const filterFields: FilterField[] = useMemo(() => {
+    return fields.map((field: any) => ({
+      id: field.id ?? field.fieldId ?? String(field.key ?? field.name),
+      name: field.name ?? field.title ?? String(field.id ?? ''),
+      type: (field.type ?? 'text') as FilterField['type'],
+      options: field.options?.choices || field.options?.selectOptions || undefined,
+    }));
+  }, [fields]);
 
   // 加载数据
   useEffect(() => {
@@ -349,6 +366,7 @@ function TableView() {
           sample: records[0],
         });
         setRecords(records);
+        setFilteredRecords(records); // 初始化过滤后的数据
 
       } catch (err: any) {
         console.error('❌ 加载数据失败:', err);
@@ -360,6 +378,16 @@ function TableView() {
 
     loadData();
   }, [sdk]);
+
+  // 处理过滤条件变化
+  const handleFilterConditionsChange = useCallback((conditions: FilterCondition[]) => {
+    setFilterConditions(conditions);
+  }, []);
+
+  // 处理过滤结果变化
+  const handleFilteredDataChange = useCallback((filteredData: any[]) => {
+    setFilteredRecords(filteredData);
+  }, []);
 
   if (isLoading) {
     return (
@@ -517,6 +545,11 @@ function TableView() {
             color: '#718096',
           }}>
             ✅ SDK 已注入 • {fields.length} 个字段 • {records.length} 条记录
+            {filterConditions.length > 0 && (
+              <span style={{ color: '#3b82f6' }}>
+                {' '}• 过滤后: {filteredRecords.length} 条
+              </span>
+            )}
           </p>
           {/* 样式测试 */}
           <div style={{ marginTop: '8px' }}>
@@ -595,6 +628,39 @@ function TableView() {
           <StandardDataView
             sdk={sdk}
             tableId={config.testBase.tableId}
+            // 过滤配置
+            filterFields={filterFields}
+            filterConditions={filterConditions}
+            onFilterConditionsChange={handleFilterConditionsChange}
+            onFilteredDataChange={handleFilteredDataChange}
+            // 真实 API 调用创建视图
+            onCreateView={async (viewType: string) => {
+              try {
+                console.log('🆕 创建视图:', viewType);
+                
+                // 调用 LuckDB SDK 创建视图
+                const newView = await sdk!.createView({
+                  tableId: config.testBase.tableId,
+                  name: `${viewType}视图_${Date.now()}`,
+                  type: viewType as any, // 确保类型匹配
+                  description: `通过 Demo 创建的 ${viewType} 视图`,
+                });
+                
+                console.log('✅ 视图创建成功:', newView);
+                
+                // 刷新数据以获取最新的视图列表
+                if (gridProps.onDataRefresh) {
+                  await gridProps.onDataRefresh();
+                }
+                
+                // 可选：切换到新创建的视图
+                // setActiveViewId(newView.id);
+                
+              } catch (error) {
+                console.error('❌ 创建视图失败:', error);
+                alert(`创建视图失败: ${(error as Error).message}`);
+              }
+            }}
             gridProps={{
               ...gridProps,
               // 数据刷新回调 - 自动刷新字段和记录
