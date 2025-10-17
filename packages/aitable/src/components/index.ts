@@ -50,3 +50,12 @@ export type { EmptyStateProps, ErrorStateProps } from './states';
 export { useTableData } from '../hooks/useTableData';
 export type { TableDataState, UseTableDataOptions, CellData } from '../hooks/useTableData';
 
+// Add Record Dialog
+export { AddRecordDialog } from './add-record';
+export type { 
+  AddRecordDialogProps,
+  FormValues,
+  FormErrors,
+  FieldEditorProps 
+} from './add-record';
+

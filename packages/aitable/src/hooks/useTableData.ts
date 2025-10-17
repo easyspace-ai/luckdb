@@ -1,11 +1,13 @@
 /**
  * 表格数据 Hook
- * 使用现有的 API 客户端获取和管理表格数据
+ * 使用现有的 API 客户端或 SDK 获取和管理表格数据
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { createSDKAdapter, type SDKAdapter, type ITable, type IField, type IRecord } from '../api';
+import { ApiClient, type ITable, type IField, type IRecord } from '../api';
 import { CellType } from '../grid';
+import { createGetCellContent, convertFieldsToColumns } from '../utils/field-mappers';
+import { createAdapter } from '../api/sdk-adapter';
 
 export interface TableDataState {
   table: ITable | null;
@@ -17,12 +19,15 @@ export interface TableDataState {
 }
 
 export interface UseTableDataOptions {
-  baseURL: string;
+  baseURL?: string;
   token?: string;
   tableId: string;
   autoLoad?: boolean;
   limit?: number;
   offset?: number;
+  // 新增：支持直接传入 SDK
+  sdk?: any;
+  apiClient?: any;
 }
 
 export interface CellData {
@@ -39,7 +44,16 @@ export interface CellData {
  * 表格数据管理 Hook
  */
 export function useTableData(options: UseTableDataOptions) {
-  const { baseURL, token, tableId, autoLoad = true, limit = 100, offset = 0 } = options;
+  const { 
+    baseURL, 
+    token, 
+    tableId, 
+    autoLoad = true, 
+    limit = 100, 
+    offset = 0,
+    sdk,
+    apiClient: externalApiClient 
+  } = options;
 
   // 状态管理
   const [state, setState] = useState<TableDataState>({
@@ -51,21 +65,35 @@ export function useTableData(options: UseTableDataOptions) {
     error: null,
   });
 
-  // 创建 API 客户端
+  // 创建 API 客户端或使用外部传入的
   const apiClient = useMemo(() => {
-    return createSDKAdapter({
-      baseURL,
-      token,
-      onError: (error) => {
-        console.error('API Error:', error);
-        setState(prev => ({ ...prev, error: error.message || 'API 请求失败' }));
-      },
-      onUnauthorized: () => {
-        console.log('未授权，需要重新登录');
-        setState(prev => ({ ...prev, error: '未授权，请重新登录' }));
-      },
-    });
-  }, [baseURL, token]);
+    if (externalApiClient) {
+      return externalApiClient;
+    }
+    
+    if (sdk) {
+      // 如果传入了 SDK，通过适配器包装
+      return createAdapter(sdk);
+    }
+    
+    if (baseURL) {
+      // 创建新的 ApiClient
+      return new ApiClient({
+        baseURL,
+        token,
+        onError: (error) => {
+          console.error('API Error:', error);
+          setState(prev => ({ ...prev, error: error.message || 'API 请求失败' }));
+        },
+        onUnauthorized: () => {
+          console.log('未授权，需要重新登录');
+          setState(prev => ({ ...prev, error: '未授权，请重新登录' }));
+        },
+      });
+    }
+    
+    throw new Error('必须提供 baseURL、sdk 或 apiClient 其中之一');
+  }, [baseURL, token, sdk, externalApiClient]);
 
   /**
    * 加载表格数据
@@ -86,16 +114,39 @@ export function useTableData(options: UseTableDataOptions) {
         }),
       ]);
 
+      // 处理 records 数据结构
+      // SDK 可能返回 { data: { list: [...] } } 或 { data: [...] } 或 { list: [...] }
+      let recordsData: any[] = [];
+      if (recordsResponse) {
+        if (Array.isArray(recordsResponse)) {
+          recordsData = recordsResponse;
+        } else if (recordsResponse.data) {
+          if (Array.isArray(recordsResponse.data)) {
+            recordsData = recordsResponse.data;
+          } else if (recordsResponse.data.list && Array.isArray(recordsResponse.data.list)) {
+            recordsData = recordsResponse.data.list;
+          }
+        } else if (recordsResponse.list && Array.isArray(recordsResponse.list)) {
+          recordsData = recordsResponse.list;
+        }
+      }
+
+      const totalRecords = recordsResponse?.total || recordsResponse?.data?.total || recordsData.length;
+
       setState({
         table,
         fields,
-        records: recordsResponse.data,
-        totalRecords: recordsResponse.total,
+        records: recordsData,
+        totalRecords,
         loading: false,
         error: null,
       });
 
-      console.log(`✅ 表格数据加载完成: ${table.name} (${recordsResponse.data.length}/${recordsResponse.total} 条记录)`);
+      console.log(`✅ 表格数据加载完成: ${table.name} (${recordsData.length}/${totalRecords} 条记录)`, {
+        recordsResponse,
+        recordsData: recordsData.slice(0, 2), // 只打印前两条
+        fieldsCount: fields.length,
+      });
     } catch (error: any) {
       console.error('❌ 加载表格数据失败:', error);
       setState(prev => ({
@@ -179,150 +230,19 @@ export function useTableData(options: UseTableDataOptions) {
   }, [apiClient, tableId]);
 
   /**
-   * 将字段类型转换为 Grid 组件字段类型
-   */
-  const convertFieldType = useCallback((fieldType: string): CellType => {
-    const typeMap: Record<string, CellType> = {
-      singleLineText: CellType.Text,
-      longText: CellType.Text,
-      number: CellType.Number,
-      singleSelect: CellType.Select,
-      multipleSelect: CellType.Select,
-      date: CellType.Text,
-      checkbox: CellType.Boolean,
-      rating: CellType.Number,
-      link: CellType.Text,
-      user: CellType.Text,
-      attachment: CellType.Text,
-      formula: CellType.Text,
-      rollup: CellType.Text,
-      count: CellType.Number,
-      createdTime: CellType.Text,
-      lastModifiedTime: CellType.Text,
-      createdBy: CellType.Text,
-      lastModifiedBy: CellType.Text,
-      autoNumber: CellType.Text,
-      button: CellType.Text,
-    };
-
-    return typeMap[fieldType] || CellType.Text;
-  }, []);
-
-  /**
-   * 将记录数据转换为 Grid 单元格格式
-   */
-  const convertRecordToCellData = useCallback((record: IRecord, field: IField): CellData => {
-    const fieldValue = record.fields[field.name];
-    const fieldType = convertFieldType(field.type);
-
-    // 处理不同类型的字段值
-    switch (field.type) {
-      case 'singleSelect': {
-        const options = field.options?.choices || [];
-        const choiceMap = new Map<string, { id: string; name: string; color: string }>(
-          options.map((choice: any) => [choice.id, { id: choice.id, name: choice.name, color: choice.color || '#64748b' }])
-        );
-        const choiceSorted = options.map((choice: any) => ({ id: choice.id, name: choice.name, color: choice.color || '#64748b' }));
-
-        const value = fieldValue ? [fieldValue] : [];
-        return {
-          type: CellType.Select,
-          data: value,
-          displayData: String(fieldValue || ''),
-          choiceMap,
-          choiceSorted,
-          isMultiple: false,
-        };
-      }
-
-      case 'multipleSelect': {
-        const options = field.options?.choices || [];
-        const choiceMap = new Map<string, { id: string; name: string; color: string }>(
-          options.map((choice: any) => [choice.id, { id: choice.id, name: choice.name, color: choice.color || '#64748b' }])
-        );
-        const choiceSorted = options.map((choice: any) => ({ id: choice.id, name: choice.name, color: choice.color || '#64748b' }));
-
-        const values = Array.isArray(fieldValue) ? fieldValue : [];
-        return {
-          type: CellType.Select,
-          data: values,
-          displayData: values.join(', '),
-          choiceMap,
-          choiceSorted,
-          isMultiple: true,
-        };
-      }
-
-      case 'checkbox': {
-        const boolValue = Boolean(fieldValue);
-        return {
-          type: CellType.Boolean,
-          data: boolValue,
-          displayData: boolValue ? 'true' : 'false',
-        };
-      }
-
-      case 'number':
-      case 'rating':
-      case 'count': {
-        const numValue = Number(fieldValue) || 0;
-        return {
-          type: CellType.Number,
-          data: numValue,
-          displayData: String(numValue),
-        };
-      }
-
-      default: {
-        const strValue = fieldValue ? String(fieldValue) : '';
-        return {
-          type: CellType.Text,
-          data: strValue,
-          displayData: strValue,
-        };
-      }
-    }
-  }, [convertFieldType]);
-
-  /**
    * 获取单元格内容（适配 Grid 组件接口）
+   * 使用内置的字段映射工具
    */
-  const getCellContent = useCallback((cell: [number, number]) => {
-    const [col, row] = cell;
-    
-    // 边界检查
-    if (col < 0 || row < 0 || col >= state.fields.length || row >= state.records.length) {
-      return { 
-        type: CellType.Text, 
-        data: "", 
-        displayData: "" 
-      };
-    }
-    
-    const field = state.fields[col];
-    const record = state.records[row];
-    
-    if (!field || !record) {
-      return { 
-        type: CellType.Text, 
-        data: "", 
-        displayData: "" 
-      };
-    }
-
-    return convertRecordToCellData(record, field);
-  }, [state.fields, state.records, convertRecordToCellData]);
+  const getCellContent = useMemo(() => {
+    return createGetCellContent(state.fields, state.records);
+  }, [state.fields, state.records]);
 
   /**
    * 生成列定义（适配 Grid 组件接口）
+   * 使用内置的字段映射工具
    */
   const columns = useMemo(() => {
-    return state.fields.map(field => ({
-      id: field.id,
-      name: field.name,
-      width: 150, // 默认宽度
-      isPrimary: field.isPrimary,
-    }));
+    return convertFieldsToColumns(state.fields);
   }, [state.fields]);
 
   // 自动加载数据

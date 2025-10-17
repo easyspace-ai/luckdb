@@ -1,268 +1,337 @@
-# @luckdb/aitable Demo
+# LuckDB Aitable Demo
 
-这是一个完整的 Grid 组件演示，展示了重构后的新架构。
+> 完整的 SDK 依赖注入演示项目
 
-## 🎯 特性
+## ✨ 最新更新 (2025-10-17)
 
-- ✅ **新的状态管理** - 使用 GridStoreProvider（单一 Store）
-- ✅ **错误边界** - 完整的错误处理
-- ✅ **类型安全** - 100% TypeScript 严格模式
-- ✅ **24种字段类型** - 文本、数字、日期、选择、布尔等
-- ✅ **右键菜单** - 列头、行头、单元格菜单
-- ✅ **虚拟滚动** - 高性能渲染
-- ✅ **工具栏** - 完整的工具栏组件
-- ✅ **统计行** - 数据统计展示
+🎉 **内置字段映射功能** - Demo 已更新为使用内置的字段类型映射工具！
+
+- ✅ **代码简化 93%** - 从 30+ 行减少到 2 行
+- ✅ **支持 30+ 种字段类型** - 自动处理所有字段类型
+- ✅ **自动字段图标** - 📝, 🔢, 📅, ⭐, 👤, 等
+- ✅ **智能数据解析** - 自动识别多种 SDK 返回格式
+- ✅ **零配置使用** - 开箱即用
+
+详细说明请查看：[字段映射更新文档](./FIELD_MAPPING_UPDATE.md)
+
+## 🎯 演示内容
+
+这个 Demo 展示了如何在实际项目中使用 `@luckdb/aitable` 组件：
+
+1. ✅ **SDK 全局初始化** - 在应用启动时初始化一次
+2. ✅ **登录管理** - 统一的登录状态管理
+3. ✅ **依赖注入** - 将 SDK 实例注入到组件
+4. ✅ **多组件共享** - 所有组件共享同一个 SDK
+5. ✅ **数据加载** - 从后端加载表格数据
+6. ✅ **实时编辑** - 单元格编辑并同步到后端
+7. ✅ **内置字段映射** - 自动处理所有字段类型 🆕
 
 ## 🚀 快速开始
 
 ### 1. 安装依赖
 
 ```bash
-# 在项目根目录
-cd /Users/leven/space/easy/luckdb
-
-# 安装所有依赖
+cd packages/aitable/demo
 pnpm install
 ```
 
-### 2. 构建 aitable 包
+### 2. 配置环境变量
+
+复制 `.env.example` 为 `.env`：
 
 ```bash
-# 构建 aitable
-cd packages/aitable
-npm run build
-
-# 或者使用 watch 模式
-npm run dev
+cp .env.example .env
 ```
 
-### 3. 运行 demo
+编辑 `.env`：
+
+```env
+VITE_API_BASE_URL=http://localhost:3000
+VITE_WS_URL=ws://localhost:3000
+VITE_BASE_ID=your_base_id
+VITE_TABLE_ID=your_table_id
+```
+
+### 3. 启动开发服务器
 
 ```bash
-# 在 demo 目录
-cd demo
-npm run dev
+pnpm dev
 ```
 
-然后打开浏览器访问 `http://localhost:5173`
+访问 http://localhost:5175
 
-## 📁 文件结构
+## 📁 项目结构
 
 ```
 demo/
 ├── src/
-│   ├── main.tsx           # 入口文件
-│   ├── App.tsx            # 主应用
-│   ├── FullFeatureGridExample.tsx  # 完整示例
-│   └── data.ts            # 演示数据生成
-├── index.html             # HTML 模板
-├── package.json           # 依赖配置
-├── vite.config.ts         # Vite 配置
-└── README.md              # 本文件
+│   ├── main.tsx        # 入口文件
+│   ├── App.tsx         # 主应用（包含完整的 SDK 管理逻辑）
+│   └── config.ts       # 配置文件
+├── index.html          # HTML 模板
+├── package.json        # 依赖配置
+├── vite.config.ts      # Vite 配置
+└── README.md           # 本文件
 ```
 
-## 🎨 示例说明
+## 💡 核心代码解析
 
-### 使用新的 API
+### SDK Context Provider
 
 ```tsx
-import { GridStoreProvider } from '@luckdb/aitable/store';
-import { createSDKAdapter } from '@luckdb/aitable/api';
-import { GridErrorBoundary } from '@luckdb/aitable/grid/error-handling';
+// 创建 SDK Context
+const SDKContext = createContext<SDKContextType>({ ... });
 
-// 创建 API 客户端
-const apiClient = createSDKAdapter({
-  baseURL: 'http://localhost:8080/api/v1',
-  token: 'your-token',
-});
+export function SDKProvider({ children }) {
+  const [sdk, setSdk] = useState<LuckDB | null>(null);
 
-function Demo() {
+  useEffect(() => {
+    // 初始化 SDK
+    const luckDB = new LuckDB({
+      baseURL: config.baseURL,
+      accessToken: localStorage.getItem('token'),
+    });
+
+    // 检查登录状态
+    luckDB.getCurrentUser()
+      .then(() => setSdk(luckDB))
+      .catch(() => console.log('需要登录'));
+  }, []);
+
   return (
-    <GridStoreProvider
-      apiClient={apiClient}
-      baseId="demo-base"
-      tableId="demo-table"
-      viewId="demo-view"
-      autoLoad={false} // demo 使用模拟数据，不自动加载
-    >
-      <GridErrorBoundary>
-        {/* 你的 Grid 组件 */}
-      </GridErrorBoundary>
-    </GridStoreProvider>
+    <SDKContext.Provider value={{ sdk, login, logout }}>
+      {children}
+    </SDKContext.Provider>
   );
 }
 ```
 
-### 主要组件
+### 注入到组件
 
-#### Grid 组件
 ```tsx
-<Grid
-  ref={gridRef}
-  columns={columns}
-  records={records}
-  rowControls={rowControls}
-  onCellEdited={handleCellEdit}
-  onSelectionChanged={handleSelectionChange}
-  // ... 更多配置
-/>
+function TableView() {
+  const { sdk } = useSDK();  // 从 Context 获取 SDK
+
+  return (
+    <AppProviders sdk={sdk}>  {/* 注入到 AppProviders */}
+      <StandardDataView
+        sdk={sdk}  {/* 也可以直接传给 StandardDataView */}
+        gridProps={{ ... }}
+      />
+    </AppProviders>
+  );
+}
 ```
 
-#### 工具栏
+### 数据加载
+
 ```tsx
-<GridToolbar
-  onUndo={() => {}}
-  onRedo={() => {}}
-  onAddRow={() => {}}
-  onAddColumn={() => {}}
-  onFilter={() => {}}
-  onSort={() => {}}
-  onGroup={() => {}}
-  // ... 更多操作
-/>
+useEffect(() => {
+  if (!sdk) return;
+
+  async function loadData() {
+    // 使用注入的 SDK 加载数据
+    const fields = await sdk.listFields({ tableId });
+    const records = await sdk.listRecords({ tableId });
+    
+    setFields(fields);
+    setRecords(records.data);
+  }
+
+  loadData();
+}, [sdk]);
 ```
 
-#### 统计行
+### 单元格编辑
+
 ```tsx
-<StatisticsRow
-  statistics={statistics}
-  totalRecords={records.length}
-  selectedRecords={selectedRows}
-  onStatisticClick={(colIndex) => {}}
-  width={1200}
-/>
+const gridProps: IGridProps = {
+  columns,
+  rowCount: records.length,
+  getCellContent: ([col, row]) => ({ ... }),
+  
+  // 编辑回调 - 使用注入的 SDK 更新数据
+  onCellEdited: async (cell, newValue) => {
+    const [colIndex, rowIndex] = cell;
+    const record = records[rowIndex];
+    const field = fields[colIndex];
+    
+    await sdk.updateRecord(tableId, record.id, {
+      data: { [field.id]: newValue }
+    });
+    
+    // 更新本地状态
+    setRecords(prev => { ... });
+  },
+};
 ```
 
-## 🎯 支持的字段类型（24种）
+## 🎨 特性展示
 
-### 基础类型
-- 文本（单行、多行）
-- 数字
-- 货币
-- 百分比
+### 1. 登录界面
 
-### 布尔类型
-- 复选框
-- 开关
+- 美观的渐变背景
+- 输入验证
+- 错误提示
+- 默认填充测试账号
 
-### 选择类型
-- 单选
-- 多选
+### 2. 数据表格
 
-### 日期时间
-- 日期
-- 时间
-- 日期时间
+- 完整的 Grid 功能
+- 字段和记录展示
+- 实时编辑
+- 工具栏和状态栏
 
-### 用户类型
-- 用户选择
-- 创建者
-- 修改者
+### 3. Header
 
-### 评分类型
-- 星级评分
+- 显示当前状态
+- 字段和记录数量
+- 登出按钮
 
-### 链接类型
-- URL
-- 邮箱
-- 电话
+## 🔍 调试
 
-### 富文本
-- Markdown
-- HTML
+### 开启调试模式
 
-## 🖱️ 右键菜单功能
+在 `src/config.ts` 中设置：
 
-### 列头右键
-- 编辑字段
-- 复制字段
-- 插入字段
-- 筛选
-- 排序
-- 分组
-- 冻结列
-- 隐藏字段
+```ts
+export const config = {
+  debug: true,  // 开启调试日志
+  // ...
+};
+```
 
-### 行头右键
-- 删除行
-- 复制行
-- 插入行
+### 查看控制台
 
-### 单元格右键
-- 复制
-- 粘贴
-- 删除
+打开浏览器控制台，会看到详细的日志：
 
-## 📊 性能特性
+```
+🚀 初始化 LuckDB SDK...
+✅ 已登录: { id: 'xxx', email: 'demo@luckdb.com' }
+📊 加载数据... { baseId: 'xxx', tableId: 'yyy' }
+✅ 字段加载成功: [...]
+✅ 记录加载成功: [...]
+💾 更新单元格: { recordId: 'xxx', fieldId: 'yyy', value: 'new' }
+✅ 更新成功
+```
 
-- **虚拟滚动** - 只渲染可见区域，支持百万级数据
-- **精确更新** - 只更新变化的单元格
-- **智能缓存** - 渲染结果缓存
-- **优化的事件处理** - 防抖和节流
+## 🐛 常见问题
 
-## 🐛 调试
+### 1. 无法连接到后端
 
-### 查看状态
-使用 Redux DevTools 查看 Zustand Store 的状态变化
+**问题**: `Failed to fetch` 或 `Network error`
 
-### 查看渲染
-打开 React DevTools Profiler 查看组件渲染性能
+**解决**:
+1. 检查后端是否启动
+2. 检查 `.env` 中的 API 地址
+3. 检查浏览器控制台是否有 CORS 错误
 
-### 查看错误
-错误会被 ErrorBoundary 捕获，并显示友好的错误界面
+### 2. 登录失败
 
-## 📝 注意事项
+**问题**: 登录返回 401 或 403
 
-### 模拟数据
-Demo 使用 `generateDemoData()` 生成模拟数据，不连接真实后端。
+**解决**:
+1. 检查账号密码是否正确
+2. 检查后端数据库是否有测试账号
+3. 查看后端日志
 
-如果要连接真实后端：
-1. 设置正确的 `baseURL` 和 `token`
-2. 将 `autoLoad` 设置为 `true`
-3. 提供真实的 `baseId`、`tableId`、`viewId`
+### 3. 数据加载失败
 
-### 依赖版本
-确保使用正确的依赖版本：
-- React >= 18.0.0
-- TypeScript >= 5.4.0
-- Vite >= 5.0.0
+**问题**: 显示"加载失败"
 
-### 开发模式
-Demo 默认运行在开发模式，会有 React.StrictMode 和额外的类型检查。
+**解决**:
+1. 检查 `baseId` 和 `tableId` 是否正确
+2. 检查账号是否有权限访问该表
+3. 查看浏览器控制台错误日志
 
-## 🔗 相关文档
+### 4. 编辑无效
 
-- [重构完成报告](../REFACTOR_COMPLETE.md)
-- [Week 1 指南](../REFACTOR_WEEK1.md)
-- [Week 2 指南](../REFACTOR_WEEK2.md)
-- [API 文档](../src/api/README.md)
-- [类型系统文档](../src/types/README.md)
+**问题**: 单元格编辑后没有保存
+
+**解决**:
+1. 检查控制台是否有更新错误
+2. 检查账号是否有编辑权限
+3. 检查后端是否正常处理更新请求
+
+## 📚 相关文档
+
+- [升级指南](../UPGRADE_GUIDE.md)
+- [完整特性报告](../../../book/ai-reports/features/2025-10-17_feature_sdk_injection_and_standard_packaging.md)
+- [测试清单](../TEST_CHECKLIST.md)
 
 ## 🎓 学习资源
 
-### 状态管理
-查看 `src/store/` 了解新的状态管理架构
+### SDK 初始化
 
-### 错误处理
-查看 `src/grid/error-handling/` 了解错误边界实现
+```tsx
+const sdk = new LuckDB({
+  baseURL: 'https://api.luckdb.com',
+  accessToken: token,
+  debug: true,
+});
+```
 
-### 可访问性
-查看 `src/accessibility/` 了解键盘导航和 ARIA 支持
+### 登录
 
-## 💡 常见问题
+```tsx
+const response = await sdk.login({
+  email: 'user@example.com',
+  password: 'password',
+});
 
-### Q: 为什么不连接真实后端？
-A: Demo 专注于展示 UI 功能，使用模拟数据更简单。实际项目中连接真实后端即可。
+localStorage.setItem('token', response.accessToken);
+```
 
-### Q: 如何自定义字段类型？
-A: 查看 `src/model/field/` 了解字段系统，可以继承 `Field` 类创建自定义字段。
+### 数据操作
 
-### Q: 性能如何？
-A: 使用虚拟滚动，支持 10万+ 行数据，60fps 流畅滚动。
+```tsx
+// 列表
+const fields = await sdk.listFields({ tableId });
+const records = await sdk.listRecords({ tableId });
 
-### Q: 兼容性如何？
-A: 支持现代浏览器（Chrome, Firefox, Safari, Edge），IE 不支持。
+// 更新
+await sdk.updateRecord(tableId, recordId, {
+  data: { fieldId: newValue }
+});
+
+// 创建
+await sdk.createRecord(tableId, {
+  data: { field1: 'value1', field2: 'value2' }
+});
+```
+
+## 🚀 部署
+
+### 构建生产版本
+
+```bash
+pnpm build
+```
+
+输出到 `dist/` 目录。
+
+### 预览
+
+```bash
+pnpm preview
+```
+
+## 📝 开发建议
+
+1. **使用 TypeScript** - 享受完整的类型提示
+2. **开启 debug 模式** - 方便调试
+3. **查看控制台** - 了解数据流
+4. **参考源码** - `src/App.tsx` 有详细注释
+
+## 💬 反馈
+
+遇到问题或有建议？
+
+1. 查看 [测试清单](../TEST_CHECKLIST.md)
+2. 提交 [GitHub Issue](https://github.com/luckdb/luckdb/issues)
+3. 加入 Discord 社区
 
 ---
 
-**Enjoy coding!** 🚀
+**Happy Coding!** 🎉
+

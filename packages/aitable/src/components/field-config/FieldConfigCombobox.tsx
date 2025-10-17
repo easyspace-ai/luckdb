@@ -181,10 +181,10 @@ export function FieldConfigCombobox({
         aria-haspopup="listbox"
         aria-label="字段配置"
       >
-        <Settings size={16} />
+        <Settings size={14} />
         字段配置
         <ChevronDown 
-          size={14} 
+          size={12} 
           className={cn(
             'transition-transform duration-200',
             isOpen && 'rotate-180'
@@ -248,7 +248,7 @@ export function FieldConfigCombobox({
                 {/* 拖拽手柄 */}
                 {!field.locked && (
                   <GripVertical 
-                    size={16} 
+                    size={14} 
                     className="text-gray-400 cursor-grab hover:text-gray-600"
                     style={{ color: tokens.colors.text.tertiary }}
                   />
@@ -257,7 +257,7 @@ export function FieldConfigCombobox({
                 {/* 锁定图标 */}
                 {field.locked && (
                   <Lock 
-                    size={16} 
+                    size={14} 
                     className="text-gray-400"
                     style={{ color: tokens.colors.text.tertiary }}
                   />
@@ -295,7 +295,7 @@ export function FieldConfigCombobox({
                   }}
                   aria-label={field.visible ? '隐藏字段' : '显示字段'}
                 >
-                  {field.visible ? <Eye size={16} /> : <EyeOff size={16} />}
+                  {field.visible ? <Eye size={14} /> : <EyeOff size={14} />}
                 </button>
 
                 {/* 更多操作菜单 */}
@@ -317,7 +317,7 @@ export function FieldConfigCombobox({
                     style={{ color: tokens.colors.text.secondary }}
                     aria-label="更多操作"
                   >
-                    <MoreHorizontal size={16} />
+                    <MoreHorizontal size={14} />
                   </button>
                 )}
               </div>

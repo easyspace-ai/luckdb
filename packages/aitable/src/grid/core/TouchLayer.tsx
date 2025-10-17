@@ -1,8 +1,5 @@
 import type { Dispatch, FC, SetStateAction } from 'react';
 import { useRef } from 'react';
-// 使用 ESM 导入并以 any 断言，避免 TS/React 版本差异造成的 JSX 类型不兼容
-import ReactHammerDefault from 'react-hammerjs';
-const ReactHammer: any = ReactHammerDefault as any;
 import {
   DEFAULT_COLUMN_RESIZE_STATE,
   DEFAULT_DRAG_STATE,
@@ -67,6 +64,7 @@ export interface ITouchLayerProps
 const { columnAppendBtnWidth, columnHeadHeight } = GRID_DEFAULT;
 
 export const TouchLayer: FC<ITouchLayerProps> = (props) => {
+
   const {
     width,
     height,
@@ -254,43 +252,70 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
   };
 
   return (
-    <ReactHammer onTap={onTap}>
-      <div ref={containerRef} style={{ width, height }}>
-        <RenderLayer
-          theme={theme}
-          width={width}
-          height={height}
-          columns={columns}
-          columnStatistics={columnStatistics}
-          collaborators={collaborators}
-          searchCursor={searchCursor}
-          coordInstance={coordInstance}
-          rowControls={rowControls}
-          imageManager={imageManager}
-          spriteManager={spriteManager}
-          visibleRegion={visibleRegion}
-          rowIndexVisible={rowIndexVisible}
-          groupCollection={groupCollection}
-          activeCell={null}
-          activeCellBound={null}
-          mouseState={mouseState}
-          scrollState={scrollState}
-          dragState={DEFAULT_DRAG_STATE}
-          selection={emptySelection}
-          isSelecting={false}
-          forceRenderFlag={forceRenderFlag}
-          columnHeaderHeight={columnHeaderHeight}
-          columnFreezeState={DEFAULT_FREEZE_COLUMN_STATE}
-          columnResizeState={DEFAULT_COLUMN_RESIZE_STATE}
-          hoverCellPosition={null}
-          hoveredColumnResizeIndex={-1}
-          isRowAppendEnable={hasAppendRow}
-          isColumnAppendEnable={hasAppendColumn}
-          getCellContent={getCellContent}
-          real2RowIndex={real2RowIndex}
-          getLinearRow={getLinearRow}
-        />
-      </div>
-    </ReactHammer>
+    <div 
+      ref={containerRef} 
+      style={{ width, height }}
+      onTouchEnd={(e) => {
+        // 简单的触摸事件处理，替代 react-hammerjs
+        const touch = e.changedTouches[0];
+        if (touch) {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = touch.clientX - rect.left;
+          const y = touch.clientY - rect.top;
+          
+          // 创建一个模拟的 HammerInput 对象
+          const mockEvent = {
+            changedPointers: [{ offsetX: x, layerX: x, offsetY: y, layerY: y }]
+          };
+          onTap(mockEvent as any);
+        }
+      }}
+      onClick={(e) => {
+        // 鼠标点击事件处理
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        const mockEvent = {
+          changedPointers: [{ offsetX: x, layerX: x, offsetY: y, layerY: y }]
+        };
+        onTap(mockEvent as any);
+      }}
+    >
+      <RenderLayer
+        theme={theme}
+        width={width}
+        height={height}
+        columns={columns}
+        columnStatistics={columnStatistics}
+        collaborators={collaborators}
+        searchCursor={searchCursor}
+        coordInstance={coordInstance}
+        rowControls={rowControls}
+        imageManager={imageManager}
+        spriteManager={spriteManager}
+        visibleRegion={visibleRegion}
+        rowIndexVisible={rowIndexVisible}
+        groupCollection={groupCollection}
+        activeCell={null}
+        activeCellBound={null}
+        mouseState={mouseState}
+        scrollState={scrollState}
+        dragState={DEFAULT_DRAG_STATE}
+        selection={emptySelection}
+        isSelecting={false}
+        forceRenderFlag={forceRenderFlag}
+        columnHeaderHeight={columnHeaderHeight}
+        columnFreezeState={DEFAULT_FREEZE_COLUMN_STATE}
+        columnResizeState={DEFAULT_COLUMN_RESIZE_STATE}
+        hoverCellPosition={null}
+        hoveredColumnResizeIndex={-1}
+        isRowAppendEnable={hasAppendRow}
+        isColumnAppendEnable={hasAppendColumn}
+        getCellContent={getCellContent}
+        real2RowIndex={real2RowIndex}
+        getLinearRow={getLinearRow}
+      />
+    </div>
   );
 };

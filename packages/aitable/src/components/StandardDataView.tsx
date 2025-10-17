@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { IGridProps, IGridRef } from '../grid/core/Grid';
 import { Grid } from '../grid/core/Grid';
 import { GridErrorBoundary } from '../grid/error-handling/GridErrorBoundary';
@@ -7,7 +8,8 @@ import { cn, tokens, transitions, elevation } from '../grid/design-system';
 import { LoadingState, EmptyState, ErrorState } from './states';
 import type { EmptyStateProps, ErrorStateProps } from './states';
 import { getDeviceType, isTouchDevice } from './utils/responsive';
-import { 
+import { createAdapter } from '../api/sdk-adapter';
+import {
   FieldConfigPanel, 
   FieldConfigCombobox,
   AddFieldDialogV2, 
@@ -16,6 +18,10 @@ import {
   type FieldConfigPanelProps,
   type FieldConfigComboboxProps
 } from './field-config';
+import {
+  AddRecordDialog,
+  type AddRecordDialogProps,
+} from './add-record';
 import {
   RowHeightCombobox,
   type RowHeight,
@@ -75,7 +81,23 @@ export interface StandardDataViewProps {
   activeViewId?: string; // 当前激活的视图ID
   onViewChange?: (viewId: string) => void; // 视图切换回调
   onCreateView?: (viewType: string) => void; // 创建新视图回调
-  apiClient?: any; // API客户端，用于视图操作
+  
+  /**
+   * API 客户端（向后兼容）或 LuckDB SDK 实例（推荐）
+   * 如果传入 SDK 实例，组件会自动适配为内部使用的接口
+   */
+  apiClient?: any;
+  /**
+   * LuckDB SDK 实例（推荐）
+   * 外部系统已登录好的 SDK，直接注入使用
+   * 优先级高于 apiClient
+   */
+  sdk?: any;
+
+  /**
+   * 表格 ID（用于添加记录等操作）
+   */
+  tableId?: string;
 
   // 字段配置 - 新增
   fields?: FieldConfig[]; // 字段列表
@@ -98,7 +120,7 @@ export interface StandardDataViewProps {
   fieldConfigMode?: 'panel' | 'combobox'; // 字段配置模式：面板或下拉框
 
   // 行高配置 - 新增
-  rowHeight?: RowHeight; // 当前行高设置
+  rowHeight?: RowHeight; // 当前行高设置（不传则组件内部管理）
   onRowHeightChange?: (rowHeight: RowHeight) => void; // 行高变更回调
 
   // Toolbar configuration
@@ -106,7 +128,9 @@ export interface StandardDataViewProps {
   onToolbar?: Partial<Parameters<typeof RefactoredToolbar>[0]>; // 允许传入回调覆盖
 
   // Grid
-  gridProps: IGridProps; // 必填：对外暴露 Grid 的完整能力
+  gridProps: IGridProps & {
+    onDataRefresh?: () => void; // 数据刷新回调
+  }; // 必填：对外暴露 Grid 的完整能力
 
   // Status Bar 渲染器，可自定义
   statusContent?: React.ReactNode;
@@ -153,6 +177,8 @@ export function StandardDataView(props: StandardDataViewProps) {
     onViewChange,
     onCreateView,
     apiClient,
+    sdk,
+    tableId,
     // 字段配置参数
     fields,
     onFieldToggle,
@@ -173,7 +199,7 @@ export function StandardDataView(props: StandardDataViewProps) {
     onUpdateField,
     fieldConfigMode = 'combobox', // 默认使用 combobox 模式
     // 行高配置参数
-    rowHeight = 'medium',
+  rowHeight = 'medium',
     onRowHeightChange,
     toolbarConfig,
     onToolbar,
@@ -188,12 +214,18 @@ export function StandardDataView(props: StandardDataViewProps) {
   const [deviceType, setDeviceType] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
   const [isTouch, setIsTouch] = useState(false);
   
+  // 列宽状态管理（使用列ID作为key，不依赖列顺序）
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  // 列顺序状态管理
+  const [columnOrder, setColumnOrder] = useState<number[]>([]);
+  
   // 视图管理状态
   const [showCreateViewMenu, setShowCreateViewMenu] = useState(false);
   
   // 字段配置状态
   const [showFieldConfig, setShowFieldConfig] = useState(false);
   const [showAddFieldDialog, setShowAddFieldDialog] = useState(false);
+  const [showAddRecordDialog, setShowAddRecordDialog] = useState(false);
   const [showEditFieldDialog, setShowEditFieldDialog] = useState(false);
   const [editingField, setEditingField] = useState<FieldConfig | null>(null);
 
@@ -247,14 +279,135 @@ export function StandardDataView(props: StandardDataViewProps) {
     }
   }, [onFieldGroup]);
 
-  const handleAddField = useCallback((fieldName: string, fieldType: string) => {
+  const handleAddField = useCallback(async (
+    fieldName: string,
+    fieldType: string,
+    options?: any,
+  ) => {
     console.log('🔍 StandardDataView handleAddField 被调用:', { fieldName, fieldType, hasOnAddField: !!onAddField });
     if (onAddField) {
       onAddField(fieldName, fieldType);
-    } else {
-      console.error('❌ onAddField 回调函数未提供');
+      return;
     }
-  }, [onAddField]);
+
+    // 默认对接 SDK：当未传入 onAddField 时，自动调用后端创建字段
+    try {
+      if (!tableId || !(sdk || apiClient)) {
+        console.error('❌ 缺少 sdk/apiClient 或 tableId，无法创建字段');
+        return;
+      }
+
+      const adapter = createAdapter(sdk || apiClient);
+      const payload = {
+        name: fieldName,
+        type: fieldType as any,
+        options: options || {},
+      } as any;
+      console.log('🛠️ 正在通过适配器创建字段:', payload);
+      await adapter.createField(tableId, payload);
+
+      // 关闭弹窗
+      setShowAddFieldDialog(false);
+
+      // 触发外部刷新
+      gridProps.onDataRefresh?.();
+      console.log('✅ 字段创建成功并已刷新');
+    } catch (error) {
+      console.error('❌ 字段创建失败:', error);
+    }
+  }, [onAddField, sdk, apiClient, tableId, gridProps]);
+
+  // Grid 组件的 onAddColumn 处理函数（表头 + 按钮添加字段）
+  const handleGridAddColumn = useCallback(async (
+    fieldType: any,
+    insertIndex?: number,
+    fieldName?: string,
+    options?: any,
+  ) => {
+    console.log('🔍 StandardDataView handleGridAddColumn 被调用:', { fieldType, insertIndex, fieldName, hasOnAddColumn: !!onAddColumn });
+    
+    if (onAddColumn) {
+      onAddColumn(fieldType, insertIndex, fieldName, options);
+      return;
+    }
+
+    // 默认对接 SDK：当未传入 onAddColumn 时，自动调用后端创建字段
+    try {
+      if (!tableId || !(sdk || apiClient)) {
+        console.error('❌ 缺少 sdk/apiClient 或 tableId，无法创建字段');
+        return;
+      }
+
+      const adapter = createAdapter(sdk || apiClient);
+      const payload = {
+        name: fieldName || `新字段_${Date.now()}`,
+        type: fieldType,
+        options: options || {},
+      } as any;
+      console.log('🛠️ 正在通过 Grid 适配器创建字段:', payload);
+      await adapter.createField(tableId, payload);
+
+      // 触发外部刷新
+      gridProps.onDataRefresh?.();
+      console.log('✅ Grid 字段创建成功并已刷新');
+    } catch (error) {
+      console.error('❌ Grid 字段创建失败:', error);
+    }
+  }, [onAddColumn, sdk, apiClient, tableId, gridProps]);
+
+  // Grid 组件的列宽调整处理函数
+  const handleColumnResize = useCallback((column: any, newSize: number, colIndex: number) => {
+    console.log('🔍 StandardDataView handleColumnResize 被调用:', { column: column.name, newSize, colIndex, columnId: column.id });
+    
+    // 如果传入了自定义回调，优先使用
+    if (gridProps.onColumnResize) {
+      gridProps.onColumnResize(column, newSize, colIndex);
+      return;
+    }
+
+    // 默认行为：更新列宽状态（使用列ID作为key）
+    console.log(`📏 列 "${column.name}" (ID: ${column.id}) 宽度调整为: ${newSize}px`);
+    setColumnWidths(prev => ({
+      ...prev,
+      [column.id]: newSize
+    }));
+  }, [gridProps]);
+
+  // Grid 组件的列排序处理函数
+  const handleColumnOrdered = useCallback((dragColIndexCollection: number[], dropColIndex: number) => {
+    console.log('🔍 StandardDataView handleColumnOrdered 被调用:', { dragColIndexCollection, dropColIndex });
+    
+    // 如果传入了自定义回调，优先使用
+    if (gridProps.onColumnOrdered) {
+      gridProps.onColumnOrdered(dragColIndexCollection, dropColIndex);
+      return;
+    }
+
+    // 默认行为：更新列顺序状态
+    console.log(`🔄 列排序变化: 拖拽列 ${dragColIndexCollection} 到位置 ${dropColIndex}`);
+    
+    setColumnOrder(prev => {
+      // 创建新的列顺序数组
+      const newOrder = [...prev];
+      
+      // 如果没有初始顺序，创建默认顺序
+      if (newOrder.length === 0) {
+        return Array.from({ length: gridProps.columns?.length || 0 }, (_, i) => i);
+      }
+      
+      // 移除被拖拽的列
+      const draggedItems = dragColIndexCollection.sort((a, b) => b - a); // 从后往前删除
+      draggedItems.forEach(index => {
+        newOrder.splice(index, 1);
+      });
+      
+      // 在目标位置插入被拖拽的列
+      const adjustedDropIndex = draggedItems[0] < dropColIndex ? dropColIndex - draggedItems.length : dropColIndex;
+      newOrder.splice(adjustedDropIndex, 0, ...dragColIndexCollection);
+      
+      return newOrder;
+    });
+  }, [gridProps]);
 
   const handleUpdateField = useCallback((fieldName: string, fieldType: string) => {
     if (editingField && onUpdateField) {
@@ -283,10 +436,15 @@ export function StandardDataView(props: StandardDataViewProps) {
   }, []);
 
   // 行高变更处理函数
+  // 行高受控/非受控实现
+  const [rowHeightState, setRowHeightState] = useState<RowHeight>(rowHeight);
+  useEffect(() => { setRowHeightState(rowHeight); }, [rowHeight]);
+
   const handleRowHeightChange = useCallback((newRowHeight: RowHeight) => {
-    if (onRowHeightChange) {
-      onRowHeightChange(newRowHeight);
-    }
+    // 内部更新（非受控场景）
+    setRowHeightState(newRowHeight);
+    // 向外通知（受控场景）
+    onRowHeightChange?.(newRowHeight);
     console.log(`行高变更为: ${newRowHeight}`);
   }, [onRowHeightChange]);
 
@@ -313,7 +471,8 @@ export function StandardDataView(props: StandardDataViewProps) {
 
   // 将行高枚举映射为实际像素值
   const resolvedRowHeight = useMemo(() => {
-    switch (rowHeight) {
+    const current = rowHeightState;
+    switch (current) {
       case 'short':
         return 28; // 紧凑
       case 'tall':
@@ -324,7 +483,32 @@ export function StandardDataView(props: StandardDataViewProps) {
       default:
         return 32; // 默认
     }
-  }, [rowHeight]);
+  }, [rowHeightState]);
+
+  // 创建带有更新列宽和列顺序的 gridProps
+  const enhancedGridProps = useMemo(() => {
+    if (!gridProps.columns) return gridProps;
+    
+    // 初始化列顺序（如果还没有设置）
+    const finalColumnOrder = columnOrder.length === 0 
+      ? Array.from({ length: gridProps.columns.length }, (_, i) => i)
+      : columnOrder;
+    
+    // 根据列顺序重新排列列，并根据列ID查找对应的宽度
+    const reorderedColumns = finalColumnOrder.map(originalIndex => {
+      const column = gridProps.columns[originalIndex];
+      return {
+        ...column,
+        // 使用列ID查找对应的宽度，这样不受列顺序变化影响
+        width: columnWidths[column.id] ?? column.width ?? 150
+      };
+    });
+    
+    return {
+      ...gridProps,
+      columns: reorderedColumns
+    };
+  }, [gridProps, columnWidths, columnOrder]);
 
   return (
     <div
@@ -351,7 +535,7 @@ export function StandardDataView(props: StandardDataViewProps) {
           <div role="tablist" className="flex items-center gap-0 py-0" style={{ position: 'relative' }}>
             {/* 如果有视图列表，使用动态视图标签 */}
             {views && views.length > 0 ? (
-              views.map((view) => {
+              views.map((view) => { 
                 const active = activeViewId === view.id;
                 return (
                   <button
@@ -489,23 +673,21 @@ export function StandardDataView(props: StandardDataViewProps) {
               })
             )}
 
-            {/* 新建视图按钮 - 紧跟在标签后面 */}
+            {/* 新建视图按钮 - 放在最后一个标签之后 */}
             {views && views.length > 0 && (
               <button
+                aria-label="添加视图"
+                title="添加视图"
                 onClick={() => setShowCreateViewMenu(!showCreateViewMenu)}
+                className={cn(isMobile ? 'h-9 px-2 text-xs' : 'h-10 px-3 text-sm', '-mb-px font-medium', 'transition-all focus-visible:outline-none', 'border border-solid', 'rounded-t-md')}
                 style={{
-                  padding: isMobile ? '6px 8px' : '8px 12px',
-                  fontSize: isMobile ? '12px' : '13px',
-                  color: tokens.colors.text.secondary,
                   backgroundColor: 'transparent',
-                  border: '1px solid transparent',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  transition: transitions.presets.all,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontWeight: 500,
+                  color: tokens.colors.text.secondary,
+                  borderTopColor: 'transparent',
+                  borderLeftColor: tokens.colors.border.subtle,
+                  borderRightColor: tokens.colors.border.subtle,
+                  borderBottomColor: tokens.colors.border.subtle,
+                  borderBottomWidth: '1px',
                   marginLeft: '8px',
                 }}
                 onMouseEnter={(e) => {
@@ -517,8 +699,7 @@ export function StandardDataView(props: StandardDataViewProps) {
                   e.currentTarget.style.color = tokens.colors.text.secondary;
                 }}
               >
-                <Plus size={16} />
-                新建视图
+                <Plus size={14} />
               </button>
             )}
 
@@ -600,7 +781,7 @@ export function StandardDataView(props: StandardDataViewProps) {
                           e.currentTarget.style.backgroundColor = 'transparent';
                         }}
                       >
-                        <IconComponent size={16} style={{ color: viewType.color }} />
+                        <IconComponent size={14} style={{ color: viewType.color }} />
                         {viewType.name}
                 </button>
               );
@@ -646,7 +827,7 @@ export function StandardDataView(props: StandardDataViewProps) {
               }}
               aria-label="添加新项"
             >
-              <Plus size={16} />
+              <Plus size={14} />
             </button>
           </div>
         </div>
@@ -660,6 +841,26 @@ export function StandardDataView(props: StandardDataViewProps) {
             borderColor: tokens.colors.border.subtle,
             backgroundColor: tokens.colors.surface.base 
           }}>
+            {/* 添加记录按钮 - 移动到第一个位置，使用统一灰色风格 */}
+            {mergedToolbar.showAddNew && (
+              <button
+                onClick={() => setShowAddRecordDialog(true)}
+                className={cn(
+                  'inline-flex items-center justify-center gap-2',
+                  'h-8 px-3 rounded-md text-sm font-medium',
+                  'bg-white border border-gray-200',
+                  'text-gray-700 hover:text-gray-900',
+                  'hover:bg-gray-50 hover:border-gray-300',
+                  'active:bg-gray-100',
+                  'transition-all duration-200 ease-out',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500'
+                )}
+              >
+                <Plus size={14} />
+                添加记录
+              </button>
+            )}
+
             {/* 字段配置 - 根据模式选择组件 */}
             {mergedToolbar.showFieldConfig && fields && (
               fieldConfigMode === 'combobox' ? (
@@ -691,37 +892,16 @@ export function StandardDataView(props: StandardDataViewProps) {
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500'
                   )}
                 >
-                  <Settings size={16} />
+                  <Settings size={14} />
                   字段配置
                 </button>
               )
             )}
             
-            {/* 添加字段按钮 */}
-            {onAddField && (
-              <button
-                onClick={handleOpenAddFieldDialog}
-                className={cn(
-                  'inline-flex items-center justify-center gap-2',
-                  'h-8 px-3 rounded-md text-sm font-medium',
-                  'bg-blue-600 border border-blue-600',
-                  'text-white hover:bg-blue-700',
-                  'active:bg-blue-800',
-                  'transition-all duration-200 ease-out',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
-                  'shadow-sm hover:shadow-md'
-                )}
-                aria-label="添加新字段"
-              >
-                <Plus size={16} />
-                添加字段
-              </button>
-            )}
-            
             {/* 行高配置 */}
             {mergedToolbar.showRowHeight && (
               <RowHeightCombobox
-                value={rowHeight}
+                value={rowHeightState}
                 onChange={handleRowHeightChange}
               />
             )}
@@ -743,7 +923,7 @@ export function StandardDataView(props: StandardDataViewProps) {
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500'
                     )}
                   >
-                    <Undo2 size={16} />
+                    <Undo2 size={14} />
                     撤销
                   </button>
                   <button
@@ -759,28 +939,10 @@ export function StandardDataView(props: StandardDataViewProps) {
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500'
                     )}
                   >
-                    <Redo2 size={16} />
+                    <Redo2 size={14} />
                     重做
                   </button>
                 </>
-              )}
-              
-              {mergedToolbar.showAddNew && onToolbar?.onAddNew && (
-                <button
-                  onClick={onToolbar.onAddNew}
-                  className={cn(
-                    'inline-flex items-center justify-center gap-2',
-                    'h-8 px-3 rounded-md text-sm font-medium',
-                    'bg-blue-500 border border-blue-600 text-white',
-                    'hover:bg-blue-600 hover:border-blue-700',
-                    'active:bg-blue-700',
-                    'transition-all duration-200 ease-out',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300'
-                  )}
-                >
-                  <Plus size={16} />
-                  添加记录
-                </button>
               )}
             </div>
           </div>
@@ -810,7 +972,16 @@ export function StandardDataView(props: StandardDataViewProps) {
               </div>
             ) : (
             <GridErrorBoundary>
-                <Grid ref={gridRef} {...gridProps} rowHeight={resolvedRowHeight} onAddColumn={onAddColumn} onEditColumn={onEditColumn} onDeleteColumn={onDeleteColumn} />
+                <Grid 
+                  ref={gridRef} 
+                  {...enhancedGridProps} 
+                  rowHeight={resolvedRowHeight} 
+                  onAddColumn={handleGridAddColumn} 
+                  onEditColumn={onEditColumn} 
+                  onDeleteColumn={onDeleteColumn}
+                  onColumnResize={handleColumnResize}
+                  onColumnOrdered={handleColumnOrdered}
+                />
             </GridErrorBoundary>
             )}
           </div>
@@ -874,7 +1045,7 @@ export function StandardDataView(props: StandardDataViewProps) {
             }}
             onConfirm={(fieldName, fieldType, config) => {
               console.log('🔍 StandardDataView AddFieldDialogV2 onConfirm 被调用:', { fieldName, fieldType, config });
-              handleAddField(fieldName, fieldType);
+              handleAddField(fieldName, fieldType, config);
             }}
           />
 
@@ -887,6 +1058,28 @@ export function StandardDataView(props: StandardDataViewProps) {
             onConfirm={handleUpdateField}
           />
         </>
+      )}
+
+      {/* 内置添加记录弹窗 - 新版本 */}
+      {fields && tableId && (
+        <AddRecordDialog
+          isOpen={showAddRecordDialog}
+          onClose={() => setShowAddRecordDialog(false)}
+          fields={fields}
+          tableId={tableId}
+          adapter={sdk || apiClient}
+          onSuccess={(record) => {
+            console.log('✅ 记录创建成功:', record);
+            // 触发外部刷新回调（如果有）
+            if (gridProps.onDataRefresh) {
+              gridProps.onDataRefresh();
+            }
+            // TODO: 可以触发 React Query 的 invalidateQueries
+          }}
+          onError={(error) => {
+            console.error('❌ 记录创建失败:', error);
+          }}
+        />
       )}
     </div>
   );

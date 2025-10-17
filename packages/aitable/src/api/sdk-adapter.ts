@@ -1,762 +1,375 @@
 /**
- * SDK Adapter
- * 将 @luckdb/sdk 适配为 grid 包的 ApiClient 接口
+ * SDK Adapter - 统一 LuckDB SDK 和 ApiClient 接口
+ * 
+ * 这个适配器允许 Grid 组件接受外部的 SDK 实例，
+ * 而不需要自己维护 SDK 的初始化和登录状态。
+ * 
+ * 使用场景：
+ * 1. 外部系统已经有一个登录好的 SDK 实例
+ * 2. 直接传入 Grid 组件，无需重复初始化
+ * 3. Grid 组件通过适配器统一访问
  */
 
-import { LuckDB } from '@luckdb/sdk';
-import type { AxiosRequestConfig } from 'axios';
+import type { LuckDB } from '@luckdb/sdk';
+import type { ApiClient } from './client';
 import type {
   IBase,
   ITable,
   IField,
   IRecord,
   IView,
-  IComment,
-  ICreateBaseRo,
   ICreateTableRo,
   ICreateFieldRo,
   ICreateRecordRo,
   ICreateViewRo,
-  ICreateCommentRo,
-  IUpdateBaseRo,
   IUpdateTableRo,
   IUpdateFieldRo,
   IUpdateRecordRo,
   IUpdateViewRo,
-  IUpdateCommentRo,
   IGetRecordsRo,
   PaginatedResponse,
   ITablePermission,
 } from './types';
 
-export interface SDKAdapterConfig {
-  baseURL: string;
-  token?: string;
-  timeout?: number;
-  onError?: (error: any) => void;
-  onUnauthorized?: () => void;
+/**
+ * SDK 适配器接口
+ * 定义了 Grid 组件所需的所有 API 方法
+ */
+export interface ISDKAdapter {
+  // Base APIs
+  getBases(): Promise<IBase[]>;
+  getBase(id: string): Promise<IBase>;
+
+  // Table APIs
+  getTables(baseId: string): Promise<ITable[]>;
+  getTable(tableId: string): Promise<ITable>;
+  createTable(baseId: string, data: ICreateTableRo): Promise<ITable>;
+  updateTable(tableId: string, data: IUpdateTableRo): Promise<ITable>;
+  deleteTable(tableId: string): Promise<void>;
+  getTablePermission(tableId: string): Promise<ITablePermission>;
+
+  // Field APIs
+  getFields(tableId: string): Promise<IField[]>;
+  getField(tableId: string, fieldId: string): Promise<IField>;
+  createField(tableId: string, data: ICreateFieldRo): Promise<IField>;
+  updateField(tableId: string, fieldId: string, data: IUpdateFieldRo): Promise<IField>;
+  deleteField(tableId: string, fieldId: string): Promise<void>;
+
+  // Record APIs
+  getRecords(tableId: string, params?: IGetRecordsRo): Promise<PaginatedResponse<IRecord>>;
+  getRecord(tableId: string, recordId: string): Promise<IRecord>;
+  createRecord(tableId: string, data: ICreateRecordRo): Promise<IRecord>;
+  updateRecord(tableId: string, recordId: string, fieldId: string, value: any): Promise<IRecord>;
+  deleteRecord(tableId: string, recordId: string): Promise<void>;
+
+  // View APIs
+  getViews(tableId: string): Promise<IView[]>;
+  getView(tableId: string, viewId: string): Promise<IView>;
+  createView(tableId: string, data: ICreateViewRo): Promise<IView>;
+  updateView(tableId: string, viewId: string, data: IUpdateViewRo): Promise<IView>;
+  deleteView(tableId: string, viewId: string): Promise<void>;
 }
 
 /**
- * SDK 适配器类
- * 将 LuckDB SDK 包装成 ApiClient 接口
+ * LuckDB SDK 适配器
+ * 将 LuckDB SDK 实例适配为 Grid 组件所需的接口
  */
-export class SDKAdapter {
-  private sdk: LuckDB;
-  private config: SDKAdapterConfig;
-
-  constructor(config: SDKAdapterConfig) {
-    this.config = config;
-
-    // 初始化 SDK
-    this.sdk = new LuckDB({
-      baseUrl: config.baseURL,
-      accessToken: config.token,
-      debug: false,
-    });
-  }
-
-  /**
-   * Update authorization token
-   */
-  setToken(token: string): void {
-    this.config.token = token;
-    this.sdk.setAccessToken(token);
-  }
-
-  /**
-   * Clear authorization token
-   */
-  clearToken(): void {
-    this.config.token = undefined;
-    this.sdk.clearTokens();
-  }
+export class LuckDBAdapter implements ISDKAdapter {
+  constructor(private sdk: LuckDB) {}
 
   // ==================== Base APIs ====================
 
-  /**
-   * Get all bases
-   */
   async getBases(): Promise<IBase[]> {
-    try {
-      const bases = await this.sdk.listBases();
-      return bases.map(this.adaptBase);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.listBases() as Promise<IBase[]>;
   }
 
-  /**
-   * Get a base by ID
-   */
   async getBase(id: string): Promise<IBase> {
-    try {
-      const base = await this.sdk.getBase(id);
-      return this.adaptBase(base);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
-  }
-
-  /**
-   * Create a new base
-   */
-  async createBase(data: ICreateBaseRo): Promise<IBase> {
-    try {
-      const base = await this.sdk.createBase({
-        name: data.name,
-        icon: data.icon,
-        spaceId: data.spaceId,
-      });
-      return this.adaptBase(base);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
-  }
-
-  /**
-   * Update a base
-   */
-  async updateBase(id: string, data: IUpdateBaseRo): Promise<IBase> {
-    try {
-      const base = await this.sdk.updateBase(id, {
-        name: data.name,
-        icon: data.icon,
-      });
-      return this.adaptBase(base);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
-  }
-
-  /**
-   * Delete a base
-   */
-  async deleteBase(id: string): Promise<void> {
-    try {
-      await this.sdk.deleteBase(id);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.getBase(id) as Promise<IBase>;
   }
 
   // ==================== Table APIs ====================
 
-  /**
-   * Get all tables in a base
-   */
   async getTables(baseId: string): Promise<ITable[]> {
-    try {
-      const tables = await this.sdk.listTables({ baseId });
-      return tables.map(this.adaptTable);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.listTables({ baseId }) as Promise<ITable[]>;
   }
 
-  /**
-   * Get a table by ID
-   */
   async getTable(tableId: string): Promise<ITable> {
-    try {
-      const table = await this.sdk.getTable(tableId);
-      return this.adaptTable(table);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.getTable(tableId) as Promise<ITable>;
   }
 
-  /**
-   * Create a new table
-   */
   async createTable(baseId: string, data: ICreateTableRo): Promise<ITable> {
-    try {
-      const table = await this.sdk.createTable({
-        baseId,
-        name: data.name,
-        description: data.description,
-        icon: data.icon,
-      });
-      return this.adaptTable(table);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.createTable({
+      baseId,
+      name: data.name,
+      ...data,
+    }) as Promise<ITable>;
   }
 
-  /**
-   * Update a table
-   */
   async updateTable(tableId: string, data: IUpdateTableRo): Promise<ITable> {
-    try {
-      const table = await this.sdk.updateTable(tableId, {
-        name: data.name,
-        description: data.description,
-        icon: data.icon,
-      });
-      return this.adaptTable(table);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.updateTable(tableId, data) as Promise<ITable>;
   }
 
-  /**
-   * Delete a table
-   */
   async deleteTable(tableId: string): Promise<void> {
-    try {
-      await this.sdk.deleteTable(tableId);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    await this.sdk.deleteTable(tableId);
   }
 
-  /**
-   * Get table permissions
-   */
   async getTablePermission(tableId: string): Promise<ITablePermission> {
-    try {
-      // SDK 可能还没有这个方法，返回默认权限
-      return {
-        'table|read': true,
-        'table|update': true,
-        'table|delete': true,
-        'record|create': true,
-        'record|read': true,
-        'record|update': true,
-        'record|delete': true,
-        'field|create': true,
-        'field|read': true,
-        'field|update': true,
-        'field|delete': true,
-        'view|create': true,
-        'view|read': true,
-        'view|update': true,
-        'view|delete': true,
-      };
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    // LuckDB SDK 可能没有这个方法，需要通过其他方式获取
+    // 这里暂时返回默认权限
+    console.warn('LuckDB SDK does not support getTablePermission yet');
+    return {
+      canEdit: true,
+      canDelete: true,
+      canCreate: true,
+    } as ITablePermission;
   }
 
   // ==================== Field APIs ====================
 
-  /**
-   * Get all fields in a table
-   */
   async getFields(tableId: string): Promise<IField[]> {
-    try {
-      const fields = await this.sdk.listFields({ tableId });
-      return fields.map(this.adaptField);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.listFields({ tableId }) as Promise<IField[]>;
   }
 
-  /**
-   * Get a field by ID
-   */
   async getField(tableId: string, fieldId: string): Promise<IField> {
-    try {
-      const field = await this.sdk.getField(fieldId);
-      return this.adaptField(field);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.getField(fieldId) as Promise<IField>;
   }
 
-  /**
-   * Create a new field
-   */
   async createField(tableId: string, data: ICreateFieldRo): Promise<IField> {
-    try {
-      const field = await this.sdk.createField({
-        tableId,
-        name: data.name,
-        type: data.type,
-        options: data.options,
-        description: data.description,
-        primary: data.isPrimary,
-      });
-      return this.adaptField(field);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.createField({
+      tableId,
+      ...data,
+    }) as Promise<IField>;
   }
 
-  /**
-   * Update a field
-   */
   async updateField(
     tableId: string,
     fieldId: string,
     data: IUpdateFieldRo
   ): Promise<IField> {
-    try {
-      const field = await this.sdk.updateField(fieldId, {
-        name: data.name,
-        type: data.type,
-        options: data.options,
-        description: data.description,
-      });
-      return this.adaptField(field);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.updateField(fieldId, data) as Promise<IField>;
   }
 
-  /**
-   * Delete a field
-   */
   async deleteField(tableId: string, fieldId: string): Promise<void> {
-    try {
-      await this.sdk.deleteField(fieldId);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
-  }
-
-  /**
-   * Convert field type
-   */
-  async convertField(
-    tableId: string,
-    fieldId: string,
-    newType: string,
-    options?: any
-  ): Promise<IField> {
-    try {
-      const field = await this.sdk.updateField(fieldId, {
-        type: newType as any,
-        options,
-      });
-      return this.adaptField(field);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    await this.sdk.deleteField(fieldId);
   }
 
   // ==================== Record APIs ====================
 
-  /**
-   * Get records from a table
-   */
   async getRecords(
     tableId: string,
     params?: IGetRecordsRo
   ): Promise<PaginatedResponse<IRecord>> {
-    try {
-      const result = await this.sdk.listRecords({
-        tableId,
-        filter: params?.filter as any,
-        sort: params?.sort as any,
-      });
-
-      return {
-        data: result.data.map(this.adaptRecord),
-        total: result.total,
-        page: Math.floor((params?.skip || 0) / (params?.take || 50)),
-        pageSize: params?.take || 50,
-        hasMore: result.total > (params?.skip || 0) + result.data.length,
-      };
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    const result = await this.sdk.listRecords({
+      tableId,
+      ...params,
+    });
+    
+    // 适配返回格式
+    return {
+      data: result.data || [],
+      total: result.total || 0,
+      page: params?.page || 1,
+      pageSize: params?.pageSize || 50,
+    } as PaginatedResponse<IRecord>;
   }
 
-  /**
-   * Get a single record
-   */
   async getRecord(tableId: string, recordId: string): Promise<IRecord> {
-    try {
-      const record = await this.sdk.getRecord(recordId);
-      return this.adaptRecord(record);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.getRecord(recordId) as Promise<IRecord>;
   }
 
-  /**
-   * Create a new record
-   */
-  async createRecord(
-    tableId: string,
-    data: ICreateRecordRo
-  ): Promise<IRecord> {
-    try {
-      const record = await this.sdk.createRecord({
-        tableId,
-        data: data.fields,
-      });
-      return this.adaptRecord(record);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+  async createRecord(tableId: string, data: ICreateRecordRo): Promise<IRecord> {
+    return this.sdk.createRecord({
+      tableId,
+      data: data.fields || data,
+    }) as Promise<IRecord>;
   }
 
-  /**
-   * Update a record
-   */
   async updateRecord(
     tableId: string,
     recordId: string,
     fieldId: string,
     value: any
   ): Promise<IRecord> {
-    try {
-      const record = await this.sdk.updateRecord(tableId, recordId, {
-        [fieldId]: value,
-      });
-      return this.adaptRecord(record);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.updateRecord(tableId, recordId, {
+      data: { [fieldId]: value },
+    }) as Promise<IRecord>;
   }
 
-  /**
-   * Batch update records
-   */
-  async batchUpdateRecords(
-    tableId: string,
-    updates: IUpdateRecordRo[]
-  ): Promise<IRecord[]> {
-    try {
-      const records = await this.sdk.bulkUpdateRecords(
-        updates.map((u) => ({
-          id: u.recordId,
-          data: { [u.fieldId]: u.value },
-        }))
-      );
-      return records.map(this.adaptRecord);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
-  }
-
-  /**
-   * Delete a record
-   */
   async deleteRecord(tableId: string, recordId: string): Promise<void> {
-    try {
-      await this.sdk.deleteRecord(tableId, recordId);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
-  }
-
-  /**
-   * Batch delete records
-   */
-  async batchDeleteRecords(
-    tableId: string,
-    recordIds: string[]
-  ): Promise<void> {
-    try {
-      await this.sdk.bulkDeleteRecords(tableId, recordIds);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    await this.sdk.deleteRecord(tableId, recordId);
   }
 
   // ==================== View APIs ====================
 
-  /**
-   * Get all views in a table
-   */
   async getViews(tableId: string): Promise<IView[]> {
-    try {
-      const views = await this.sdk.listViews({ tableId });
-      return views.map(this.adaptView);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.listViews({ tableId }) as Promise<IView[]>;
   }
 
-  /**
-   * Get a view by ID
-   */
   async getView(tableId: string, viewId: string): Promise<IView> {
-    try {
-      const view = await this.sdk.getView(viewId);
-      return this.adaptView(view);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.getView(viewId) as Promise<IView>;
   }
 
-  /**
-   * Create a new view
-   */
   async createView(tableId: string, data: ICreateViewRo): Promise<IView> {
-    try {
-      const view = await this.sdk.createView({
-        tableId,
-        name: data.name,
-        type: data.type,
-      });
-      return this.adaptView(view);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.createView({
+      tableId,
+      ...data,
+    }) as Promise<IView>;
   }
 
-  /**
-   * Update a view
-   */
   async updateView(
     tableId: string,
     viewId: string,
     data: IUpdateViewRo
   ): Promise<IView> {
-    try {
-      const view = await this.sdk.updateView(viewId, {
-        name: data.name,
-        filter: data.filter as any,
-        sort: data.sort as any,
-        group: data.group as any,
-        options: data.options,
-        columnMeta: data.columnMeta,
-      });
-      return this.adaptView(view);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
+    return this.sdk.updateView(viewId, data) as Promise<IView>;
   }
 
-  /**
-   * Delete a view
-   */
   async deleteView(tableId: string, viewId: string): Promise<void> {
-    try {
-      await this.sdk.deleteView(viewId);
-    } catch (error) {
-      this.handleError(error);
-      throw error;
-    }
-  }
-
-  // ==================== Comment APIs ====================
-
-  /**
-   * Get comments for a record
-   */
-  async getComments(
-    tableId: string,
-    recordId: string
-  ): Promise<IComment[]> {
-    // SDK 可能还没有评论功能，返回空数组
-    return [];
-  }
-
-  /**
-   * Create a comment
-   */
-  async createComment(
-    tableId: string,
-    recordId: string,
-    data: ICreateCommentRo
-  ): Promise<IComment> {
-    // SDK 可能还没有评论功能，抛出错误
-    throw new Error('Comments not yet supported');
-  }
-
-  /**
-   * Update a comment
-   */
-  async updateComment(
-    tableId: string,
-    recordId: string,
-    commentId: string,
-    data: IUpdateCommentRo
-  ): Promise<IComment> {
-    throw new Error('Comments not yet supported');
-  }
-
-  /**
-   * Delete a comment
-   */
-  async deleteComment(
-    tableId: string,
-    recordId: string,
-    commentId: string
-  ): Promise<void> {
-    throw new Error('Comments not yet supported');
-  }
-
-  // ==================== Utility ====================
-
-  /**
-   * Generic GET request
-   */
-  async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    throw new Error('Generic requests not supported in SDK adapter');
-  }
-
-  /**
-   * Generic POST request
-   */
-  async post<T = any>(
-    url: string,
-    data?: any,
-    config?: AxiosRequestConfig
-  ): Promise<T> {
-    throw new Error('Generic requests not supported in SDK adapter');
-  }
-
-  /**
-   * Generic PATCH request
-   */
-  async patch<T = any>(
-    url: string,
-    data?: any,
-    config?: AxiosRequestConfig
-  ): Promise<T> {
-    throw new Error('Generic requests not supported in SDK adapter');
-  }
-
-  /**
-   * Generic DELETE request
-   */
-  async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    throw new Error('Generic requests not supported in SDK adapter');
-  }
-
-  // ==================== Adapters ====================
-
-  /**
-   * Adapt SDK Base to grid IBase
-   */
-  private adaptBase(base: any): IBase {
-    return {
-      id: base.id,
-      name: base.name,
-      icon: base.icon,
-      spaceId: base.spaceId,
-      createdTime: base.createdAt || base.createdTime,
-      lastModifiedTime: base.updatedAt || base.lastModifiedTime,
-    };
-  }
-
-  /**
-   * Adapt SDK Table to grid ITable
-   */
-  private adaptTable(table: any): ITable {
-    return {
-      id: table.id,
-      name: table.name,
-      dbTableName: table.dbTableName || '',
-      baseId: table.baseId,
-      icon: table.icon,
-      description: table.description,
-      createdTime: table.createdAt || table.createdTime,
-      lastModifiedTime: table.updatedAt || table.lastModifiedTime,
-    };
-  }
-
-  /**
-   * Adapt SDK Field to grid IField
-   */
-  private adaptField(field: any): IField {
-    return {
-      id: field.id,
-      name: field.name,
-      type: field.type,
-      tableId: field.tableId,
-      options: field.options,
-      description: field.description,
-      isComputed: field.isComputed || false,
-      isPrimary: field.isPrimary || false,
-      createdTime: field.createdAt || field.createdTime,
-      lastModifiedTime: field.updatedAt || field.lastModifiedTime,
-    };
-  }
-
-  /**
-   * Adapt SDK Record to grid IRecord
-   */
-  private adaptRecord(record: any): IRecord {
-    return {
-      id: record.id,
-      fields: record.data || record.fields || {},
-      createdTime: record.createdAt || record.createdTime,
-      lastModifiedTime: record.updatedAt || record.lastModifiedTime,
-      createdBy: record.createdBy,
-      lastModifiedBy: record.updatedBy || record.lastModifiedBy,
-    };
-  }
-
-  /**
-   * Adapt SDK View to grid IView
-   */
-  private adaptView(view: any): IView {
-    return {
-      id: view.id,
-      name: view.name,
-      type: view.type,
-      tableId: view.tableId,
-      order: view.order || 0,
-      filter: view.filter,
-      sort: view.sort,
-      group: view.group,
-      options: view.options,
-      columnMeta: view.columnMeta,
-      createdTime: view.createdAt || view.createdTime,
-      lastModifiedTime: view.updatedAt || view.lastModifiedTime,
-    };
-  }
-
-  /**
-   * Handle errors
-   */
-  private handleError(error: any): void {
-    console.error('API Error:', error);
-    
-    // 处理网络错误
-    if (error.name === 'fetchError' || error.message?.includes('Failed to fetch')) {
-      console.error('网络连接失败，请检查网络连接或服务器状态');
-    }
-    
-    // 处理认证错误
-    if (error?.response?.status === 401) {
-      console.error('认证失败，请重新登录');
-      this.config.onUnauthorized?.();
-    }
-    
-    // 处理其他错误
-    if (error?.response?.status >= 500) {
-      console.error('服务器错误，请稍后重试');
-    } else if (error?.response?.status >= 400) {
-      console.error('请求错误:', error.response?.data?.message || error.message);
-    }
-    
-    this.config.onError?.(error);
+    await this.sdk.deleteView(viewId);
   }
 }
 
+/**
+ * ApiClient 适配器（向后兼容）
+ * 将现有的 ApiClient 适配为统一接口
+ */
+export class ApiClientAdapter implements ISDKAdapter {
+  constructor(private client: ApiClient) {}
+
+  // 直接代理所有方法到 ApiClient
+  async getBases(): Promise<IBase[]> {
+    return this.client.getBases();
+  }
+
+  async getBase(id: string): Promise<IBase> {
+    return this.client.getBase(id);
+  }
+
+  async getTables(baseId: string): Promise<ITable[]> {
+    return this.client.getTables(baseId);
+  }
+
+  async getTable(tableId: string): Promise<ITable> {
+    return this.client.getTable(tableId);
+  }
+
+  async createTable(baseId: string, data: ICreateTableRo): Promise<ITable> {
+    return this.client.createTable(baseId, data);
+  }
+
+  async updateTable(tableId: string, data: IUpdateTableRo): Promise<ITable> {
+    return this.client.updateTable(tableId, data);
+  }
+
+  async deleteTable(tableId: string): Promise<void> {
+    return this.client.deleteTable(tableId);
+  }
+
+  async getTablePermission(tableId: string): Promise<ITablePermission> {
+    return this.client.getTablePermission(tableId);
+  }
+
+  async getFields(tableId: string): Promise<IField[]> {
+    return this.client.getFields(tableId);
+  }
+
+  async getField(tableId: string, fieldId: string): Promise<IField> {
+    return this.client.getField(tableId, fieldId);
+  }
+
+  async createField(tableId: string, data: ICreateFieldRo): Promise<IField> {
+    return this.client.createField(tableId, data);
+  }
+
+  async updateField(
+    tableId: string,
+    fieldId: string,
+    data: IUpdateFieldRo
+  ): Promise<IField> {
+    return this.client.updateField(tableId, fieldId, data);
+  }
+
+  async deleteField(tableId: string, fieldId: string): Promise<void> {
+    return this.client.deleteField(tableId, fieldId);
+  }
+
+  async getRecords(
+    tableId: string,
+    params?: IGetRecordsRo
+  ): Promise<PaginatedResponse<IRecord>> {
+    return this.client.getRecords(tableId, params);
+  }
+
+  async getRecord(tableId: string, recordId: string): Promise<IRecord> {
+    return this.client.getRecord(tableId, recordId);
+  }
+
+  async createRecord(tableId: string, data: ICreateRecordRo): Promise<IRecord> {
+    return this.client.createRecord(tableId, data);
+  }
+
+  async updateRecord(
+    tableId: string,
+    recordId: string,
+    fieldId: string,
+    value: any
+  ): Promise<IRecord> {
+    return this.client.updateRecord(tableId, recordId, fieldId, value);
+  }
+
+  async deleteRecord(tableId: string, recordId: string): Promise<void> {
+    return this.client.deleteRecord(tableId, recordId);
+  }
+
+  async getViews(tableId: string): Promise<IView[]> {
+    return this.client.getViews(tableId);
+  }
+
+  async getView(tableId: string, viewId: string): Promise<IView> {
+    return this.client.getView(tableId, viewId);
+  }
+
+  async createView(tableId: string, data: ICreateViewRo): Promise<IView> {
+    return this.client.createView(tableId, data);
+  }
+
+  async updateView(
+    tableId: string,
+    viewId: string,
+    data: IUpdateViewRo
+  ): Promise<IView> {
+    return this.client.updateView(tableId, viewId, data);
+  }
+
+  async deleteView(tableId: string, viewId: string): Promise<void> {
+    return this.client.deleteView(tableId, viewId);
+  }
+}
+
+/**
+ * 创建适配器工厂函数
+ * 自动识别传入的是 SDK 还是 ApiClient
+ */
+export function createAdapter(sdkOrClient: LuckDB | ApiClient): ISDKAdapter {
+  // 检查是否是 LuckDB SDK
+  if ('login' in sdkOrClient && 'auth' in sdkOrClient) {
+    return new LuckDBAdapter(sdkOrClient as LuckDB);
+  }
+  
+  // 否则当作 ApiClient
+  return new ApiClientAdapter(sdkOrClient as ApiClient);
+}
+
+/**
+ * 类型守卫 - 检查是否是 LuckDB SDK
+ */
+export function isLuckDBSDK(sdkOrClient: any): sdkOrClient is LuckDB {
+  return 'login' in sdkOrClient && 'auth' in sdkOrClient;
+}
+
+/**
+ * 类型守卫 - 检查是否是 ApiClient
+ */
+export function isApiClient(sdkOrClient: any): sdkOrClient is ApiClient {
+  return 'setToken' in sdkOrClient && 'clearToken' in sdkOrClient;
+}

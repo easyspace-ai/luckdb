@@ -22,6 +22,22 @@ export function ViewTabs(props: ViewTabsProps) {
     <div className="w-full flex items-center gap-2">
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex items-center gap-2 pr-4">
+          {/* "+" 按钮放在最左侧 */}
+          {onCreate && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md border border-dashed hover:border-solid hover:bg-muted">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => onCreate('grid')}>表格视图</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onCreate('kanban')}>看板视图</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {/* 视图标签页 */}
           {views.map((v) => (
             <div key={v.id} className={cn('group flex items-center h-8 rounded-md border px-3 text-sm cursor-pointer select-none',
               v.id === activeViewId ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted')}
@@ -45,20 +61,6 @@ export function ViewTabs(props: ViewTabsProps) {
               </DropdownMenu>
             </div>
           ))}
-
-          {onCreate && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8">
-                  <Plus className="mr-1 h-4 w-4" /> 新建
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={() => onCreate('grid')}>表格视图</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onCreate('kanban')}>看板视图</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
         </div>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
