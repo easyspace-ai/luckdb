@@ -885,8 +885,6 @@ export function StandardDataView(props: StandardDataViewProps) {
               setEditingField(null);
             }}
             onConfirm={handleUpdateField}
-            editMode={true}
-            editingField={editingField}
           />
         </>
       )}

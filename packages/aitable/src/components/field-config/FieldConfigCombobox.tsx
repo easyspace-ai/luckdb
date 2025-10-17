@@ -96,12 +96,12 @@ export function FieldConfigCombobox({
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/html', e.currentTarget.outerHTML);
-    e.currentTarget.style.opacity = '0.5';
+    (e.currentTarget as HTMLElement).style.opacity = '0.5';
   }, []);
 
   // 拖拽结束
   const handleDragEnd = useCallback((e: React.DragEvent) => {
-    e.currentTarget.style.opacity = '1';
+    (e.currentTarget as HTMLElement).style.opacity = '1';
     setDraggedIndex(null);
   }, []);
 
@@ -173,7 +173,8 @@ export function FieldConfigCombobox({
         )}
         style={{
           borderColor: isOpen ? tokens.colors.border.focus : tokens.colors.border.subtle,
-          focusRingColor: tokens.colors.border.focus,
+          outline: isOpen ? `2px solid ${tokens.colors.border.focus}` : 'none',
+          outlineOffset: '2px',
         }}
         onKeyDown={handleKeyDown}
         aria-expanded={isOpen}

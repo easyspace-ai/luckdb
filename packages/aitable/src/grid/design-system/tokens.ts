@@ -34,6 +34,8 @@ export const colorTokens = {
     active: '#f1f5f9',
     selected: '#e0f2fe',
     disabled: '#f9fafb',
+    destructive: '#fef2f2', // 危险操作的背景色
+    accent: '#eff6ff', // 强调背景色
   },
 
   // Border - 边框颜色
@@ -43,6 +45,7 @@ export const colorTokens = {
     strong: '#9ca3af',
     focus: '#3b82f6',
     error: '#ef4444',
+    accent: '#93c5fd', // 强调边框色
   },
 
   // Text - 文本颜色
@@ -56,6 +59,8 @@ export const colorTokens = {
     error: '#dc2626',
     success: '#16a34a',
     warning: '#d97706',
+    accent: '#2563eb', // 强调文本色
+    destructive: '#dc2626', // 危险操作的文本色
   },
 
   // Interactive - 交互元素
@@ -80,6 +85,7 @@ export const colorTokens = {
       border: '#e5e7eb',
       text: '#d1d5db',
     },
+    bg: '#ffffff', // 添加 bg 属性用于兼容性
   },
 
   // Semantic - 语义颜色

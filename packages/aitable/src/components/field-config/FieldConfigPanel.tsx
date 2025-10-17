@@ -52,12 +52,12 @@ export function FieldConfigPanel({
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/html', e.currentTarget.outerHTML);
-    e.currentTarget.style.opacity = '0.5';
+    (e.currentTarget as HTMLElement).style.opacity = '0.5';
   }, []);
 
   // 拖拽结束
   const handleDragEnd = useCallback((e: React.DragEvent) => {
-    e.currentTarget.style.opacity = '1';
+    (e.currentTarget as HTMLElement).style.opacity = '1';
     setDraggedIndex(null);
   }, []);
 

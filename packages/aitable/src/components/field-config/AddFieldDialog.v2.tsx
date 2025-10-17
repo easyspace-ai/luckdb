@@ -290,7 +290,7 @@ export interface AddFieldDialogProps {
 /**
  * 字段配置类型联合
  */
-export type FieldConfig = 
+export type FieldTypeConfig = 
   | SelectFieldConfig 
   | NumberFieldConfig 
   | DateFieldConfig 
@@ -325,7 +325,7 @@ export function AddFieldDialog({ isOpen, onClose, onConfirm }: AddFieldDialogPro
   const [selectedCategory, setSelectedCategory] = useState<FieldCategory | 'all' | 'popular'>('all');
   
   // 字段配置
-  const [fieldConfig, setFieldConfig] = useState<FieldConfig>({});
+  const [fieldConfig, setFieldConfig] = useState<FieldTypeConfig>({});
 
   // 筛选后的字段类型
   const filteredFieldTypes = useMemo(() => {
@@ -367,7 +367,7 @@ export function AddFieldDialog({ isOpen, onClose, onConfirm }: AddFieldDialogPro
     setFieldName(''); // 清空之前的名称
     
     // 初始化默认配置
-    let defaultConfig: FieldConfig = {};
+    let defaultConfig: FieldTypeConfig = {};
     if (type.id === 'singleSelect' || type.id === 'multipleSelect') {
       defaultConfig = { options: [] };
     } else if (type.id === 'number') {
@@ -888,8 +888,8 @@ interface ConfigurationStepProps {
   selectedType: FieldType;
   fieldName: string;
   onFieldNameChange: (name: string) => void;
-  fieldConfig: FieldConfig;
-  onFieldConfigChange: (config: FieldConfig) => void;
+  fieldConfig: FieldTypeConfig;
+  onFieldConfigChange: (config: FieldTypeConfig) => void;
   onBack: () => void;
   onConfirm: () => void;
   onClose: () => void;
@@ -1198,7 +1198,7 @@ function ConfigurationStep({
               eventType: e.type
             });
             alert('按钮被点击了！'); // 临时测试
-            handleConfirm();
+            onConfirm();
           }}
           disabled={false} // 临时禁用禁用状态
           style={{

@@ -384,7 +384,7 @@ export function EditFieldDialog({ isOpen, field, onClose, onSave }: EditFieldDia
                               transition: transitions.presets.all,
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = tokens.colors.bg.destructive;
+                              e.currentTarget.style.backgroundColor = tokens.colors.surface.destructive;
                             }}
                             onMouseLeave={(e) => {
                               e.currentTarget.style.backgroundColor = tokens.colors.surface.destructive;
@@ -608,7 +608,7 @@ export function EditFieldDialog({ isOpen, field, onClose, onSave }: EditFieldDia
               fontSize: '14px',
               fontWeight: 500,
               color: formData.name?.trim() ? tokens.colors.text.inverse : tokens.colors.text.tertiary,
-              backgroundColor: formData.name?.trim() ? tokens.colors.bg.accent : tokens.colors.surface.disabled,
+              backgroundColor: formData.name?.trim() ? tokens.colors.primary[600] : tokens.colors.surface.disabled,
               border: 'none',
               borderRadius: '6px',
               cursor: formData.name?.trim() ? 'pointer' : 'not-allowed',
@@ -619,12 +619,12 @@ export function EditFieldDialog({ isOpen, field, onClose, onSave }: EditFieldDia
             }}
             onMouseEnter={(e) => {
               if (formData.name?.trim()) {
-                e.currentTarget.style.backgroundColor = tokens.colors.bg.accentHover;
+                e.currentTarget.style.backgroundColor = tokens.colors.primary[700];
               }
             }}
             onMouseLeave={(e) => {
               if (formData.name?.trim()) {
-                e.currentTarget.style.backgroundColor = tokens.colors.bg.accent;
+                e.currentTarget.style.backgroundColor = tokens.colors.primary[600];
               }
             }}
           >

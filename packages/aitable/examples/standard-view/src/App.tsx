@@ -34,7 +34,7 @@ function getFieldTypeFromColumn(column: any): string {
  * - 完整的交互细节和状态展示
  */
 function App() {
-  const [dataMode, setDataMode] = useState<'demo' | 'real'>('demo');
+  const [dataMode, setDataMode] = useState<'demo' | 'real'>('real');
   const [rowCount] = useState(250);
   const [viewState, setViewState] = useState<DataViewState>('idle');
   

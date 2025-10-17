@@ -366,8 +366,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const columnManagementRef = useRef<IColumnManagementRef | null>(null);
   const rowContextMenuRef = useRef<IRowContextMenuRef | null>(null);
   const deleteConfirmDialogRef = useRef<IDeleteConfirmDialogRef | null>(null);
-  const addFieldMenuTriggerRef = useRef<HTMLDivElement | null>(null);
-  const editFieldMenuTriggerRef = useRef<HTMLDivElement | null>(null);
+  const addFieldMenuTriggerRef = useRef<HTMLElement | null>(null);
+  const editFieldMenuTriggerRef = useRef<HTMLElement | null>(null);
   const { ref, width, height } = useResizeObserver<HTMLDivElement>();
 
   const [activeColumnIndex, activeRowIndex] = activeCell ?? [];
@@ -629,7 +629,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           width: 40,
           height: columnHeaderHeight,
         }),
-      } as HTMLElement;
+      } as unknown as HTMLElement;
       
       addFieldMenuTriggerRef.current = triggerElement;
     }
@@ -670,7 +670,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           width: column.width || defaultColumnWidth,
           height: columnHeaderHeight,
         }),
-      } as HTMLElement;
+      } as unknown as HTMLElement;
       
       editFieldMenuTriggerRef.current = triggerElement;
     }
