@@ -96,7 +96,7 @@ export function DatabaseSidebar({
 
   if (loading) {
     return (
-      <div className="w-64 border-r bg-muted/20 p-4">
+      <div className="w-64 border-r-2 border-gray-300 dark:border-gray-700 bg-muted/20 p-4">
         <Skeleton className="h-6 w-32 mb-4" />
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
@@ -108,7 +108,7 @@ export function DatabaseSidebar({
   }
 
   return (
-    <div className="w-64 border-r bg-muted/20 flex flex-col">
+    <div className="w-64 border-r-2 border-gray-300 dark:border-gray-700 bg-muted/20 flex flex-col">
       {/* 数据库信息 */}
       <div className="p-3 border-b bg-muted/10">
         <div className="flex items-center gap-2">

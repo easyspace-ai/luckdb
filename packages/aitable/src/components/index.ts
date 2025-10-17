@@ -14,9 +14,25 @@ export { FieldSetting } from '../grid/components/field-modal/FieldSetting';
 export { StandardDataView } from './StandardDataView';
 export type { 
   StandardDataViewProps, 
-  StandardToolbarConfig,
-  DataViewState 
+  Tab,
+  View
 } from './StandardDataView';
+
+// View Header
+export { ViewHeader, CreateViewMenu } from './view-header';
+export type { ViewHeaderProps, ViewType } from './view-header';
+
+// View Toolbar
+export { ViewToolbar } from './view-toolbar';
+export type { ViewToolbarProps, ToolbarConfig } from './view-toolbar';
+
+// View Content
+export { ViewContent } from './view-content';
+export type { ViewContentProps, ViewContentState } from './view-content';
+
+// View StatusBar
+export { ViewStatusBar } from './view-statusbar';
+export type { ViewStatusBarProps } from './view-statusbar';
 
 // Field configuration components
 export { 

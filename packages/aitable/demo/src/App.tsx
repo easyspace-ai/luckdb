@@ -595,6 +595,34 @@ function TableView() {
           <StandardDataView
             sdk={sdk}
             tableId={config.testBase.tableId}
+            // 真实 API 调用创建视图
+            onCreateView={async (viewType: string) => {
+              try {
+                console.log('🆕 创建视图:', viewType);
+                
+                // 调用 LuckDB SDK 创建视图
+                const newView = await sdk!.createView({
+                  tableId: config.testBase.tableId,
+                  name: `${viewType}视图_${Date.now()}`,
+                  type: viewType as any, // 确保类型匹配
+                  description: `通过 Demo 创建的 ${viewType} 视图`,
+                });
+                
+                console.log('✅ 视图创建成功:', newView);
+                
+                // 刷新数据以获取最新的视图列表
+                if (gridProps.onDataRefresh) {
+                  await gridProps.onDataRefresh();
+                }
+                
+                // 可选：切换到新创建的视图
+                // setActiveViewId(newView.id);
+                
+              } catch (error) {
+                console.error('❌ 创建视图失败:', error);
+                alert(`创建视图失败: ${(error as Error).message}`);
+              }
+            }}
             gridProps={{
               ...gridProps,
               // 数据刷新回调 - 自动刷新字段和记录
