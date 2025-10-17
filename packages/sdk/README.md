@@ -16,7 +16,7 @@
 ## 安装
 
 ```bash
-npm install @luckdb/sdk
+npm install @easyspace/luckdb-sdk
 ```
 
 ## 快速开始
@@ -38,7 +38,7 @@ npm install @luckdb/sdk
 ### 基本使用
 
 ```typescript
-import LuckDB from '@luckdb/sdk';
+import LuckDB from '@easyspace/luckdb-sdk';
 
 // 初始化 SDK
 const luckdb = new LuckDB({
@@ -301,7 +301,7 @@ import {
   ValidationError,
   RateLimitError,
   ServerError
-} from '@luckdb/sdk';
+} from '@easyspace/luckdb-sdk';
 
 try {
   const record = await luckdb.createRecord(data);
@@ -406,7 +406,7 @@ pnpm test:performance    # 性能测试
 ### 表管理功能示例
 
 ```typescript
-import { LuckDB } from '@luckdb/sdk';
+import { LuckDB } from '@easyspace/luckdb-sdk';
 
 const sdk = new LuckDB({
   apiUrl: 'http://localhost:8080',

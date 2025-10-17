@@ -1,5 +1,5 @@
 {
-  "name": "@luckdb/sdk",
+  "name": "@easyspace/luckdb-sdk",
   "version": "1.0.0",
   "description": "TypeScript SDK for LuckDB - A collaborative database platform",
   "main": "dist/index.js",
@@ -84,4 +84,3 @@
   "homepage": "https://github.com/easyspace-ai/luckdb/tree/main/packages/sdk#readme",
   "packageManager": "pnpm@9.13.0"
 }
-

@@ -31,12 +31,19 @@ print_error() {
 
 # 获取当前版本
 get_version() {
-    node -p "require('./packages/sdk/package.json').version"
+    # 根据当前目录判断 package.json 的位置
+    if [ -f "package.json" ]; then
+        node -p "require('./package.json').version"
+    elif [ -f "packages/sdk/package.json" ]; then
+        node -p "require('./packages/sdk/package.json').version"
+    else
+        echo "1.0.0"
+    fi
 }
 
 # 主函数
 main() {
-    print_info "开始 @luckdb/sdk 发布流程..."
+    print_info "开始 @easyspace/luckdb-sdk 发布流程..."
     echo ""
 
     # 1. 检查是否在项目根目录
@@ -103,11 +110,11 @@ main() {
 
     # 7. 询问新版本号
     print_info "请选择版本更新类型:"
-    echo "  1) patch   - Bug 修复 (${CURRENT_VERSION} -> $(npm version patch --no-git-tag-version && npm version patch --preid --no-git-tag-version 2>/dev/null || echo 'N/A'))"
-    echo "  2) minor   - 新功能，向后兼容"
-    echo "  3) major   - 破坏性变更"
+    echo "  1) patch   - Bug 修复 (${CURRENT_VERSION})"
+    echo "  2) minor   - 新功能，向后兼容 (${CURRENT_VERSION})"
+    echo "  3) major   - 破坏性变更 (${CURRENT_VERSION})"
     echo "  4) custom  - 自定义版本号"
-    echo "  5) skip    - 跳过版本更新"
+    echo "  5) skip    - 跳过版本更新 (保持 ${CURRENT_VERSION})"
     read -p "请选择 (1-5): " -n 1 -r VERSION_TYPE
     echo ""
 
@@ -163,7 +170,7 @@ main() {
     echo ""
 
     # 11. 确认发布
-    print_warning "即将发布 @luckdb/sdk@${NEW_VERSION}"
+    print_warning "即将发布 @easyspace/luckdb-sdk@${NEW_VERSION}"
     read -p "确认发布？(y/N) " -n 1 -r
     echo ""
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -211,9 +218,9 @@ main() {
     # 15. 验证发布
     print_info "验证发布..."
     sleep 3  # 等待 npm 更新
-    if npm view @luckdb/sdk@${NEW_VERSION} version &> /dev/null; then
+    if npm view @easyspace/luckdb-sdk@${NEW_VERSION} version &> /dev/null; then
         print_success "验证成功：包已在 npm 上可用"
-        print_info "查看包信息: https://www.npmjs.com/package/@luckdb/sdk"
+        print_info "查看包信息: https://www.npmjs.com/package/@easyspace/luckdb-sdk"
     else
         print_warning "验证失败：可能需要等待 npm 索引更新"
     fi
@@ -223,10 +230,10 @@ main() {
     print_success "🎉 发布完成！"
     echo ""
     print_info "安装新版本:"
-    echo "  npm install @luckdb/sdk@${NEW_VERSION}"
+    echo "  npm install @easyspace/luckdb-sdk@${NEW_VERSION}"
     echo ""
     print_info "或更新到最新版本:"
-    echo "  npm install @luckdb/sdk@latest"
+    echo "  npm install @easyspace/luckdb-sdk@latest"
 }
 
 # 运行主函数

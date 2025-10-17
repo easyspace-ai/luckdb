@@ -1,6 +1,6 @@
-# 发布 @luckdb/sdk 到 NPM
+# 发布 @easyspace/luckdb-sdk 到 NPM
 
-本文档说明如何将 `@luckdb/sdk` 包发布到 npm registry。
+本文档说明如何将 `@easyspace/luckdb-sdk` 包发布到 npm registry。
 
 ## 📋 发布前检查清单
 
@@ -160,9 +160,9 @@ npm publish --access public --tag canary
 用户可以这样安装特定标签的版本：
 
 ```bash
-npm install @luckdb/sdk         # latest
-npm install @luckdb/sdk@beta    # beta
-npm install @luckdb/sdk@next    # next
+npm install @easyspace/luckdb-sdk         # latest
+npm install @easyspace/luckdb-sdk@beta    # beta
+npm install @easyspace/luckdb-sdk@next    # next
 ```
 
 ## 📊 发布后验证
@@ -171,13 +171,13 @@ npm install @luckdb/sdk@next    # next
 
 ```bash
 # 查看包信息
-npm view @luckdb/sdk
+npm view @easyspace/luckdb-sdk
 
 # 查看特定版本
-npm view @luckdb/sdk@1.0.0
+npm view @easyspace/luckdb-sdk@1.0.0
 
 # 查看所有版本
-npm view @luckdb/sdk versions
+npm view @easyspace/luckdb-sdk versions
 ```
 
 ### 2. 测试安装
@@ -191,15 +191,15 @@ cd test-luckdb-sdk
 npm init -y
 
 # 安装包
-npm install @luckdb/sdk
+npm install @easyspace/luckdb-sdk
 
 # 测试导入
-node -e "const LuckDB = require('@luckdb/sdk'); console.log(LuckDB);"
+node -e "const LuckDB = require('@easyspace/luckdb-sdk'); console.log(LuckDB);"
 ```
 
 ### 3. 检查 npm 网站
 
-访问 https://www.npmjs.com/package/@luckdb/sdk 查看包页面。
+访问 https://www.npmjs.com/package/@easyspace/luckdb-sdk 查看包页面。
 
 ## 🔄 版本管理策略
 
@@ -244,10 +244,10 @@ npm version prerelease --preid=rc
 
 ```bash
 # 撤销特定版本
-npm unpublish @luckdb/sdk@1.0.1
+npm unpublish @easyspace/luckdb-sdk@1.0.1
 
 # 撤销整个包（慎用！）
-npm unpublish @luckdb/sdk --force
+npm unpublish @easyspace/luckdb-sdk --force
 ```
 
 ⚠️ **注意**：
@@ -261,10 +261,10 @@ npm unpublish @luckdb/sdk --force
 
 ```bash
 # 标记版本为废弃
-npm deprecate @luckdb/sdk@1.0.0 "此版本有严重 bug，请升级到 1.0.1"
+npm deprecate @easyspace/luckdb-sdk@1.0.0 "此版本有严重 bug，请升级到 1.0.1"
 
 # 取消废弃
-npm deprecate @luckdb/sdk@1.0.0 ""
+npm deprecate @easyspace/luckdb-sdk@1.0.0 ""
 ```
 
 ## 📝 最佳实践
@@ -352,7 +352,7 @@ npm whoami
 
 ### 问题 2: 包名已被占用
 
-**原因**: 包名 `@luckdb/sdk` 已存在
+**原因**: 包名 `@easyspace/luckdb-sdk` 已存在
 
 **解决**:
 - 使用组织命名空间（需要先创建 npm 组织）

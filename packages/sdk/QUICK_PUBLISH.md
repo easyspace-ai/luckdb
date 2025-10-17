@@ -1,4 +1,4 @@
-# 快速发布指南 - @luckdb/sdk
+# 快速发布指南 - @easyspace/luckdb-sdk
 
 ## 🚀 一键发布（推荐）
 
@@ -67,10 +67,10 @@ npm publish --access public --tag alpha
 
 ```bash
 # 查看包信息
-npm view @luckdb/sdk
+npm view @easyspace/luckdb-sdk
 
 # 测试安装
-npm install @luckdb/sdk@latest
+npm install @easyspace/luckdb-sdk@latest
 ```
 
 ## 📚 详细文档
@@ -94,10 +94,10 @@ npm publish --access public
 **Q: 如何撤销？**
 ```bash
 # 72小时内
-npm unpublish @luckdb/sdk@1.0.1
+npm unpublish @easyspace/luckdb-sdk@1.0.1
 
 # 之后使用废弃
-npm deprecate @luckdb/sdk@1.0.1 "请升级"
+npm deprecate @easyspace/luckdb-sdk@1.0.1 "请升级"
 ```
 
 ## 🎯 快速命令
