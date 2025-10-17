@@ -71,8 +71,8 @@ type CacheConfig struct {
 
 // MonitoringConfig 监控配置
 type MonitoringConfig struct {
-	Enabled           bool          `mapstructure:"enabled"`
-	EnableMetrics     bool          `mapstructure:"enable_metrics"`
+	Enabled            bool          `mapstructure:"enabled"`
+	EnableMetrics      bool          `mapstructure:"enable_metrics"`
 	SlowQueryThreshold time.Duration `mapstructure:"slow_query_threshold"`
 }
 

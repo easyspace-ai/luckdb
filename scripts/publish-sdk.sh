@@ -45,7 +45,29 @@ main() {
         exit 1
     fi
 
-    # 2. 检查是否已登录 npm
+    # 2. 检查 npm registry（必须使用官方源）
+    print_info "检查 npm registry..."
+    CURRENT_REGISTRY=$(npm config get registry)
+    OFFICIAL_REGISTRY="https://registry.npmjs.org/"
+    
+    if [[ "$CURRENT_REGISTRY" != "$OFFICIAL_REGISTRY" ]]; then
+        print_warning "当前使用的不是官方源"
+        print_info "当前源: $CURRENT_REGISTRY"
+        print_info "官方源: $OFFICIAL_REGISTRY"
+        read -p "是否切换到官方源？(Y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+            npm config set registry $OFFICIAL_REGISTRY
+            print_success "已切换到官方源"
+        else
+            print_warning "继续使用当前源，可能导致发布失败"
+        fi
+    else
+        print_success "使用官方源: $OFFICIAL_REGISTRY"
+    fi
+    echo ""
+
+    # 3. 检查是否已登录 npm
     print_info "检查 npm 登录状态..."
     if ! npm whoami &> /dev/null; then
         print_error "未登录 npm，请先运行: npm login"
@@ -54,7 +76,7 @@ main() {
     print_success "npm 已登录: $(npm whoami)"
     echo ""
 
-    # 3. 检查 Git 状态
+    # 4. 检查 Git 状态
     print_info "检查 Git 状态..."
     if [ -n "$(git status --porcelain)" ]; then
         print_warning "工作区有未提交的更改"
@@ -69,17 +91,17 @@ main() {
     fi
     echo ""
 
-    # 4. 进入 SDK 目录
+    # 5. 进入 SDK 目录
     cd packages/sdk
     print_info "当前目录: $(pwd)"
     echo ""
 
-    # 5. 显示当前版本
+    # 6. 显示当前版本
     CURRENT_VERSION=$(get_version)
     print_info "当前版本: v${CURRENT_VERSION}"
     echo ""
 
-    # 6. 询问新版本号
+    # 7. 询问新版本号
     print_info "请选择版本更新类型:"
     echo "  1) patch   - Bug 修复 (${CURRENT_VERSION} -> $(npm version patch --no-git-tag-version && npm version patch --preid --no-git-tag-version 2>/dev/null || echo 'N/A'))"
     echo "  2) minor   - 新功能，向后兼容"
@@ -116,7 +138,7 @@ main() {
     print_success "版本已更新: v${NEW_VERSION}"
     echo ""
 
-    # 7. 运行 linter
+    # 8. 运行 linter
     print_info "运行 linter..."
     if pnpm lint; then
         print_success "Linter 检查通过"
@@ -125,7 +147,7 @@ main() {
     fi
     echo ""
 
-    # 8. 构建项目
+    # 9. 构建项目
     print_info "构建项目..."
     if pnpm build; then
         print_success "构建成功"
@@ -135,12 +157,12 @@ main() {
     fi
     echo ""
 
-    # 9. 预览发布内容
+    # 10. 预览发布内容
     print_info "预览发布内容..."
     npm pack --dry-run
     echo ""
 
-    # 10. 确认发布
+    # 11. 确认发布
     print_warning "即将发布 @luckdb/sdk@${NEW_VERSION}"
     read -p "确认发布？(y/N) " -n 1 -r
     echo ""
@@ -151,7 +173,7 @@ main() {
         exit 1
     fi
 
-    # 11. 发布到 npm
+    # 12. 发布到 npm
     print_info "发布到 npm..."
     if npm publish --access public; then
         print_success "发布成功！"
@@ -163,7 +185,7 @@ main() {
     fi
     echo ""
 
-    # 12. 创建 Git 标签
+    # 13. 创建 Git 标签
     cd ../..
     print_info "创建 Git 标签..."
     git add packages/sdk/package.json
@@ -172,7 +194,7 @@ main() {
     print_success "Git 标签已创建: sdk-v${NEW_VERSION}"
     echo ""
 
-    # 13. 推送到远程
+    # 14. 推送到远程
     print_info "是否推送到远程仓库？"
     read -p "推送 Git 提交和标签？(y/N) " -n 1 -r
     echo ""
@@ -186,7 +208,7 @@ main() {
     fi
     echo ""
 
-    # 14. 验证发布
+    # 15. 验证发布
     print_info "验证发布..."
     sleep 3  # 等待 npm 更新
     if npm view @luckdb/sdk@${NEW_VERSION} version &> /dev/null; then
@@ -197,7 +219,7 @@ main() {
     fi
     echo ""
 
-    # 15. 完成
+    # 16. 完成
     print_success "🎉 发布完成！"
     echo ""
     print_info "安装新版本:"

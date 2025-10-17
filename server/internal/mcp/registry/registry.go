@@ -24,8 +24,8 @@ type ToolDefinition struct {
 
 // ToolRegistry 工具注册器
 type ToolRegistry struct {
-	tools    map[string]*ToolDefinition
-	mu       sync.RWMutex
+	tools     map[string]*ToolDefinition
+	mu        sync.RWMutex
 	mcpServer *server.MCPServer
 }
 
@@ -171,4 +171,3 @@ func (b *ToolBuilder) WithHandler(handler ToolHandler) *ToolBuilder {
 func (b *ToolBuilder) Build() *ToolDefinition {
 	return b.def
 }
-

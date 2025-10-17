@@ -182,4 +182,3 @@ func GetMetrics(ctx context.Context) (*Metrics, bool) {
 	metrics, ok := ctx.Value(MetricsKey).(*Metrics)
 	return metrics, ok
 }
-

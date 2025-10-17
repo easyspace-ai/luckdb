@@ -216,4 +216,3 @@ func (cr *CacheableResult) IsValid() bool {
 	}
 	return time.Since(cr.Timestamp) < cr.TTL
 }
-

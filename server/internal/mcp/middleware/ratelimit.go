@@ -13,10 +13,10 @@ import (
 
 // TokenBucket Token桶限流器
 type TokenBucket struct {
-	capacity int64         // 桶容量
-	tokens   int64         // 当前令牌数
-	rate     int64         // 令牌生成速率（每秒）
-	lastTime time.Time     // 上次添加令牌时间
+	capacity int64     // 桶容量
+	tokens   int64     // 当前令牌数
+	rate     int64     // 令牌生成速率（每秒）
+	lastTime time.Time // 上次添加令牌时间
 	mu       sync.Mutex
 }
 
@@ -186,4 +186,3 @@ func RateLimitMiddleware(limiter *RateLimiter) Middleware {
 		return next(ctx, req)
 	})
 }
-

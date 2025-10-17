@@ -12,13 +12,18 @@
 ### 首次发布
 
 ```bash
-# 1. 登录 npm
+# 1. 确保使用官方源（重要！）
+npm config get registry
+# 如果不是官方源，切换到官方源：
+npm config set registry https://registry.npmjs.org/
+
+# 2. 登录 npm
 npm login
 
-# 2. 进入 SDK 目录
+# 3. 进入 SDK 目录
 cd packages/sdk
 
-# 3. 构建并发布
+# 4. 构建并发布
 pnpm build
 npm publish --access public
 ```

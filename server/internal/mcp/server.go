@@ -24,13 +24,13 @@ type Server struct {
 	authenticator *Authenticator
 	container     *container.Container
 	transport     string // "stdio" or "http"
-	
+
 	// 新增组件
-	toolRegistry  *registry.ToolRegistry
-	cache         cache.Cache
+	toolRegistry     *registry.ToolRegistry
+	cache            cache.Cache
 	metricsCollector *metrics.Collector
-	rateLimiter   *middleware.RateLimiter
-	middlewareChain *middleware.Chain
+	rateLimiter      *middleware.RateLimiter
+	middlewareChain  *middleware.Chain
 }
 
 // NewServer 创建MCP服务器
@@ -185,42 +185,42 @@ func (s *Server) Authenticate(ctx context.Context, token string) (string, error)
 func (s *Server) registerTools() error {
 	logger.Info("Registering MCP tools...")
 
-	// 注册Space工具
-	if err := s.registerSpaceTools(); err != nil {
-		return fmt.Errorf("failed to register space tools: %w", err)
-	}
+	// 注册Space工具 - 暂时注释，聚焦到表操作
+	// if err := s.registerSpaceTools(); err != nil {
+	// 	return fmt.Errorf("failed to register space tools: %w", err)
+	// }
 
-	// 注册Base工具
-	if err := s.registerBaseTools(); err != nil {
-		return fmt.Errorf("failed to register base tools: %w", err)
-	}
+	// 注册Base工具 - 暂时注释，聚焦到表操作
+	// if err := s.registerBaseTools(); err != nil {
+	// 	return fmt.Errorf("failed to register base tools: %w", err)
+	// }
 
-	// 注册Table工具
+	// 注册Table工具 ✅ 保留
 	if err := s.registerTableTools(); err != nil {
 		return fmt.Errorf("failed to register table tools: %w", err)
 	}
 
-	// 注册Field工具
+	// 注册Field工具 ✅ 保留
 	if err := s.registerFieldTools(); err != nil {
 		return fmt.Errorf("failed to register field tools: %w", err)
 	}
 
-	// 注册Record工具
+	// 注册Record工具 ✅ 保留
 	if err := s.registerRecordTools(); err != nil {
 		return fmt.Errorf("failed to register record tools: %w", err)
 	}
 
-	// 注册View工具
+	// 注册View工具 ✅ 保留
 	if err := s.registerViewTools(); err != nil {
 		return fmt.Errorf("failed to register view tools: %w", err)
 	}
 
-	// 注册User工具
+	// 注册User工具 ✅ 保留（用于认证和用户管理）
 	if err := s.registerUserTools(); err != nil {
 		return fmt.Errorf("failed to register user tools: %w", err)
 	}
 
-	logger.Info("MCP tools registered successfully")
+	logger.Info("MCP tools registered successfully (focused on table operations)")
 
 	// 调试：尝试验证工具注册
 	logger.Info("=== 验证工具注册 ===")

@@ -20,11 +20,11 @@ type ToolMetrics struct {
 
 // UserMetrics 用户使用指标
 type UserMetrics struct {
-	UserID        string
-	TotalCalls    int64
-	FailedCalls   int64
-	LastCallTime  time.Time
-	ToolUsage     map[string]int64 // 每个工具的调用次数
+	UserID       string
+	TotalCalls   int64
+	FailedCalls  int64
+	LastCallTime time.Time
+	ToolUsage    map[string]int64 // 每个工具的调用次数
 }
 
 // Collector 指标收集器
@@ -313,4 +313,3 @@ func (c *Collector) GetSlowestTools(limit int) []*ToolMetrics {
 
 	return tools
 }
-

@@ -168,4 +168,3 @@ func (ctr *CachedToolResult) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
-
