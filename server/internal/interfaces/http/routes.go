@@ -98,6 +98,31 @@ func setupMCPRoutes(router *gin.Engine, cont *container.Container) {
 				"version": "2.0.0",
 			})
 		})
+
+		// 统计信息端点
+		mcp.GET("/stats", func(c *gin.Context) {
+			stats := mcpServer.Stats()
+			c.JSON(http.StatusOK, gin.H{
+				"status": "ok",
+				"data":   stats,
+			})
+		})
+
+		// 指标端点（Prometheus格式可以后续添加）
+		mcp.GET("/metrics", func(c *gin.Context) {
+			if collector := mcpServer.GetMetrics(); collector != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"status":  "ok",
+					"summary": collector.GetSummary(),
+					"tools":   collector.GetAllToolMetrics(),
+				})
+			} else {
+				c.JSON(http.StatusServiceUnavailable, gin.H{
+					"status": "error",
+					"error":  "Metrics collection is not enabled",
+				})
+			}
+		})
 	}
 }
 
