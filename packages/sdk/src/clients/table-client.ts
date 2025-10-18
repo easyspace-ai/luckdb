@@ -15,7 +15,7 @@ import type {
   TableManagementMenu,
   PaginationParams,
   PaginatedResponse
-} from '../types';
+} from '../types/index.js';
 
 export class TableClient {
   private httpClient: HttpClient;

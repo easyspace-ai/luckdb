@@ -1,6 +1,6 @@
 /**
  * FilterManager - 过滤管理器组件
- * 
+ *
  * 设计原则：
  * 1. 统一的过滤状态管理
  * 2. 数据过滤逻辑
@@ -17,14 +17,14 @@ export interface FilterManagerComponentProps {
   // 数据
   data: any[];
   fields: FilterField[];
-  
+
   // 过滤状态
   conditions: FilterCondition[];
   onConditionsChange: (conditions: FilterCondition[]) => void;
-  
+
   // 过滤结果
   onFilteredDataChange?: (filteredData: any[]) => void;
-  
+
   // 按钮配置
   buttonVariant?: 'default' | 'compact';
   buttonSize?: 'sm' | 'md' | 'lg';
@@ -39,9 +39,9 @@ function filterData(data: any[], conditions: FilterCondition[], fields: FilterFi
     return data;
   }
 
-  return data.filter(item => {
-    return conditions.every(condition => {
-      const field = fields.find(f => f.id === condition.fieldId);
+  return data.filter((item) => {
+    return conditions.every((condition) => {
+      const field = fields.find((f) => f.id === condition.fieldId);
       if (!field) return true;
 
       const itemValue = item[field.id];
@@ -102,8 +102,10 @@ export function FilterManagerComponent({
 
   // 通知过滤结果变化
   React.useEffect(() => {
-    onFilteredDataChange?.(filteredData);
-  }, [filteredData, onFilteredDataChange]);
+    if (onFilteredDataChange) {
+      onFilteredDataChange(filteredData);
+    }
+  }, [filteredData]); // 移除 onFilteredDataChange 依赖，避免无限重渲染
 
   // 打开过滤对话框
   const handleOpenDialog = useCallback(() => {
@@ -121,9 +123,12 @@ export function FilterManagerComponent({
   }, [onConditionsChange]);
 
   // 过滤条件变化
-  const handleConditionsChange = useCallback((newConditions: FilterCondition[]) => {
-    onConditionsChange(newConditions);
-  }, [onConditionsChange]);
+  const handleConditionsChange = useCallback(
+    (newConditions: FilterCondition[]) => {
+      onConditionsChange(newConditions);
+    },
+    [onConditionsChange]
+  );
 
   return (
     <div className={className}>

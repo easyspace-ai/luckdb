@@ -1,0 +1,345 @@
+{
+  "name": "LuckDB MCP Server",
+  "version": "1.0.0",
+  "description": "MCP server for LuckDB - A powerful database management system",
+  "author": "LuckDB Team",
+  "license": "MIT",
+  "homepage": "https://github.com/easyspace-ai/luckdb",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/easyspace-ai/luckdb.git"
+  },
+  "keywords": ["mcp", "database", "luckdb", "sql", "data-management"],
+  "mcp": {
+    "version": "2024-11-05",
+    "capabilities": {
+      "tools": {
+        "listChanged": true
+      },
+      "resources": {
+        "listChanged": true
+      },
+      "prompts": {
+        "listChanged": true
+      },
+      "logging": {}
+    },
+    "server": {
+      "command": "./server/bin/mcp-server",
+      "args": [],
+      "cwd": ".",
+      "env": {
+        "LUCKDB_CONFIG_PATH": "./server/config.yaml"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "query_records",
+      "description": "查询指定表的记录数据",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "空间ID"
+          },
+          "table_id": {
+            "type": "string",
+            "description": "表ID"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "返回记录数量限制（默认100，最大1000）",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "offset": {
+            "type": "integer",
+            "description": "偏移量（默认0）",
+            "minimum": 0
+          },
+          "order_by": {
+            "type": "string",
+            "description": "排序字段（可选）"
+          },
+          "order_direction": {
+            "type": "string",
+            "description": "排序方向：asc 或 desc（默认desc）",
+            "enum": ["asc", "desc"]
+          }
+        },
+        "required": ["space_id", "table_id"]
+      }
+    },
+    {
+      "name": "search_records",
+      "description": "在指定表中搜索记录",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "空间ID"
+          },
+          "table_id": {
+            "type": "string",
+            "description": "表ID"
+          },
+          "query": {
+            "type": "string",
+            "description": "搜索查询字符串"
+          },
+          "fields": {
+            "type": "array",
+            "description": "要搜索的字段列表（可选，默认搜索所有字段）",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "description": "返回记录数量限制（默认50，最大500）",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "offset": {
+            "type": "integer",
+            "description": "偏移量（默认0）",
+            "minimum": 0
+          },
+          "case_sensitive": {
+            "type": "boolean",
+            "description": "是否区分大小写（默认false）"
+          }
+        },
+        "required": ["space_id", "table_id", "query"]
+      }
+    },
+    {
+      "name": "create_record",
+      "description": "在指定表中创建新记录",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "空间ID"
+          },
+          "table_id": {
+            "type": "string",
+            "description": "表ID"
+          },
+          "data": {
+            "type": "object",
+            "description": "记录数据（字段名到值的映射）"
+          }
+        },
+        "required": ["space_id", "table_id", "data"]
+      }
+    },
+    {
+      "name": "update_record",
+      "description": "更新指定表中的记录",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "空间ID"
+          },
+          "table_id": {
+            "type": "string",
+            "description": "表ID"
+          },
+          "record_id": {
+            "type": "string",
+            "description": "记录ID"
+          },
+          "data": {
+            "type": "object",
+            "description": "要更新的记录数据（字段名到值的映射）"
+          }
+        },
+        "required": ["space_id", "table_id", "record_id", "data"]
+      }
+    },
+    {
+      "name": "delete_record",
+      "description": "删除指定表中的记录",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "空间ID"
+          },
+          "table_id": {
+            "type": "string",
+            "description": "表ID"
+          },
+          "record_id": {
+            "type": "string",
+            "description": "记录ID"
+          },
+          "permanent": {
+            "type": "boolean",
+            "description": "是否永久删除（默认false，软删除）"
+          }
+        },
+        "required": ["space_id", "table_id", "record_id"]
+      }
+    },
+    {
+      "name": "get_table_schema",
+      "description": "获取指定表的结构信息",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "空间ID"
+          },
+          "table_id": {
+            "type": "string",
+            "description": "表ID"
+          },
+          "include_fields": {
+            "type": "boolean",
+            "description": "是否包含字段信息（默认true）"
+          },
+          "include_metadata": {
+            "type": "boolean",
+            "description": "是否包含元数据信息（默认true）"
+          }
+        },
+        "required": ["space_id", "table_id"]
+      }
+    },
+    {
+      "name": "list_tables",
+      "description": "列出指定空间中的所有表",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "空间ID"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "返回表数量限制（默认100，最大1000）",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "offset": {
+            "type": "integer",
+            "description": "偏移量（默认0）",
+            "minimum": 0
+          },
+          "include_metadata": {
+            "type": "boolean",
+            "description": "是否包含元数据信息（默认false）"
+          },
+          "order_by": {
+            "type": "string",
+            "description": "排序字段：name, created_at, updated_at（默认name）",
+            "enum": ["name", "created_at", "updated_at"]
+          },
+          "order_direction": {
+            "type": "string",
+            "description": "排序方向：asc 或 desc（默认asc）",
+            "enum": ["asc", "desc"]
+          }
+        },
+        "required": ["space_id"]
+      }
+    }
+  ],
+  "resources": [
+    {
+      "uri": "table://{space_id}/{table_id}/schema",
+      "name": "表结构",
+      "description": "获取指定表的结构信息",
+      "mimeType": "application/json"
+    },
+    {
+      "uri": "data://{space_id}/{table_id}/records",
+      "name": "记录数据",
+      "description": "获取指定表的记录数据",
+      "mimeType": "application/json"
+    },
+    {
+      "uri": "metadata://{space_id}/{table_id}/info",
+      "name": "表元数据",
+      "description": "获取指定表的元数据信息",
+      "mimeType": "application/json"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "analyze_data",
+      "description": "数据分析提示模板",
+      "arguments": [
+        {
+          "name": "data_description",
+          "description": "数据描述",
+          "required": true
+        },
+        {
+          "name": "analysis_type",
+          "description": "分析类型：statistical, trend, pattern, summary",
+          "required": false
+        },
+        {
+          "name": "focus_areas",
+          "description": "关注领域（可选）",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "query_data",
+      "description": "数据查询提示模板",
+      "arguments": [
+        {
+          "name": "query_intent",
+          "description": "查询意图描述",
+          "required": true
+        },
+        {
+          "name": "data_source",
+          "description": "数据源信息",
+          "required": false
+        },
+        {
+          "name": "output_format",
+          "description": "输出格式：table, json, csv, summary",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "analyze_schema",
+      "description": "表结构分析提示模板",
+      "arguments": [
+        {
+          "name": "schema_description",
+          "description": "表结构描述",
+          "required": true
+        },
+        {
+          "name": "analysis_goal",
+          "description": "分析目标：optimization, validation, documentation, migration",
+          "required": false
+        },
+        {
+          "name": "constraints",
+          "description": "约束条件（可选）",
+          "required": false
+        }
+      ]
+    }
+  ]
+}
+

@@ -242,18 +242,87 @@ func setDefaults() {
 	viper.SetDefault("websocket.enable_presence", true)
 
 	// MCP defaults
-	viper.SetDefault("mcp.default_user_id", "")
-	viper.SetDefault("mcp.http.enabled", true)
-	viper.SetDefault("mcp.http.port", 3001)
-	viper.SetDefault("mcp.http.host", "0.0.0.0")
-	viper.SetDefault("mcp.http.cors_origins", []string{"*"})
-	viper.SetDefault("mcp.features.enable_tools", true)
-	viper.SetDefault("mcp.features.enable_resources", true)
-	viper.SetDefault("mcp.features.enable_prompts", true)
+	viper.SetDefault("mcp.enabled", true)
+	viper.SetDefault("mcp.server.host", "0.0.0.0")
+	viper.SetDefault("mcp.server.port", 8081)
+	viper.SetDefault("mcp.server.protocol", "http")
+	viper.SetDefault("mcp.server.timeout", "30s")
+
+	// MCP Auth defaults
+	viper.SetDefault("mcp.auth.api_key.enabled", true)
+	viper.SetDefault("mcp.auth.api_key.header", "X-MCP-API-Key")
+	viper.SetDefault("mcp.auth.api_key.format", "key_id:key_secret")
+	viper.SetDefault("mcp.auth.api_key.key_length", 32)
+	viper.SetDefault("mcp.auth.api_key.secret_length", 64)
+	viper.SetDefault("mcp.auth.api_key.default_ttl", "8760h")
+	viper.SetDefault("mcp.auth.api_key.max_ttl", "87600h")
+
+	viper.SetDefault("mcp.auth.jwt.enabled", true)
+	viper.SetDefault("mcp.auth.jwt.header", "Authorization")
+	viper.SetDefault("mcp.auth.jwt.prefix", "Bearer ")
+	viper.SetDefault("mcp.auth.jwt.issuer", "luckdb-mcp")
+	viper.SetDefault("mcp.auth.jwt.audience", "mcp-client")
+	viper.SetDefault("mcp.auth.jwt.access_token_ttl", "1h")
+	viper.SetDefault("mcp.auth.jwt.refresh_token_ttl", "24h")
+
+	viper.SetDefault("mcp.auth.session.enabled", true)
+	viper.SetDefault("mcp.auth.session.cookie_name", "mcp_session")
+	viper.SetDefault("mcp.auth.session.secure", true)
+	viper.SetDefault("mcp.auth.session.http_only", true)
+	viper.SetDefault("mcp.auth.session.same_site", "strict")
+	viper.SetDefault("mcp.auth.session.max_age", "24h")
+
+	// MCP Tools defaults
+	viper.SetDefault("mcp.tools.enabled_tools", []string{
+		"query_records", "search_records", "aggregate_data",
+		"create_record", "update_record", "delete_record", "bulk_operations",
+		"get_table_schema", "create_field", "create_view",
+		"generate_chart", "export_data",
+	})
+
+	// MCP Resources defaults
+	viper.SetDefault("mcp.resources.enabled_resources", []string{
+		"table_schema", "record_data", "metadata",
+	})
+
+	// MCP Prompts defaults
+	viper.SetDefault("mcp.prompts.enabled_prompts", []string{
+		"analyze_data", "create_summary", "generate_insights",
+	})
+
+	// MCP Rate Limit defaults
 	viper.SetDefault("mcp.rate_limit.enabled", true)
-	viper.SetDefault("mcp.rate_limit.requests_per_minute", 100)
-	viper.SetDefault("mcp.logging.enabled", true)
-	viper.SetDefault("mcp.logging.log_tool_calls", true)
+	viper.SetDefault("mcp.rate_limit.redis_url", "")
+	viper.SetDefault("mcp.rate_limit.strategies.user.type", "user")
+	viper.SetDefault("mcp.rate_limit.strategies.user.requests_per_minute", 100)
+	viper.SetDefault("mcp.rate_limit.strategies.user.burst_size", 20)
+	viper.SetDefault("mcp.rate_limit.strategies.api_key.type", "api_key")
+	viper.SetDefault("mcp.rate_limit.strategies.api_key.requests_per_minute", 1000)
+	viper.SetDefault("mcp.rate_limit.strategies.api_key.burst_size", 100)
+	viper.SetDefault("mcp.rate_limit.strategies.ip.type", "ip")
+	viper.SetDefault("mcp.rate_limit.strategies.ip.requests_per_minute", 200)
+	viper.SetDefault("mcp.rate_limit.strategies.ip.burst_size", 50)
+
+	// MCP Security defaults
+	viper.SetDefault("mcp.security.validation.enabled", true)
+	viper.SetDefault("mcp.security.validation.max_query_length", 10000)
+	viper.SetDefault("mcp.security.validation.max_parameters", 100)
+	viper.SetDefault("mcp.security.validation.dangerous_keywords", []string{
+		"DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE",
+	})
+
+	viper.SetDefault("mcp.security.audit.enabled", true)
+	viper.SetDefault("mcp.security.audit.log_level", "info")
+	viper.SetDefault("mcp.security.audit.sensitive_fields", []string{
+		"password", "token", "secret",
+	})
+	viper.SetDefault("mcp.security.audit.retention_days", 90)
+
+	viper.SetDefault("mcp.security.circuit_breaker.enabled", true)
+	viper.SetDefault("mcp.security.circuit_breaker.failure_threshold", 5)
+	viper.SetDefault("mcp.security.circuit_breaker.timeout", "30s")
+	viper.SetDefault("mcp.security.circuit_breaker.max_requests", 3)
+
 }
 
 // GetDSN 获取数据库连接字符串
@@ -275,40 +344,4 @@ func (c *RedisConfig) GetRedisAddr() string {
 // GetServerAddr 获取服务器监听地址
 func (c *ServerConfig) GetServerAddr() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
-}
-
-// MCPConfig MCP服务器配置
-type MCPConfig struct {
-	DefaultUserID string             `mapstructure:"default_user_id"`
-	HTTP          MCPHTTPConfig      `mapstructure:"http"`
-	Features      MCPFeaturesConfig  `mapstructure:"features"`
-	RateLimit     MCPRateLimitConfig `mapstructure:"rate_limit"`
-	Logging       MCPLoggingConfig   `mapstructure:"logging"`
-}
-
-// MCPHTTPConfig MCP HTTP传输配置
-type MCPHTTPConfig struct {
-	Enabled     bool     `mapstructure:"enabled"`
-	Port        int      `mapstructure:"port"`
-	Host        string   `mapstructure:"host"`
-	CORSOrigins []string `mapstructure:"cors_origins"`
-}
-
-// MCPFeaturesConfig MCP功能开关
-type MCPFeaturesConfig struct {
-	EnableTools     bool `mapstructure:"enable_tools"`
-	EnableResources bool `mapstructure:"enable_resources"`
-	EnablePrompts   bool `mapstructure:"enable_prompts"`
-}
-
-// MCPRateLimitConfig MCP速率限制配置
-type MCPRateLimitConfig struct {
-	Enabled           bool `mapstructure:"enabled"`
-	RequestsPerMinute int  `mapstructure:"requests_per_minute"`
-}
-
-// MCPLoggingConfig MCP日志配置
-type MCPLoggingConfig struct {
-	Enabled      bool `mapstructure:"enabled"`
-	LogToolCalls bool `mapstructure:"log_tool_calls"`
 }

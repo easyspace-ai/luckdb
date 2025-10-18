@@ -48,13 +48,33 @@ func (r *UserRepositoryImpl) Save(ctx context.Context, user *entity.User) error 
 
 // FindByID 根据ID查找用户
 func (r *UserRepositoryImpl) FindByID(ctx context.Context, id valueobject.UserID) (*entity.User, error) {
-	var dbUser models.User
+	// 创建一个临时的用户结构体，不包含软删除字段
+	type UserWithoutSoftDelete struct {
+		ID                   string     `gorm:"primaryKey;type:varchar(30)"`
+		Name                 string     `gorm:"not null;type:varchar(255)"`
+		Email                string     `gorm:"unique;not null;type:varchar(255)"`
+		Password             *string    `gorm:"type:varchar(255)"`
+		Salt                 *string    `gorm:"type:varchar(255)"`
+		Phone                *string    `gorm:"unique;type:varchar(50)"`
+		Avatar               *string    `gorm:"type:varchar(500)"`
+		IsSystem             *bool      `gorm:"column:is_system;default:false"`
+		IsAdmin              *bool      `gorm:"column:is_admin;default:false"`
+		IsTrialUsed          *bool      `gorm:"column:is_trial_used;default:false"`
+		NotifyMeta           *string    `gorm:"type:text;column:notify_meta"`
+		LastSignTime         *time.Time `gorm:"column:last_sign_time"`
+		DeactivatedTime      *time.Time `gorm:"column:deactivated_time"`
+		CreatedTime          time.Time  `gorm:"autoCreateTime;column:created_time"`
+		LastModifiedTime     *time.Time `gorm:"autoUpdateTime;column:last_modified_time"`
+		PermanentDeletedTime *time.Time `gorm:"column:permanent_deleted_time"`
+		RefMeta              *string    `gorm:"type:text;column:ref_meta"`
+	}
 
-	// ✅ 显式指定 schema
+	var dbUser UserWithoutSoftDelete
+
+	// 使用原生 SQL 查询，避免 GORM 的软删除问题
 	err := r.db.WithContext(ctx).
 		Table("users").
-		Where("id = ?", id.String()).
-		Where("deleted_time IS NULL").
+		Where("id = ? AND deleted_time IS NULL", id.String()).
 		First(&dbUser).Error
 
 	if err == gorm.ErrRecordNotFound {
@@ -64,7 +84,29 @@ func (r *UserRepositoryImpl) FindByID(ctx context.Context, id valueobject.UserID
 		return nil, fmt.Errorf("failed to find user: %w", err)
 	}
 
-	return mapper.ToUserEntity(&dbUser)
+	// 转换为 models.User
+	userModel := &models.User{
+		ID:                   dbUser.ID,
+		Name:                 dbUser.Name,
+		Email:                dbUser.Email,
+		Password:             dbUser.Password,
+		Salt:                 dbUser.Salt,
+		Phone:                dbUser.Phone,
+		Avatar:               dbUser.Avatar,
+		IsSystem:             dbUser.IsSystem,
+		IsAdmin:              dbUser.IsAdmin,
+		IsTrialUsed:          dbUser.IsTrialUsed,
+		NotifyMeta:           dbUser.NotifyMeta,
+		LastSignTime:         dbUser.LastSignTime,
+		DeactivatedTime:      dbUser.DeactivatedTime,
+		CreatedTime:          dbUser.CreatedTime,
+		LastModifiedTime:     dbUser.LastModifiedTime,
+		PermanentDeletedTime: dbUser.PermanentDeletedTime,
+		RefMeta:              dbUser.RefMeta,
+		// DeletedTime 保持默认值（零值）
+	}
+
+	return mapper.ToUserEntity(userModel)
 }
 
 // FindByEmail 根据邮箱查找用户

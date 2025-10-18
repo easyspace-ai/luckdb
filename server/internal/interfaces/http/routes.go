@@ -1,12 +1,9 @@
 package http
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/easyspace-ai/luckdb/server/internal/container"
-	"github.com/easyspace-ai/luckdb/server/internal/mcp"
 )
 
 // SetupRoutes 设置所有API路由
@@ -51,79 +48,10 @@ func SetupRoutes(router *gin.Engine, cont *container.Container) {
 		// 视图相关路由
 		setupViewRoutes(authRequired, cont)
 
-		// MCP Token管理路由 ✨
-		setupMCPTokenRoutes(authRequired, cont)
 	}
 
 	// WebSocket 路由（需要认证）✨
 	setupWebSocketRoutes(router, cont)
-
-	// MCP路由（集成到主服务）
-	setupMCPRoutes(router, cont)
-}
-
-// setupMCPRoutes 设置MCP路由
-func setupMCPRoutes(router *gin.Engine, cont *container.Container) {
-	// 获取MCP服务器实例（如果存在）
-	mcpServerInterface := cont.MCPServer()
-	if mcpServerInterface == nil {
-		// MCP未启用，跳过路由注册
-		return
-	}
-
-	// 类型断言
-	mcpServer, ok := mcpServerInterface.(*mcp.Server)
-	if !ok {
-		return
-	}
-
-	handler := NewMCPHandler(mcpServer)
-
-	// MCP路由组
-	mcp := router.Group("/mcp")
-	{
-		// HTTP JSON-RPC endpoint
-		mcp.POST("", handler.HandleHTTPRequest)
-		mcp.POST("/messages", handler.HandleHTTPRequest) // 兼容路径
-
-		// SSE endpoint
-		mcp.GET("/sse", handler.HandleSSE)
-		mcp.POST("/sse", handler.HandleSSEMessage)
-
-		// 健康检查
-		mcp.GET("/ping", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{
-				"status":  "ok",
-				"server":  "EasyDB MCP Server",
-				"version": "2.0.0",
-			})
-		})
-
-		// 统计信息端点
-		mcp.GET("/stats", func(c *gin.Context) {
-			stats := mcpServer.Stats()
-			c.JSON(http.StatusOK, gin.H{
-				"status": "ok",
-				"data":   stats,
-			})
-		})
-
-		// 指标端点（Prometheus格式可以后续添加）
-		mcp.GET("/metrics", func(c *gin.Context) {
-			if collector := mcpServer.GetMetrics(); collector != nil {
-				c.JSON(http.StatusOK, gin.H{
-					"status":  "ok",
-					"summary": collector.GetSummary(),
-					"tools":   collector.GetAllToolMetrics(),
-				})
-			} else {
-				c.JSON(http.StatusServiceUnavailable, gin.H{
-					"status": "error",
-					"error":  "Metrics collection is not enabled",
-				})
-			}
-		})
-	}
 }
 
 // setupUserConfigRoutes 设置用户配置路由
@@ -352,21 +280,6 @@ func setupViewRoutes(rg *gin.RouterGroup, cont *container.Container) {
 	share := rg.Group("/share")
 	{
 		share.GET("/views/:shareId", handler.GetViewByShareID) // 通过分享ID获取视图
-	}
-}
-
-// setupMCPTokenRoutes 设置MCP Token管理路由
-func setupMCPTokenRoutes(rg *gin.RouterGroup, cont *container.Container) {
-	handler := NewMCPTokenHandler(cont.MCPTokenService())
-
-	// MCP Token路由
-	tokens := rg.Group("/mcp-tokens")
-	{
-		tokens.POST("", handler.CreateToken)       // 创建Token
-		tokens.GET("", handler.ListTokens)         // 列出Token
-		tokens.GET("/:id", handler.GetToken)       // 获取Token详情
-		tokens.PATCH("/:id", handler.UpdateToken)  // 更新Token
-		tokens.DELETE("/:id", handler.DeleteToken) // 删除Token
 	}
 }
 

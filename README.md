@@ -25,11 +25,11 @@
 - 🔐 **安全可靠** - 完善的权限系统和数据加密
 - 🌐 **实时协作** - WebSocket 实时同步，支持多人协作
 - 🔌 **可扩展** - 插件系统，支持自定义扩展
-- 🌍 **MCP 协议** - 支持 Model Context Protocol，无缝集成 AI 应用
 
 ## 🎯 核心功能
 
 ### 数据管理
+
 - **空间(Space)管理** - 组织和隔离不同项目
 - **基础(Base)管理** - 数据库级别的管理
 - **表格(Table)管理** - 灵活的数据表结构
@@ -37,12 +37,14 @@
 - **记录(Record)管理** - 强大的 CRUD 操作
 
 ### 视图系统
+
 - 📊 表格视图 - 传统的表格展示
 - 📋 看板视图 - 可视化工作流管理
 - 📅 日历视图 - 时间维度的数据展示
 - 🖼️ 画廊视图 - 图片内容展示
 
 ### 高级功能
+
 - 🔗 关联字段 - 表格间的数据关联
 - 📐 公式字段 - 复杂的计算逻辑
 - 🔄 汇总字段 - 数据聚合统计
@@ -109,6 +111,7 @@ cd .. && pnpm dev:all
 ```
 
 访问：
+
 - **前端**: http://localhost:3000
 - **后端 API**: http://localhost:8080
 
@@ -117,6 +120,7 @@ cd .. && pnpm dev:all
 ## 🛠️ 技术栈
 
 ### 前端
+
 - **框架**: Next.js 14 (App Router)
 - **语言**: TypeScript 5.3
 - **状态管理**: Zustand
@@ -124,6 +128,7 @@ cd .. && pnpm dev:all
 - **构建**: Turbo + pnpm
 
 ### 后端
+
 - **语言**: Go 1.23
 - **框架**: Gin
 - **ORM**: GORM
@@ -132,6 +137,7 @@ cd .. && pnpm dev:all
 - **实时通信**: WebSocket
 
 ### DevOps
+
 - **容器**: Docker + Docker Compose
 - **CI/CD**: GitHub Actions
 - **代码质量**: ESLint + Prettier + golangci-lint
@@ -197,7 +203,6 @@ docker-compose -f docker/docker-compose.yml up -d
 - [x] 基础数据管理功能
 - [x] 多视图支持
 - [x] 实时协作
-- [x] MCP 协议支持
 - [ ] 移动端应用
 - [ ] 桌面应用 (Electron)
 - [ ] 更多 AI 功能

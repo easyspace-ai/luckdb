@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -130,12 +131,45 @@ type CollaborationMessage struct {
 
 // ToJSON 将消息转换为JSON
 func (m *Message) ToJSON() ([]byte, error) {
+	// 验证消息结构
+	if m.Type == "" {
+		return nil, fmt.Errorf("message type is required")
+	}
+
+	// 确保时间戳设置
+	if m.Timestamp.IsZero() {
+		m.Timestamp = time.Now()
+	}
+
 	return json.Marshal(m)
 }
 
 // FromJSON 从JSON解析消息
 func (m *Message) FromJSON(data []byte) error {
 	return json.Unmarshal(data, m)
+}
+
+// Validate 验证消息格式
+func (m *Message) Validate() error {
+	if m.Type == "" {
+		return fmt.Errorf("message type is required")
+	}
+
+	// 验证 ShareDB 操作格式
+	if m.Type == MessageTypeOp {
+		if m.Data == nil {
+			return fmt.Errorf("operation data is required for op message")
+		}
+
+		// 验证 DocumentOperation 结构
+		if docOp, ok := m.Data.(DocumentOperation); ok {
+			if len(docOp.Op) == 0 {
+				return fmt.Errorf("operation array is empty")
+			}
+		}
+	}
+
+	return nil
 }
 
 // NewMessage 创建新消息

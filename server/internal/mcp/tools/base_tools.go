@@ -2,298 +2,161 @@ package tools
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
-
-	"github.com/easyspace-ai/luckdb/server/internal/application"
-	"github.com/easyspace-ai/luckdb/server/internal/application/dto"
-	pkgerrors "github.com/easyspace-ai/luckdb/server/pkg/errors"
-	"github.com/easyspace-ai/luckdb/server/pkg/logger"
+	"github.com/easyspace-ai/luckdb/server/internal/mcp/protocol"
 )
 
-// RegisterBaseTools 注册Base相关的MCP工具
-func RegisterBaseTools(srv *server.MCPServer, baseService *application.BaseService) error {
-	logger.Info("Registering Base tools...")
+// ToolService 工具服务接口
+type ToolService interface {
+	// GetTools 获取所有可用工具
+	GetTools(ctx context.Context) ([]protocol.MCPTool, error)
 
-	// 1. list_bases - 列出空间的所有Bases
-	srv.AddTool(
-		mcp.NewTool(
-			"list_bases",
-			mcp.WithDescription("列出指定空间的所有Bases"),
-			mcp.WithString("space_id", mcp.Description("空间ID"), mcp.Required()),
-			mcp.WithNumber("page", mcp.Description("页码，从1开始（默认1）")),
-			mcp.WithNumber("limit", mcp.Description("每页数量（默认20）")),
-		),
-		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			userID := MustGetUserID(ctx)
-
-			args, _ := req.Params.Arguments.(map[string]interface{})
-			spaceID, ok := GetStringArg(args, "space_id")
-			if !ok || spaceID == "" {
-				return ToToolResult(nil, pkgerrors.ErrBadRequest.WithDetails("space_id is required"))
-			}
-
-			// Base 列表不分页
-			bases, err := baseService.ListBases(ctx, spaceID)
-			if err != nil {
-				logger.Error("Failed to list bases",
-					logger.ErrorField(err),
-					logger.String("user_id", userID),
-					logger.String("space_id", spaceID),
-				)
-				return ToToolResult(nil, err)
-			}
-
-			logger.Info("MCP tool executed",
-				logger.String("tool", "list_bases"),
-				logger.String("user_id", userID),
-				logger.String("space_id", spaceID),
-				logger.Int("count", len(bases)),
-			)
-
-			return ToToolResultWithMessage(bases, "获取Base列表成功", nil)
-		},
-	)
-
-	// 2. get_base - 获取Base详情
-	srv.AddTool(
-		mcp.NewTool(
-			"get_base",
-			mcp.WithDescription("获取指定Base的详细信息"),
-			mcp.WithString("base_id", mcp.Description("Base ID"), mcp.Required()),
-		),
-		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			userID := MustGetUserID(ctx)
-
-			args, _ := req.Params.Arguments.(map[string]interface{})
-			baseID, ok := GetStringArg(args, "base_id")
-			if !ok || baseID == "" {
-				return ToToolResult(nil, pkgerrors.ErrBadRequest.WithDetails("base_id is required"))
-			}
-
-			base, err := baseService.GetBase(ctx, baseID)
-			if err != nil {
-				logger.Error("Failed to get base",
-					logger.ErrorField(err),
-					logger.String("user_id", userID),
-					logger.String("base_id", baseID),
-				)
-				return ToToolResult(nil, err)
-			}
-
-			logger.Info("MCP tool executed",
-				logger.String("tool", "get_base"),
-				logger.String("user_id", userID),
-				logger.String("base_id", baseID),
-			)
-
-			return ToToolResultWithMessage(base, "获取Base详情成功", nil)
-		},
-	)
-
-	// 3. create_base - 创建新Base
-	srv.AddTool(
-		mcp.NewTool(
-			"create_base",
-			mcp.WithDescription("在指定空间中创建新Base"),
-			mcp.WithString("space_id", mcp.Description("空间ID"), mcp.Required()),
-			mcp.WithString("name", mcp.Description("Base名称"), mcp.Required()),
-			mcp.WithString("description", mcp.Description("Base描述（可选）")),
-			mcp.WithString("icon", mcp.Description("Base图标（可选）")),
-		),
-		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			userID := MustGetUserID(ctx)
-
-			args, _ := req.Params.Arguments.(map[string]interface{})
-			spaceID, ok := GetStringArg(args, "space_id")
-			if !ok || spaceID == "" {
-				return ToToolResult(nil, pkgerrors.ErrBadRequest.WithDetails("space_id is required"))
-			}
-
-			name, ok := GetStringArg(args, "name")
-			if !ok || name == "" {
-				return ToToolResult(nil, pkgerrors.ErrBadRequest.WithDetails("name is required"))
-			}
-
-			_, _ = GetStringArg(args, "description") // TODO: Add description support
-			icon, _ := GetStringArg(args, "icon")
-
-			createReq := dto.CreateBaseRequest{
-				SpaceID: spaceID,
-				Name:    name,
-				Icon:    icon,
-			}
-
-			base, err := baseService.CreateBase(ctx, createReq, userID)
-			if err != nil {
-				logger.Error("Failed to create base",
-					logger.ErrorField(err),
-					logger.String("user_id", userID),
-					logger.String("space_id", spaceID),
-					logger.String("name", name),
-				)
-				return ToToolResult(nil, err)
-			}
-
-			logger.Info("MCP tool executed",
-				logger.String("tool", "create_base"),
-				logger.String("user_id", userID),
-				logger.String("base_id", base.ID),
-			)
-
-			return ToToolResultWithMessage(base, "创建Base成功", nil)
-		},
-	)
-
-	// 4. update_base - 更新Base
-	srv.AddTool(
-		mcp.NewTool(
-			"update_base",
-			mcp.WithDescription("更新Base信息"),
-			mcp.WithString("base_id", mcp.Description("Base ID"), mcp.Required()),
-			mcp.WithString("name", mcp.Description("新的Base名称（可选）")),
-			mcp.WithString("description", mcp.Description("新的Base描述（可选）")),
-			mcp.WithString("icon", mcp.Description("新的Base图标（可选）")),
-		),
-		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			userID := MustGetUserID(ctx)
-
-			args, _ := req.Params.Arguments.(map[string]interface{})
-			baseID, ok := GetStringArg(args, "base_id")
-			if !ok || baseID == "" {
-				return ToToolResult(nil, pkgerrors.ErrBadRequest.WithDetails("base_id is required"))
-			}
-
-			name, _ := GetStringArg(args, "name")
-			_, _ = GetStringArg(args, "description") // TODO: Add description support
-			icon, _ := GetStringArg(args, "icon")
-
-			updateReq := dto.UpdateBaseRequest{
-				Name: name,
-				Icon: icon,
-			}
-
-			base, err := baseService.UpdateBase(ctx, baseID, updateReq)
-			if err != nil {
-				logger.Error("Failed to update base",
-					logger.ErrorField(err),
-					logger.String("user_id", userID),
-					logger.String("base_id", baseID),
-				)
-				return ToToolResult(nil, err)
-			}
-
-			logger.Info("MCP tool executed",
-				logger.String("tool", "update_base"),
-				logger.String("user_id", userID),
-				logger.String("base_id", baseID),
-			)
-
-			return ToToolResultWithMessage(base, "更新Base成功", nil)
-		},
-	)
-
-	// 5. delete_base - 删除Base
-	srv.AddTool(
-		mcp.NewTool(
-			"delete_base",
-			mcp.WithDescription("删除指定Base"),
-			mcp.WithString("base_id", mcp.Description("Base ID"), mcp.Required()),
-		),
-		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			userID := MustGetUserID(ctx)
-
-			args, _ := req.Params.Arguments.(map[string]interface{})
-			baseID, ok := GetStringArg(args, "base_id")
-			if !ok || baseID == "" {
-				return ToToolResult(nil, pkgerrors.ErrBadRequest.WithDetails("base_id is required"))
-			}
-
-			deleteErr := baseService.DeleteBase(ctx, baseID)
-			if deleteErr != nil {
-				logger.Error("Failed to delete base",
-					logger.ErrorField(deleteErr),
-					logger.String("user_id", userID),
-					logger.String("base_id", baseID),
-				)
-				return ToToolResult(nil, deleteErr)
-			}
-
-			logger.Info("MCP tool executed",
-				logger.String("tool", "delete_base"),
-				logger.String("user_id", userID),
-				logger.String("base_id", baseID),
-			)
-
-			return ToToolResultWithMessage(nil, "删除Base成功", nil)
-		},
-	)
-
-	// 6. duplicate_base - 复制Base
-	srv.AddTool(
-		mcp.NewTool(
-			"duplicate_base",
-			mcp.WithDescription("复制指定Base"),
-			mcp.WithString("base_id", mcp.Description("要复制的Base ID"), mcp.Required()),
-			mcp.WithString("new_name", mcp.Description("新Base的名称（可选，默认为原名称+副本）")),
-		),
-		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			userID := MustGetUserID(ctx)
-
-			args, _ := req.Params.Arguments.(map[string]interface{})
-			baseID, ok := GetStringArg(args, "base_id")
-			if !ok || baseID == "" {
-				return ToToolResult(nil, pkgerrors.ErrBadRequest.WithDetails("base_id is required"))
-			}
-
-			_, _ = GetStringArg(args, "new_name")
-
-			// TODO: Implement DuplicateBase
-			// duplicateReq := dto.DuplicateBaseRequest{
-			// 	Name: newName,
-			// }
-			// newBase, err := baseService.DuplicateBase(ctx, baseID, duplicateReq)
-
-			logger.Info("MCP tool called (not implemented)",
-				logger.String("tool", "duplicate_base"),
-				logger.String("user_id", userID),
-				logger.String("base_id", baseID),
-			)
-
-			return ToToolResult(nil, pkgerrors.ErrNotImplemented.WithDetails("duplicate_base not implemented yet"))
-		},
-	)
-
-	// 7. get_base_collaborators - 获取Base协作者
-	srv.AddTool(
-		mcp.NewTool(
-			"get_base_collaborators",
-			mcp.WithDescription("获取Base的所有协作者"),
-			mcp.WithString("base_id", mcp.Description("Base ID"), mcp.Required()),
-		),
-		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			userID := MustGetUserID(ctx)
-
-			args, _ := req.Params.Arguments.(map[string]interface{})
-			baseID, ok := GetStringArg(args, "base_id")
-			if !ok || baseID == "" {
-				return ToToolResult(nil, pkgerrors.ErrBadRequest.WithDetails("base_id is required"))
-			}
-
-			// TODO: Implement GetBaseCollaborators
-			// collaborators, err := baseService.GetBaseCollaborators(ctx, baseID)
-
-			logger.Info("MCP tool called (not implemented)",
-				logger.String("tool", "get_base_collaborators"),
-				logger.String("user_id", userID),
-				logger.String("base_id", baseID),
-			)
-
-			return ToToolResult(nil, pkgerrors.ErrNotImplemented.WithDetails("get_base_collaborators not implemented yet"))
-		},
-	)
-
-	logger.Info("Base tools registered successfully (7 tools)")
-	return nil
+	// CallTool 调用指定工具
+	CallTool(ctx context.Context, name string, arguments map[string]interface{}) (*protocol.MCPToolResult, error)
 }
+
+// BaseToolService 基础工具服务实现
+type BaseToolService struct {
+	tools map[string]Tool
+}
+
+// Tool 工具接口
+type Tool interface {
+	// GetInfo 获取工具信息
+	GetInfo() protocol.MCPTool
+
+	// Execute 执行工具
+	Execute(ctx context.Context, arguments map[string]interface{}) (*protocol.MCPToolResult, error)
+
+	// ValidateArguments 验证参数
+	ValidateArguments(arguments map[string]interface{}) error
+}
+
+// NewBaseToolService 创建基础工具服务
+func NewBaseToolService() *BaseToolService {
+	service := &BaseToolService{
+		tools: make(map[string]Tool),
+	}
+
+	// 注册默认工具
+	service.registerDefaultTools()
+
+	return service
+}
+
+// registerDefaultTools 注册默认工具
+func (s *BaseToolService) registerDefaultTools() {
+	// 数据查询工具
+	s.RegisterTool(NewQueryRecordsTool())
+	s.RegisterTool(NewSearchRecordsTool())
+
+	// 数据操作工具
+	s.RegisterTool(NewCreateRecordTool())
+	s.RegisterTool(NewUpdateRecordTool())
+	s.RegisterTool(NewDeleteRecordTool())
+
+	// 结构管理工具
+	s.RegisterTool(NewGetTableSchemaTool())
+	s.RegisterTool(NewListTablesTool())
+}
+
+// RegisterTool 注册工具
+func (s *BaseToolService) RegisterTool(tool Tool) {
+	info := tool.GetInfo()
+	s.tools[info.Name] = tool
+}
+
+// GetTools 获取所有可用工具
+func (s *BaseToolService) GetTools(ctx context.Context) ([]protocol.MCPTool, error) {
+	tools := make([]protocol.MCPTool, 0, len(s.tools))
+
+	for _, tool := range s.tools {
+		tools = append(tools, tool.GetInfo())
+	}
+
+	return tools, nil
+}
+
+// CallTool 调用指定工具
+func (s *BaseToolService) CallTool(ctx context.Context, name string, arguments map[string]interface{}) (*protocol.MCPToolResult, error) {
+	tool, exists := s.tools[name]
+	if !exists {
+		return nil, fmt.Errorf("tool '%s' not found", name)
+	}
+
+	// 验证参数
+	if err := tool.ValidateArguments(arguments); err != nil {
+		return nil, fmt.Errorf("invalid arguments for tool '%s': %w", name, err)
+	}
+
+	// 执行工具
+	return tool.Execute(ctx, arguments)
+}
+
+// validateRequiredString 验证必需的字符串参数
+func validateRequiredString(arguments map[string]interface{}, key string) (string, error) {
+	value, exists := arguments[key]
+	if !exists {
+		return "", fmt.Errorf("required argument '%s' is missing", key)
+	}
+
+	str, ok := value.(string)
+	if !ok {
+		return "", fmt.Errorf("argument '%s' must be a string", key)
+	}
+
+	if str == "" {
+		return "", fmt.Errorf("argument '%s' cannot be empty", key)
+	}
+
+	return str, nil
+}
+
+// validateOptionalString 验证可选的字符串参数
+func validateOptionalString(arguments map[string]interface{}, key string) (string, error) {
+	value, exists := arguments[key]
+	if !exists {
+		return "", nil
+	}
+
+	str, ok := value.(string)
+	if !ok {
+		return "", fmt.Errorf("argument '%s' must be a string", key)
+	}
+
+	return str, nil
+}
+
+// validateOptionalInt 验证可选的整数参数
+func validateOptionalInt(arguments map[string]interface{}, key string) (int, error) {
+	value, exists := arguments[key]
+	if !exists {
+		return 0, nil
+	}
+
+	switch v := value.(type) {
+	case int:
+		return v, nil
+	case float64:
+		return int(v), nil
+	default:
+		return 0, fmt.Errorf("argument '%s' must be an integer", key)
+	}
+}
+
+// validateOptionalBool 验证可选的布尔参数
+func validateOptionalBool(arguments map[string]interface{}, key string) (bool, error) {
+	value, exists := arguments[key]
+	if !exists {
+		return false, nil
+	}
+
+	boolVal, ok := value.(bool)
+	if !ok {
+		return false, fmt.Errorf("argument '%s' must be a boolean", key)
+	}
+
+	return boolVal, nil
+}
+

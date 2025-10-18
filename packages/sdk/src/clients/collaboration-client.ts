@@ -12,7 +12,7 @@ import type {
   CursorPosition,
   CollaborationMessage,
   RecordChangeMessage
-} from '../types';
+} from '../types/index.js';
 
 export class CollaborationClient {
   private httpClient: HttpClient;

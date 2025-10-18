@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/easyspace-ai/luckdb/server/internal/infrastructure/database/models"
 
@@ -194,4 +193,3 @@ func TestWorkflowService_Run(t *testing.T) {
 		t.Errorf("Expected status 'running', got '%s'", run.Status)
 	}
 }
-

@@ -1,6 +1,6 @@
 /**
  * LuckDB Aitable Demo - SDK 依赖注入示例
- * 
+ *
  * 这个 Demo 展示了如何：
  * 1. 在应用启动时初始化 LuckDB SDK
  * 2. 登录并获取数据
@@ -11,12 +11,13 @@
 
 import React, { useState, useEffect, createContext, useContext, useCallback, useMemo } from 'react';
 import { LuckDB } from '@luckdb/sdk';
-import { 
-  StandardDataView, 
-  AppProviders, 
+import {
+  StandardDataView,
+  AppProviders,
   AddRecordDialog,
   createGetCellContent,
   convertFieldsToColumns,
+  FieldManagementProvider,
   type FilterField,
   type FilterCondition,
   type IGridProps,
@@ -54,7 +55,7 @@ export function SDKProvider({ children }: { children: React.ReactNode }) {
     async function initSDK() {
       try {
         console.log('🚀 初始化 LuckDB SDK...');
-        
+
         const luckDB = new LuckDB({
           baseUrl: config.baseURL,
           accessToken: localStorage.getItem('luckdb_token') || '',
@@ -93,17 +94,17 @@ export function SDKProvider({ children }: { children: React.ReactNode }) {
 
     try {
       console.log('🔐 登录中...', { email });
-      
+
       const luckDB = new LuckDB({
         baseUrl: config.baseURL,
         debug: config.debug,
       });
 
       const response = await luckDB.login({ email, password });
-      
+
       // 保存 token
       localStorage.setItem('luckdb_token', response.accessToken);
-      
+
       console.log('✅ 登录成功:', response.user);
       setSdk(luckDB);
     } catch (err: any) {
@@ -154,59 +155,72 @@ function LoginForm() {
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    }}>
-      <form onSubmit={handleLogin} style={{
-        width: '100%',
-        maxWidth: '400px',
-        padding: '32px',
-        background: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-      }}>
-        <h1 style={{
-          fontSize: '28px',
-          fontWeight: 'bold',
-          marginBottom: '8px',
-          color: '#1a202c',
-        }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      }}
+    >
+      <form
+        onSubmit={handleLogin}
+        style={{
+          width: '100%',
+          maxWidth: '400px',
+          padding: '32px',
+          background: 'white',
+          borderRadius: '12px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+        }}
+      >
+        <h1
+          style={{
+            fontSize: '28px',
+            fontWeight: 'bold',
+            marginBottom: '8px',
+            color: '#1a202c',
+          }}
+        >
           LuckDB Aitable
         </h1>
-        <p style={{
-          fontSize: '14px',
-          color: '#718096',
-          marginBottom: '24px',
-        }}>
+        <p
+          style={{
+            fontSize: '14px',
+            color: '#718096',
+            marginBottom: '24px',
+          }}
+        >
           SDK 依赖注入演示
         </p>
-        
+
         {error && (
-          <div style={{
-            padding: '12px',
-            marginBottom: '16px',
-            background: '#fee',
-            border: '1px solid #fcc',
-            borderRadius: '8px',
-            color: '#c53030',
-            fontSize: '14px',
-          }}>
+          <div
+            style={{
+              padding: '12px',
+              marginBottom: '16px',
+              background: '#fee',
+              border: '1px solid #fcc',
+              borderRadius: '8px',
+              color: '#c53030',
+              fontSize: '14px',
+            }}
+          >
             ❌ {error.message || '登录失败'}
           </div>
         )}
-        
+
         <div style={{ marginBottom: '16px' }}>
-          <label style={{
-            display: 'block',
-            fontSize: '14px',
-            fontWeight: '500',
-            marginBottom: '8px',
-            color: '#4a5568',
-          }}>
+          <label
+            style={{
+              display: 'block',
+              fontSize: '14px',
+              fontWeight: '500',
+              marginBottom: '8px',
+              color: '#4a5568',
+            }}
+          >
             邮箱
           </label>
           <input
@@ -225,15 +239,17 @@ function LoginForm() {
             placeholder="demo@luckdb.com"
           />
         </div>
-        
+
         <div style={{ marginBottom: '24px' }}>
-          <label style={{
-            display: 'block',
-            fontSize: '14px',
-            fontWeight: '500',
-            marginBottom: '8px',
-            color: '#4a5568',
-          }}>
+          <label
+            style={{
+              display: 'block',
+              fontSize: '14px',
+              fontWeight: '500',
+              marginBottom: '8px',
+              color: '#4a5568',
+            }}
+          >
             密码
           </label>
           <input
@@ -252,7 +268,7 @@ function LoginForm() {
             placeholder="demo123"
           />
         </div>
-        
+
         <button
           type="submit"
           disabled={isLoading}
@@ -272,15 +288,19 @@ function LoginForm() {
           {isLoading ? '登录中...' : '登录'}
         </button>
 
-        <div style={{
-          marginTop: '24px',
-          padding: '12px',
-          background: '#f7fafc',
-          borderRadius: '8px',
-          fontSize: '12px',
-          color: '#718096',
-        }}>
-          <p style={{ marginBottom: '8px' }}>💡 <strong>演示说明：</strong></p>
+        <div
+          style={{
+            marginTop: '24px',
+            padding: '12px',
+            background: '#f7fafc',
+            borderRadius: '8px',
+            fontSize: '12px',
+            color: '#718096',
+          }}
+        >
+          <p style={{ marginBottom: '8px' }}>
+            💡 <strong>演示说明：</strong>
+          </p>
           <p>• 使用外部 SDK 实例注入</p>
           <p>• 全局共享 SDK，避免重复登录</p>
           <p>• 支持 WebSocket 连接共享</p>
@@ -300,7 +320,7 @@ function TableView() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'table' | 'test'>('table');
-  
+
   // 过滤状态
   const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<any[]>([]);
@@ -332,18 +352,18 @@ function TableView() {
         console.log('📊 加载数据...', config.testBase);
 
         // 加载字段
-        const fieldsData = await sdk.listFields({ 
-          tableId: config.testBase.tableId 
+        const fieldsData = await sdk.listFields({
+          tableId: config.testBase.tableId,
         });
         console.log('✅ 字段加载成功:', fieldsData);
         setFields(fieldsData || []);
 
         // 加载记录
-        const recordsData = await sdk.listRecords({ 
-          tableId: config.testBase.tableId 
+        const recordsData = await sdk.listRecords({
+          tableId: config.testBase.tableId,
         });
         console.log('✅ 记录加载成功:', recordsData);
-        
+
         // 处理多种数据结构 - 内置映射工具会自动识别
         let records: any[] = [];
         if (recordsData) {
@@ -360,14 +380,13 @@ function TableView() {
             records = data.list;
           }
         }
-        
+
         console.log('📊 解析后的记录数据:', {
           total: records.length,
           sample: records[0],
         });
         setRecords(records);
         setFilteredRecords(records); // 初始化过滤后的数据
-
       } catch (err: any) {
         console.error('❌ 加载数据失败:', err);
         setError(err.message || '加载数据失败');
@@ -391,25 +410,27 @@ function TableView() {
 
   if (isLoading) {
     return (
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        gap: '16px',
-      }}>
-        <div style={{
-          width: '48px',
-          height: '48px',
-          border: '4px solid #e2e8f0',
-          borderTop: '4px solid #667eea',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite',
-        }} />
-        <p style={{ fontSize: '16px', color: '#718096' }}>
-          加载数据中...
-        </p>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          gap: '16px',
+        }}
+      >
+        <div
+          style={{
+            width: '48px',
+            height: '48px',
+            border: '4px solid #e2e8f0',
+            borderTop: '4px solid #667eea',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+          }}
+        />
+        <p style={{ fontSize: '16px', color: '#718096' }}>加载数据中...</p>
         <style>
           {`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}
         </style>
@@ -419,33 +440,41 @@ function TableView() {
 
   if (error) {
     return (
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        gap: '16px',
-        padding: '24px',
-      }}>
-        <div style={{
-          fontSize: '48px',
-        }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          gap: '16px',
+          padding: '24px',
+        }}
+      >
+        <div
+          style={{
+            fontSize: '48px',
+          }}
+        >
           ⚠️
         </div>
-        <h2 style={{
-          fontSize: '24px',
-          fontWeight: 'bold',
-          color: '#1a202c',
-        }}>
+        <h2
+          style={{
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: '#1a202c',
+          }}
+        >
           加载失败
         </h2>
-        <p style={{
-          fontSize: '14px',
-          color: '#718096',
-          textAlign: 'center',
-          maxWidth: '400px',
-        }}>
+        <p
+          style={{
+            fontSize: '14px',
+            color: '#718096',
+            textAlign: 'center',
+            maxWidth: '400px',
+          }}
+        >
           {error}
         </p>
         <button
@@ -479,26 +508,24 @@ function TableView() {
       const [colIndex, rowIndex] = cell;
       const record = records[rowIndex];
       const field = fields[colIndex];
-      
+
       if (!sdk || !record || !field) return;
 
       try {
-        console.log('💾 更新单元格:', { 
-          recordId: record.id, 
-          fieldId: field.id, 
-          value: newValue.data 
+        console.log('💾 更新单元格:', {
+          recordId: record.id,
+          fieldId: field.id,
+          value: newValue.data,
         });
 
-        await sdk.updateRecord(
-          config.testBase.tableId,
-          record.id,
-          { data: { [field.id]: newValue.data } }
-        );
+        await sdk.updateRecord(config.testBase.tableId, record.id, {
+          data: { [field.id]: newValue.data },
+        });
 
         console.log('✅ 更新成功');
 
         // 更新本地数据
-        setRecords(prev => {
+        setRecords((prev) => {
           const next = [...prev];
           next[rowIndex] = {
             ...next[rowIndex],
@@ -517,38 +544,44 @@ function TableView() {
   };
 
   return (
-    <div style={{ 
-      height: '100vh', 
-      display: 'flex', 
-      flexDirection: 'column' 
-    }}>
-      {/* Header */}
-      <div style={{
+    <div
+      style={{
+        height: '100vh',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '12px 24px',
-        background: 'white',
-        borderBottom: '1px solid #e2e8f0',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-      }}>
+        flexDirection: 'column',
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 24px',
+          background: 'white',
+          borderBottom: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        }}
+      >
         <div>
-          <h1 style={{
-            fontSize: '20px',
-            fontWeight: 'bold',
-            color: '#1a202c',
-          }}>
+          <h1
+            style={{
+              fontSize: '20px',
+              fontWeight: 'bold',
+              color: '#1a202c',
+            }}
+          >
             LuckDB Aitable Demo
           </h1>
-          <p style={{
-            fontSize: '12px',
-            color: '#718096',
-          }}>
+          <p
+            style={{
+              fontSize: '12px',
+              color: '#718096',
+            }}
+          >
             ✅ SDK 已注入 • {fields.length} 个字段 • {records.length} 条记录
             {filterConditions.length > 0 && (
-              <span style={{ color: '#3b82f6' }}>
-                {' '}• 过滤后: {filteredRecords.length} 条
-              </span>
+              <span style={{ color: '#3b82f6' }}> • 过滤后: {filteredRecords.length} 条</span>
             )}
           </p>
           {/* 样式测试 */}
@@ -556,7 +589,7 @@ function TableView() {
             <StyleTest />
           </div>
         </div>
-        
+
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {/* 视图切换 */}
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -589,7 +622,7 @@ function TableView() {
               功能测试
             </button>
           </div>
-          
+
           <button
             onClick={logout}
             style={{
@@ -619,105 +652,124 @@ function TableView() {
       {/* Content */}
       <div style={{ flex: 1, overflow: 'hidden' }}>
         {currentView === 'table' ? (
-        <AppProviders
-          sdk={sdk}
-          baseId={config.testBase.baseId}
-          tableId={config.testBase.tableId}
-          viewId={config.testBase.viewId}
-        >
-          <StandardDataView
+          <AppProviders
             sdk={sdk}
+            baseId={config.testBase.baseId}
             tableId={config.testBase.tableId}
-            // 过滤配置
-            filterFields={filterFields}
-            filterConditions={filterConditions}
-            onFilterConditionsChange={handleFilterConditionsChange}
-            onFilteredDataChange={handleFilteredDataChange}
-            // 真实 API 调用创建视图
-            onCreateView={async (viewType: string) => {
-              try {
-                console.log('🆕 创建视图:', viewType);
-                
-                // 调用 LuckDB SDK 创建视图
-                const newView = await sdk!.createView({
-                  tableId: config.testBase.tableId,
-                  name: `${viewType}视图_${Date.now()}`,
-                  type: viewType as any, // 确保类型匹配
-                  description: `通过 Demo 创建的 ${viewType} 视图`,
-                });
-                
-                console.log('✅ 视图创建成功:', newView);
-                
-                // 刷新数据以获取最新的视图列表
+            viewId={config.testBase.viewId}
+          >
+            <FieldManagementProvider
+              onFieldUpdated={(field) => {
+                console.log('✅ 字段已更新:', field);
+                // 刷新数据
                 if (gridProps.onDataRefresh) {
-                  await gridProps.onDataRefresh();
+                  gridProps.onDataRefresh();
                 }
-                
-                // 可选：切换到新创建的视图
-                // setActiveViewId(newView.id);
-                
-              } catch (error) {
-                console.error('❌ 创建视图失败:', error);
-                alert(`创建视图失败: ${(error as Error).message}`);
-              }
-            }}
-            gridProps={{
-              ...gridProps,
-              // 数据刷新回调 - 自动刷新字段和记录
-              onDataRefresh: async () => {
-                console.log('🔄 自动刷新数据...');
-                try {
-                  const fieldsData = await sdk!.listFields({ 
-                    tableId: config.testBase.tableId 
-                  });
-                  setFields(fieldsData || []);
+              }}
+              onFieldDeleted={(fieldId) => {
+                console.log('🗑️ 字段已删除:', fieldId);
+                // 刷新数据
+                if (gridProps.onDataRefresh) {
+                  gridProps.onDataRefresh();
+                }
+              }}
+              onError={(error, operation) => {
+                console.error(`❌ 字段${operation === 'edit' ? '编辑' : '删除'}失败:`, error);
+              }}
+            >
+              <StandardDataView
+                sdk={sdk}
+                tableId={config.testBase.tableId}
+                // 过滤配置
+                filterFields={filterFields}
+                filterConditions={filterConditions}
+                onFilterConditionsChange={handleFilterConditionsChange}
+                onFilteredDataChange={handleFilteredDataChange}
+                // 真实 API 调用创建视图
+                onCreateView={async (viewType: string) => {
+                  try {
+                    console.log('🆕 创建视图:', viewType);
 
-                  const recordsData = await sdk!.listRecords({ 
-                    tableId: config.testBase.tableId 
-                  });
-                  
-                  // 处理多种数据结构
-                  let records: any[] = [];
-                  if (recordsData) {
-                    const data: any = recordsData;
-                    if (Array.isArray(data)) {
-                      records = data;
-                    } else if (data.data) {
-                      if (Array.isArray(data.data)) {
-                        records = data.data;
-                      } else if (data.data.list) {
-                        records = data.data.list;
-                      }
-                    } else if (data.list) {
-                      records = data.list;
+                    // 调用 LuckDB SDK 创建视图
+                    const newView = await sdk!.createView({
+                      tableId: config.testBase.tableId,
+                      name: `${viewType}视图_${Date.now()}`,
+                      type: viewType as any, // 确保类型匹配
+                      description: `通过 Demo 创建的 ${viewType} 视图`,
+                    });
+
+                    console.log('✅ 视图创建成功:', newView);
+
+                    // 刷新数据以获取最新的视图列表
+                    if (gridProps.onDataRefresh) {
+                      await gridProps.onDataRefresh();
                     }
+
+                    // 可选：切换到新创建的视图
+                    // setActiveViewId(newView.id);
+                  } catch (error) {
+                    console.error('❌ 创建视图失败:', error);
+                    alert(`创建视图失败: ${(error as Error).message}`);
                   }
-                  
-                  setRecords(records);
-                  console.log('✅ 数据刷新完成:', records.length, '条记录');
-                } catch (err) {
-                  console.error('❌ 数据刷新失败:', err);
-                }
-              },
-            }}
-            fields={fields.map((f: any) => ({
-              id: f.id ?? f.fieldId ?? String(f.key ?? f.name),
-              name: f.name ?? f.title ?? String(f.id ?? ''),
-              type: f.type ?? 'text',
-              visible: true,
-              required: false,
-              isPrimary: f.primary || false,
-              description: f.description || '',
-              options: f.options || {},
-            }))}
-            // 最简配置：显示所有功能，不传任何回调
-            showHeader
-            showToolbar
-            showStatus
-            // 不传 onAddField、onAddColumn 等回调，让组件自动处理
-            // 组件会自动使用 sdk + tableId 创建字段
-          />
-        </AppProviders>
+                }}
+                gridProps={{
+                  ...gridProps,
+                  // 数据刷新回调 - 自动刷新字段和记录
+                  onDataRefresh: async () => {
+                    console.log('🔄 自动刷新数据...');
+                    try {
+                      const fieldsData = await sdk!.listFields({
+                        tableId: config.testBase.tableId,
+                      });
+                      setFields(fieldsData || []);
+
+                      const recordsData = await sdk!.listRecords({
+                        tableId: config.testBase.tableId,
+                      });
+
+                      // 处理多种数据结构
+                      let records: any[] = [];
+                      if (recordsData) {
+                        const data: any = recordsData;
+                        if (Array.isArray(data)) {
+                          records = data;
+                        } else if (data.data) {
+                          if (Array.isArray(data.data)) {
+                            records = data.data;
+                          } else if (data.data.list) {
+                            records = data.data.list;
+                          }
+                        } else if (data.list) {
+                          records = data.list;
+                        }
+                      }
+
+                      setRecords(records);
+                      console.log('✅ 数据刷新完成:', records.length, '条记录');
+                    } catch (err) {
+                      console.error('❌ 数据刷新失败:', err);
+                    }
+                  },
+                }}
+                fields={fields.map((f: any) => ({
+                  id: f.id ?? f.fieldId ?? String(f.key ?? f.name),
+                  name: f.name ?? f.title ?? String(f.id ?? ''),
+                  type: f.type ?? 'text',
+                  visible: true,
+                  required: false,
+                  isPrimary: f.primary || false,
+                  description: f.description || '',
+                  options: f.options || {},
+                }))}
+                // 最简配置：显示所有功能，不传任何回调
+                showHeader
+                showToolbar
+                showStatus
+                // 不传 onAddField、onAddColumn 等回调，让组件自动处理
+                // 组件会自动使用 sdk + tableId 创建字段
+              />
+            </FieldManagementProvider>
+          </AppProviders>
         ) : (
           <AddRecordTest />
         )}
@@ -733,27 +785,31 @@ function App() {
 
   if (isLoading) {
     return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-      }}>
-        <div style={{
-          textAlign: 'center',
-        }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            margin: '0 auto 16px',
-            border: '4px solid #e2e8f0',
-            borderTop: '4px solid #667eea',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-          }} />
-          <p style={{ fontSize: '16px', color: '#718096' }}>
-            初始化中...
-          </p>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+        }}
+      >
+        <div
+          style={{
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: '48px',
+              height: '48px',
+              margin: '0 auto 16px',
+              border: '4px solid #e2e8f0',
+              borderTop: '4px solid #667eea',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+            }}
+          />
+          <p style={{ fontSize: '16px', color: '#718096' }}>初始化中...</p>
           <style>
             {`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}
           </style>

@@ -10,7 +10,7 @@ import type {
   UpdateViewRequest,
   PaginatedResponse,
   PaginationParams
-} from '../types';
+} from '../types/index.js';
 
 export class ViewClient {
   private httpClient: HttpClient;

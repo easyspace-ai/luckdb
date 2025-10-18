@@ -266,9 +266,9 @@ func (r *RecordRepositoryImpl) CountByTableID(ctx context.Context, tableID strin
 }
 
 // FindWithVersion 根据ID和版本查找记录
-func (r *RecordRepositoryImpl) FindWithVersion(ctx context.Context, id valueobject.RecordID, version valueobject.RecordVersion) (*entity.Record, error) {
+func (r *RecordRepositoryImpl) FindWithVersion(ctx context.Context, tableID string, id valueobject.RecordID, version valueobject.RecordVersion) (*entity.Record, error) {
 	// 目前数据库模型没有版本字段，暂时忽略版本检查
-	return r.FindByID(ctx, id)
+	return r.FindByTableAndID(ctx, tableID, id)
 }
 
 // NextID 生成下一个记录ID

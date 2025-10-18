@@ -15,13 +15,7 @@ import (
 	"github.com/easyspace-ai/luckdb/server/internal/config"
 	"github.com/easyspace-ai/luckdb/server/internal/container"
 	httpHandlers "github.com/easyspace-ai/luckdb/server/internal/interfaces/http"
-	"github.com/easyspace-ai/luckdb/server/internal/mcp"
 	"github.com/easyspace-ai/luckdb/server/pkg/logger"
-)
-
-var (
-	// EnableMCP 是否启用MCP功能
-	EnableMCP bool
 )
 
 // NewServeCmd 创建API服务器命令
@@ -37,12 +31,10 @@ func NewServeCmd(configPath *string, version string) *cobra.Command {
   - 记录(Record) CRUD
   - 视图(View)、计算引擎
   - 用户认证与权限控制
-  - MCP (Model Context Protocol) AI 集成（可选）`,
+`,
 		Example: `  # 使用默认配置启动
   luckdb serve
   
-  # 启用 MCP 功能
-  luckdb serve --enable-mcp
   
   # 指定配置文件启动
   luckdb serve --config production.yaml`,
@@ -50,8 +42,6 @@ func NewServeCmd(configPath *string, version string) *cobra.Command {
 			return runServe(version)
 		},
 	}
-
-	cmd.Flags().BoolVar(&EnableMCP, "enable-mcp", true, "启用 MCP (Model Context Protocol) 功能")
 
 	return cmd
 }
@@ -113,21 +103,6 @@ func runServe(version string) error {
 	srvCtx, srvCancel := context.WithCancel(context.Background())
 	defer srvCancel()
 	cont.StartServices(srvCtx)
-
-	// 初始化MCP服务器（如果启用）
-	if EnableMCP {
-		logger.Info("初始化 MCP 服务器...")
-		mcpServer, err := initializeMCPServer(cfg, cont)
-		if err != nil {
-			logger.Error("初始化 MCP 服务器失败", logger.ErrorField(err))
-			logger.Warn("MCP 功能已禁用，继续启动 API 服务器")
-		} else {
-			cont.SetMCPServer(mcpServer)
-			logger.Info("✅ MCP 服务器已集成到主服务")
-		}
-	} else {
-		logger.Info("MCP 功能已禁用")
-	}
 
 	// 创建Gin引擎
 	router := setupRouter(cfg, cont, version)
@@ -273,34 +248,4 @@ func loggerMiddleware() gin.HandlerFunc {
 			logger.Duration("duration", duration),
 		)
 	}
-}
-
-// initializeMCPServer 初始化MCP服务器
-func initializeMCPServer(cfg *config.Config, cont *container.Container) (*mcp.Server, error) {
-	// 创建MCP配置
-	mcpConfig := &mcp.Config{
-		HTTP: mcp.HTTPConfig{
-			Enabled:     true,
-			Port:        cfg.Server.Port, // 使用与主服务相同的端口
-			Host:        "0.0.0.0",
-			CORSOrigins: []string{"*"},
-		},
-		Features: mcp.FeaturesConfig{
-			EnableTools:     true,
-			EnableResources: true,
-			EnablePrompts:   true,
-		},
-	}
-
-	// 创建MCP服务器（transport="http"表示集成模式）
-	mcpServer, err := mcp.NewServer(cont, mcpConfig, "http")
-	if err != nil {
-		return nil, fmt.Errorf("创建 MCP 服务器失败: %w", err)
-	}
-
-	logger.Info("MCP 服务器创建成功（集成模式）",
-		logger.String("端点", fmt.Sprintf("http://localhost:%d/mcp", cfg.Server.Port)),
-	)
-
-	return mcpServer, nil
 }

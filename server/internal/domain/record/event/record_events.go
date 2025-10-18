@@ -8,35 +8,39 @@ import (
 	"github.com/google/uuid"
 )
 
-// DomainEvent 领域事件接口
-type DomainEvent interface {
-	EventID() string
-	EventType() string
-	OccurredAt() time.Time
-	AggregateID() string
-}
-
 // BaseDomainEvent 基础领域事件
 type BaseDomainEvent struct {
-	eventID     string
-	eventType   string
-	occurredAt  time.Time
-	aggregateID string
+	eventID       string
+	eventType     string
+	occurredAt    time.Time
+	aggregateID   string
+	aggregateType string
+	version       int64
+	data          map[string]interface{}
+	metadata      map[string]interface{}
 }
 
 func newBaseDomainEvent(eventType string, aggregateID string) BaseDomainEvent {
 	return BaseDomainEvent{
-		eventID:     uuid.New().String(),
-		eventType:   eventType,
-		occurredAt:  time.Now(),
-		aggregateID: aggregateID,
+		eventID:       uuid.New().String(),
+		eventType:     eventType,
+		occurredAt:    time.Now(),
+		aggregateID:   aggregateID,
+		aggregateType: "record",
+		version:       1,
+		data:          make(map[string]interface{}),
+		metadata:      make(map[string]interface{}),
 	}
 }
 
-func (e BaseDomainEvent) EventID() string       { return e.eventID }
-func (e BaseDomainEvent) EventType() string     { return e.eventType }
-func (e BaseDomainEvent) OccurredAt() time.Time { return e.occurredAt }
-func (e BaseDomainEvent) AggregateID() string   { return e.aggregateID }
+func (e BaseDomainEvent) EventID() string                  { return e.eventID }
+func (e BaseDomainEvent) EventType() string                { return e.eventType }
+func (e BaseDomainEvent) OccurredAt() time.Time            { return e.occurredAt }
+func (e BaseDomainEvent) AggregateID() string              { return e.aggregateID }
+func (e BaseDomainEvent) AggregateType() string            { return e.aggregateType }
+func (e BaseDomainEvent) Version() int64                   { return e.version }
+func (e BaseDomainEvent) Data() map[string]interface{}     { return e.data }
+func (e BaseDomainEvent) Metadata() map[string]interface{} { return e.metadata }
 
 // RecordCreated 记录创建事件
 type RecordCreated struct {
@@ -67,9 +71,9 @@ func (e *RecordCreated) CreatedBy() string              { return e.createdBy }
 // RecordUpdated 记录更新事件
 type RecordUpdated struct {
 	BaseDomainEvent
-	recordID    valueobject.RecordID
-	tableID     string
-	updatedBy   string
+	recordID      valueobject.RecordID
+	tableID       string
+	updatedBy     string
 	changedFields []string
 }
 
@@ -119,4 +123,3 @@ func NewRecordDeleted(
 func (e *RecordDeleted) RecordID() valueobject.RecordID { return e.recordID }
 func (e *RecordDeleted) TableID() string                { return e.tableID }
 func (e *RecordDeleted) DeletedBy() string              { return e.deletedBy }
-

@@ -525,10 +525,17 @@ func (s *TableService) DuplicateTable(ctx context.Context, tableID string, req d
 
 	// 10. 复制数据（如果需要）
 	if req.WithData {
-		// TODO: 实现数据复制逻辑
-		// 1. 获取原表格的所有记录
-		// 2. 批量插入到新表格
-		logger.Info("数据复制功能待实现", logger.String("new_table_id", newTableID))
+		if err := s.copyTableData(ctx, tableID, newTableID); err != nil {
+			logger.Error("复制表格数据失败",
+				logger.String("source_table_id", tableID),
+				logger.String("target_table_id", newTableID),
+				logger.ErrorField(err))
+			// 数据复制失败不影响表格创建，只记录错误
+		} else {
+			logger.Info("表格数据复制成功",
+				logger.String("source_table_id", tableID),
+				logger.String("target_table_id", newTableID))
+		}
 	}
 
 	logger.Info("表格复制成功",
@@ -563,10 +570,14 @@ func (s *TableService) GetTableUsage(ctx context.Context, tableID string) (*dto.
 		}
 	}
 
-	// 3. 计算存储大小（可选实现）
-	var storageSize int64
-	// TODO: 实现存储大小计算
-	// 可以通过查询数据库表的统计信息来获取
+	// 3. 计算存储大小
+	storageSize, err := s.calculateTableStorageSize(ctx, tableID)
+	if err != nil {
+		logger.Warn("计算存储大小失败",
+			logger.String("table_id", tableID),
+			logger.ErrorField(err))
+		storageSize = 0 // 失败时设为0
+	}
 
 	// 4. 设置限制值（可以根据业务需求配置）
 	maxRecords := int64(20000)                 // 默认最大记录数
@@ -592,4 +603,62 @@ func (s *TableService) GetTableUsage(ctx context.Context, tableID string) (*dto.
 		logger.Float64("usage_percentage", usagePercentage))
 
 	return usage, nil
+}
+
+// copyTableData 复制表格数据
+func (s *TableService) copyTableData(ctx context.Context, sourceTableID, targetTableID string) error {
+	// 1. 获取源表格的所有记录
+	records, err := s.recordRepo.FindByTableID(ctx, sourceTableID) // 获取所有记录
+	if err != nil {
+		return fmt.Errorf("获取源表格记录失败: %w", err)
+	}
+
+	if len(records) == 0 {
+		logger.Info("源表格无数据，跳过复制", logger.String("source_table_id", sourceTableID))
+		return nil
+	}
+
+	// 2. 批量插入到目标表格
+	batchSize := 100 // 批量大小
+	for i := 0; i < len(records); i += batchSize {
+		end := i + batchSize
+		if end > len(records) {
+			end = len(records)
+		}
+
+		batch := records[i:end]
+		if err := s.recordRepo.BatchSave(ctx, batch); err != nil {
+			return fmt.Errorf("批量插入记录失败 (批次 %d-%d): %w", i, end-1, err)
+		}
+
+		logger.Debug("复制记录批次完成",
+			logger.String("target_table_id", targetTableID),
+			logger.Int("batch_start", i),
+			logger.Int("batch_end", end-1),
+			logger.Int("batch_size", len(batch)))
+	}
+
+	logger.Info("表格数据复制完成",
+		logger.String("source_table_id", sourceTableID),
+		logger.String("target_table_id", targetTableID),
+		logger.Int("total_records", len(records)))
+
+	return nil
+}
+
+// calculateTableStorageSize 计算表格存储大小
+func (s *TableService) calculateTableStorageSize(ctx context.Context, tableID string) (int64, error) {
+	// 使用估算方法计算存储大小
+	// TODO: 后续可以通过数据库提供者添加精确查询方法
+	var size int64
+	// 估算方法：记录数 * 平均记录大小
+	recordCount, err := s.recordRepo.CountByTableID(ctx, tableID)
+	if err != nil {
+		return 0, fmt.Errorf("获取记录数量失败: %w", err)
+	}
+
+	// 假设平均每条记录1KB（这是一个粗略估算）
+	size = recordCount * 1024
+
+	return size, nil
 }

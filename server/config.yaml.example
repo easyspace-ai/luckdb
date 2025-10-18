@@ -92,11 +92,6 @@ ai:
   #   apiKey: your-openai-api-key
   #   model: gpt-3.5-turbo
 
-# MCP 配置（可选）
-mcp:
-  enabled: false
-  port: 8081
-  tokenExpiration: 24h
 
 # 监控配置
 monitoring:

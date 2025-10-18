@@ -63,6 +63,55 @@ func (r *RecordRepositoryDynamic) FindByID(ctx context.Context, id valueobject.R
 	return nil, fmt.Errorf("FindByID is deprecated: please use FindByIDs with table_id instead")
 }
 
+// FindTableIDByRecordID 通过记录ID查找表ID（临时兼容方法）
+// 这个方法用于支持旧路由，通过查询所有表来找到包含该记录的表
+func (r *RecordRepositoryDynamic) FindTableIDByRecordID(ctx context.Context, recordID valueobject.RecordID) (string, error) {
+	recordIDStr := recordID.String()
+
+	// 1. 直接查询数据库获取所有表
+	var tables []struct {
+		ID     string `gorm:"column:id"`
+		BaseID string `gorm:"column:base_id"`
+	}
+
+	err := r.db.WithContext(ctx).
+		Table("table_meta").
+		Select("id, base_id").
+		Where("deleted_time IS NULL").
+		Find(&tables).Error
+
+	if err != nil {
+		return "", fmt.Errorf("获取表列表失败: %w", err)
+	}
+
+	// 2. 遍历所有表，查找包含该记录的表
+	for _, table := range tables {
+		tableID := table.ID
+		baseID := table.BaseID
+
+		// 3. 构建物理表名
+		fullTableName := r.dbProvider.GenerateTableName(baseID, tableID)
+
+		// 4. 查询该表是否包含该记录
+		var count int64
+		err := r.db.WithContext(ctx).
+			Table(fullTableName).
+			Where("__id = ?", recordIDStr).
+			Count(&count).Error
+
+		if err != nil {
+			// 如果表不存在，继续下一个
+			continue
+		}
+
+		if count > 0 {
+			return tableID, nil
+		}
+	}
+
+	return "", fmt.Errorf("记录不存在: %s", recordIDStr)
+}
+
 // FindByIDs 根据ID列表查询记录（需要提供 tableID）
 // ✅ 对齐 Teable 架构：所有记录操作都需要 tableID
 func (r *RecordRepositoryDynamic) FindByIDs(ctx context.Context, tableID string, ids []valueobject.RecordID) ([]*entity.Record, error) {
@@ -463,9 +512,9 @@ func (r *RecordRepositoryDynamic) CountByTableID(ctx context.Context, tableID st
 }
 
 // FindWithVersion 根据ID和版本查找记录（乐观锁）
-func (r *RecordRepositoryDynamic) FindWithVersion(ctx context.Context, id valueobject.RecordID, expectedVersion valueobject.RecordVersion) (*entity.Record, error) {
+func (r *RecordRepositoryDynamic) FindWithVersion(ctx context.Context, tableID string, id valueobject.RecordID, expectedVersion valueobject.RecordVersion) (*entity.Record, error) {
 	// 先查找记录
-	record, err := r.FindByID(ctx, id)
+	record, err := r.FindByTableAndID(ctx, tableID, id)
 	if err != nil {
 		return nil, err
 	}

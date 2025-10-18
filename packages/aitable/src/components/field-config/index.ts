@@ -9,6 +9,9 @@ export { AddFieldDialog as AddFieldDialogV2 } from './AddFieldDialog.v2';
 export { AddFieldMenu } from './AddFieldMenu';
 export { EditFieldMenu } from './EditFieldMenu';
 export { EditFieldDialog } from './EditFieldDialog';
+export { EnhancedEditFieldDialog } from './EnhancedEditFieldDialog';
+export { EnhancedDeleteConfirmDialog } from './EnhancedDeleteConfirmDialog';
+export { FieldManagementProvider, useFieldManagement } from './FieldManagementProvider';
 
 // 配置面板组件
 export { FieldConfigPanel } from './FieldConfigPanel';
@@ -22,6 +25,8 @@ export * from './field-configurations';
 export type { AddFieldDialogProps } from './AddFieldDialog';
 export type { EditFieldDialogProps, FieldConfig as EditFieldConfig } from './EditFieldDialog';
 export type { FieldTypeConfig } from './AddFieldDialog.v2';
+export type { EnhancedEditFieldDialogProps } from './EnhancedEditFieldDialog';
+export type { EnhancedDeleteConfirmDialogProps } from './EnhancedDeleteConfirmDialog';
 export type { FieldContextMenuProps } from './FieldContextMenu';
 export type { FieldConfigComboboxProps } from './FieldConfigCombobox';
 export type { FieldConfigPanelProps } from './FieldConfigPanel';

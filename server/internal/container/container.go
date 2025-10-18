@@ -17,13 +17,16 @@ import (
 	baseRepo "github.com/easyspace-ai/luckdb/server/internal/domain/base/repository"
 	collaboratorRepo "github.com/easyspace-ai/luckdb/server/internal/domain/collaborator/repository"
 	fieldRepo "github.com/easyspace-ai/luckdb/server/internal/domain/fields/repository"
-	mcpRepo "github.com/easyspace-ai/luckdb/server/internal/domain/mcp/repository"
 	recordRepo "github.com/easyspace-ai/luckdb/server/internal/domain/record/repository"
 	spaceRepo "github.com/easyspace-ai/luckdb/server/internal/domain/space/repository"
 	tableRepo "github.com/easyspace-ai/luckdb/server/internal/domain/table/repository"
 	userRepo "github.com/easyspace-ai/luckdb/server/internal/domain/user/repository"
 	viewRepo "github.com/easyspace-ai/luckdb/server/internal/domain/view/repository"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/websocket" // ✨ WebSocket 服务
+
+	// 计算服务相关包
+	"github.com/easyspace-ai/luckdb/server/internal/domain/calculation/lookup"
+	"github.com/easyspace-ai/luckdb/server/internal/domain/calculation/rollup"
 )
 
 // Container 依赖注入容器
@@ -47,14 +50,13 @@ type Container struct {
 	spaceRepository        spaceRepo.SpaceRepository
 	tableRepository        tableRepo.TableRepository
 	viewRepository         viewRepo.ViewRepository
-	mcpTokenRepository     mcpRepo.MCPTokenRepository
 
 	// 应用服务层
+	errorService        *application.ErrorService // 统一错误处理服务 ✨
 	userService         *application.UserService
 	userConfigService   *application.UserConfigService // 用户配置服务 ✨
 	authService         *application.AuthService
 	tokenService        *application.TokenService
-	mcpTokenService     *application.MCPTokenService     // MCP Token服务 ✨
 	permissionServiceV2 *application.PermissionServiceV2 // 权限服务V2 (Action-based) ✨
 	collaboratorService *application.CollaboratorService // 协作者服务 ✨
 	spaceService        *application.SpaceService
@@ -63,14 +65,28 @@ type Container struct {
 	fieldService        *application.FieldService
 	recordService       *application.RecordService
 	viewService         *application.ViewService
-	calculationService  *application.CalculationService // 计算引擎服务 ✨
+
+	// 基础设施服务 ✨
+	batchService       *application.BatchService       // 批量操作服务
+	cacheService       *application.CacheService       // 统一缓存服务
+	eventBus           *application.EventBus           // 事件总线
+	eventStore         *application.EventStore         // 事件存储
+	transactionManager *application.TransactionManager // 统一事务管理器
+
+	// 计算服务（重构后的模块化服务）✨
+	calculationOrchestrator *application.CalculationOrchestrator // 计算编排器
+	dependencyService       *application.DependencyService       // 依赖管理服务
+	formulaService          *application.FormulaService          // 公式计算服务
+	rollupService           *application.RollupService           // Rollup计算服务
+	lookupService           *application.LookupService           // Lookup计算服务
+	countService            *application.CountService            // Count计算服务
+
+	// 兼容性：保留原有的计算服务
+	calculationService *application.CalculationService // 计算引擎服务 ✨
 
 	// WebSocket 服务 ✨
 	wsManager *websocket.Manager
 	wsService websocket.Service
-
-	// MCP 服务（可选）
-	mcpServer *interface{} // 使用interface{}避免循环依赖
 }
 
 // NewContainer 创建新的容器
@@ -177,8 +193,6 @@ func (c *Container) initRepositories() {
 	// 视图仓储
 	c.viewRepository = repository.NewViewRepository(db)
 
-	// MCP Token仓储
-	c.mcpTokenRepository = repository.NewMCPTokenRepository(db)
 }
 
 // initServices 初始化所有应用服务（完美架构）
@@ -188,6 +202,12 @@ func (c *Container) initRepositories() {
 //   - 计算服务需要在RecordService之前初始化
 //   - RecordService依赖CalculationService实现自动计算
 func (c *Container) initServices() {
+	// 错误处理服务（最先初始化，其他服务可能依赖它）
+	c.errorService = application.NewErrorService()
+
+	// 基础设施服务
+	c.initInfrastructureServices()
+
 	// Token 服务
 	c.tokenService = application.NewTokenService(c.cfg.JWT)
 
@@ -199,9 +219,6 @@ func (c *Container) initServices() {
 
 	// 认证服务
 	c.authService = application.NewAuthService(c.userRepository, c.tokenService)
-
-	// MCP Token服务 ✨
-	c.mcpTokenService = application.NewMCPTokenService(c.mcpTokenRepository)
 
 	// 权限服务V2 ✨
 	c.permissionServiceV2 = application.NewPermissionServiceV2(
@@ -244,6 +261,12 @@ func (c *Container) initServices() {
 	// ✨ WebSocket 服务初始化（在 CalculationService 之前）
 	c.initWebSocketService()
 
+	// ✨ 初始化模块化计算服务（重构后的架构）
+	c.initCalculationServices()
+
+	// ✨ 初始化基础设施服务
+	c.initInfrastructureServices()
+
 	// ✨ 计算引擎服务（在RecordService之前初始化）
 	// 集成 WebSocket 推送
 	wsAdapter := application.NewWebSocketServiceAdapter(c.wsService)
@@ -281,6 +304,50 @@ func (c *Container) initWebSocketService() {
 	go c.wsManager.Run(context.Background())
 
 	logger.Info("✅ WebSocket 服务已初始化")
+}
+
+// initCalculationServices 初始化模块化计算服务
+func (c *Container) initCalculationServices() {
+	logger.Info("正在初始化模块化计算服务...")
+
+	// 1. 初始化依赖管理服务
+	c.dependencyService = application.NewDependencyService(c.errorService)
+
+	// 2. 初始化各个专门的计算服务
+	c.formulaService = application.NewFormulaService(c.errorService)
+
+	// 创建Rollup计算器
+	rollupCalculator := &rollup.RollupCalculator{} // 这里需要根据实际的rollup包来创建
+	c.rollupService = application.NewRollupService(
+		c.fieldRepository,
+		c.recordRepository,
+		rollupCalculator,
+		c.errorService,
+	)
+
+	// 创建Lookup计算器
+	lookupCalculator := &lookup.LookupCalculator{} // 这里需要根据实际的lookup包来创建
+	c.lookupService = application.NewLookupService(
+		c.recordRepository,
+		lookupCalculator,
+		c.errorService,
+	)
+
+	c.countService = application.NewCountService(c.errorService)
+
+	// 3. 初始化计算编排器
+	c.calculationOrchestrator = application.NewCalculationOrchestrator(
+		c.dependencyService,
+		c.formulaService,
+		c.rollupService,
+		c.lookupService,
+		c.countService,
+		c.fieldRepository,
+		c.recordRepository,
+		c.errorService,
+	)
+
+	logger.Info("✅ 模块化计算服务已初始化")
 }
 
 // Close 关闭容器和所有资源
@@ -346,12 +413,32 @@ func (c *Container) UserRepo() userRepo.UserRepository {
 	return c.userRepository
 }
 
-// MCPTokenRepo 获取MCP Token仓储
-func (c *Container) MCPTokenRepo() mcpRepo.MCPTokenRepository {
-	return c.mcpTokenRepository
+// ==================== 应用服务访问器 ====================
+
+// ErrorService 获取错误处理服务 ✨
+func (c *Container) ErrorService() *application.ErrorService {
+	return c.errorService
 }
 
-// ==================== 应用服务访问器 ====================
+// BatchService 获取批量操作服务
+func (c *Container) BatchService() *application.BatchService {
+	return c.batchService
+}
+
+// CacheService 获取缓存服务
+func (c *Container) CacheService() *application.CacheService {
+	return c.cacheService
+}
+
+// EventBus 获取事件总线
+func (c *Container) EventBus() *application.EventBus {
+	return c.eventBus
+}
+
+// EventStore 获取事件存储
+func (c *Container) EventStore() *application.EventStore {
+	return c.eventStore
+}
 
 // UserService 获取用户服务
 func (c *Container) UserService() *application.UserService {
@@ -418,6 +505,38 @@ func (c *Container) CalculationService() *application.CalculationService {
 	return c.calculationService
 }
 
+// ==================== 模块化计算服务访问器 ====================
+
+// CalculationOrchestrator 获取计算编排器 ✨
+func (c *Container) CalculationOrchestrator() *application.CalculationOrchestrator {
+	return c.calculationOrchestrator
+}
+
+// DependencyService 获取依赖管理服务 ✨
+func (c *Container) DependencyService() *application.DependencyService {
+	return c.dependencyService
+}
+
+// FormulaService 获取公式计算服务 ✨
+func (c *Container) FormulaService() *application.FormulaService {
+	return c.formulaService
+}
+
+// RollupService 获取Rollup计算服务 ✨
+func (c *Container) RollupService() *application.RollupService {
+	return c.rollupService
+}
+
+// LookupService 获取Lookup计算服务 ✨
+func (c *Container) LookupService() *application.LookupService {
+	return c.lookupService
+}
+
+// CountService 获取Count计算服务 ✨
+func (c *Container) CountService() *application.CountService {
+	return c.countService
+}
+
 // WebSocketManager 获取 WebSocket 管理器 ✨
 func (c *Container) WebSocketManager() *websocket.Manager {
 	return c.wsManager
@@ -426,11 +545,6 @@ func (c *Container) WebSocketManager() *websocket.Manager {
 // WebSocketService 获取 WebSocket 服务 ✨
 func (c *Container) WebSocketService() websocket.Service {
 	return c.wsService
-}
-
-// MCPTokenService 获取MCP Token服务
-func (c *Container) MCPTokenService() *application.MCPTokenService {
-	return c.mcpTokenService
 }
 
 // ==================== 健康检查 ====================
@@ -477,17 +591,41 @@ func (c *Container) StopServices() {
 	logger.Info("✅ 后台服务已停止")
 }
 
-// ==================== MCP 服务（可选）====================
+// initInfrastructureServices 初始化基础设施服务
+func (c *Container) initInfrastructureServices() {
+	// 批量操作服务
+	c.batchService = application.NewBatchService(
+		c.fieldRepository,
+		c.recordRepository,
+		c.errorService,
+	)
 
-// SetMCPServer 设置MCP服务器实例（供serve命令调用）
-func (c *Container) SetMCPServer(server interface{}) {
-	c.mcpServer = &server
-}
+	// 缓存服务
+	cacheConfig := application.DefaultCacheConfig()
+	c.cacheService = application.NewCacheService(
+		c.cacheClient,
+		c.errorService,
+		cacheConfig,
+	)
 
-// MCPServer 获取MCP服务器实例（如果已设置）
-func (c *Container) MCPServer() interface{} {
-	if c.mcpServer == nil {
-		return nil
-	}
-	return *c.mcpServer
+	// 事件存储
+	c.eventStore = application.NewEventStore(
+		c.db.DB,
+		nil, // 使用默认配置
+	)
+
+	// 事件总线
+	eventBusConfig := application.DefaultEventBusConfig()
+	c.eventBus = application.NewEventBus(
+		c.eventStore,
+		c.errorService,
+		eventBusConfig,
+	)
+
+	// 统一事务管理器
+	c.transactionManager = application.NewTransactionManager(
+		c.db.DB,
+		c.eventBus,
+		nil, // 使用默认配置
+	)
 }

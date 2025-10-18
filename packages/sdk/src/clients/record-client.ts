@@ -4,7 +4,7 @@
  */
 
 import { HttpClient } from '../core/http-client';
-import type { 
+import type {
   Record,
   CreateRecordRequest,
   UpdateRecordRequest,
@@ -17,8 +17,8 @@ import type {
   PaginatedResponse,
   PaginationParams,
   JsonObject,
-  FilterOperator
-} from '../types';
+  FilterOperator,
+} from '../types/index.js';
 
 export class RecordClient {
   private httpClient: HttpClient;
@@ -34,11 +34,11 @@ export class RecordClient {
    * ⚠️ 临时方案：后端需要在请求体中传递 tableId
    */
   public async create(recordData: CreateRecordRequest): Promise<Record> {
-    const { tableId, ...rest } = recordData;  // ✅ 使用 camelCase
+    const { tableId, ...rest } = recordData; // ✅ 使用 camelCase
     // ⚠️ 临时方案：在请求体中包含 tableId（后端修复后应该从 URL 提取）
-    return this.httpClient.post<Record>(`/api/v1/tables/${tableId}/records`, { 
-      tableId,  // ⚠️ 后端修复后应该从 URL 提取
-      ...rest 
+    return this.httpClient.post<Record>(`/api/v1/tables/${tableId}/records`, {
+      tableId, // ⚠️ 后端修复后应该从 URL 提取
+      ...rest,
     });
   }
 
@@ -46,55 +46,65 @@ export class RecordClient {
    * 获取记录列表（GET /api/v1/tables/:tableId/records）
    * 后端返回格式：{ list: Record[], pagination?: {...} }
    */
-  public async list(params?: PaginationParams & { 
-    tableId?: string;  // ✅ 使用 camelCase
-    filter?: FilterExpression;
-    sort?: SortExpression[];
-  }): Promise<PaginatedResponse<Record>> {
+  public async list(
+    params?: PaginationParams & {
+      tableId?: string; // ✅ 使用 camelCase
+      filter?: FilterExpression;
+      sort?: SortExpression[];
+    }
+  ): Promise<PaginatedResponse<Record>> {
     if (params?.tableId) {
       const { tableId, ...restParams } = params;
       // Records API 返回 { list: [...] } 格式
-      const response = await this.httpClient.get<{ list: Record[]; pagination?: any }>(`/api/v1/tables/${tableId}/records`, restParams);
-      
+      const response = await this.httpClient.get<{ list: Record[]; pagination?: any }>(
+        `/api/v1/tables/${tableId}/records`,
+        restParams
+      );
+
       // 提取 list 数组
       const records = response?.list || [];
-      
+
       // 如果有 pagination 信息，使用它；否则手动构造
       if (response?.pagination) {
         return {
           data: records,
           total: response.pagination.total || records.length,
           limit: response.pagination.limit || records.length,
-          offset: ((response.pagination.page || 1) - 1) * (response.pagination.limit || records.length)
+          offset:
+            ((response.pagination.page || 1) - 1) * (response.pagination.limit || records.length),
         };
       }
-      
+
       // 没有 pagination 信息，手动包装
       return {
         data: records,
         total: records.length,
         limit: records.length,
-        offset: 0
+        offset: 0,
       };
     }
     // 全局记录列表（如果存在）
-    const response = await this.httpClient.get<{ list: Record[]; pagination?: any }>('/api/v1/records', params);
+    const response = await this.httpClient.get<{ list: Record[]; pagination?: any }>(
+      '/api/v1/records',
+      params
+    );
     const records = response?.list || [];
-    
+
     if (response?.pagination) {
       return {
         data: records,
         total: response.pagination.total || records.length,
         limit: response.pagination.limit || records.length,
-        offset: ((response.pagination.page || 1) - 1) * (response.pagination.limit || records.length)
+        offset:
+          ((response.pagination.page || 1) - 1) * (response.pagination.limit || records.length),
       };
     }
-    
+
     return {
       data: records,
       total: records.length,
       limit: records.length,
-      offset: 0
+      offset: 0,
     };
   }
 
@@ -102,27 +112,34 @@ export class RecordClient {
    * 获取数据表的记录列表（GET /api/v1/tables/:tableId/records）
    * 后端返回格式：{ list: Record[], pagination?: {...} }
    */
-  public async listTableRecords(tableId: string, params?: PaginationParams & {
-    filter?: FilterExpression;
-    sort?: SortExpression[];
-  }): Promise<PaginatedResponse<Record>> {
-    const response = await this.httpClient.get<{ list: Record[]; pagination?: any }>(`/api/v1/tables/${tableId}/records`, params);
+  public async listTableRecords(
+    tableId: string,
+    params?: PaginationParams & {
+      filter?: FilterExpression;
+      sort?: SortExpression[];
+    }
+  ): Promise<PaginatedResponse<Record>> {
+    const response = await this.httpClient.get<{ list: Record[]; pagination?: any }>(
+      `/api/v1/tables/${tableId}/records`,
+      params
+    );
     const records = response?.list || [];
-    
+
     if (response?.pagination) {
       return {
         data: records,
         total: response.pagination.total || records.length,
         limit: response.pagination.limit || records.length,
-        offset: ((response.pagination.page || 1) - 1) * (response.pagination.limit || records.length)
+        offset:
+          ((response.pagination.page || 1) - 1) * (response.pagination.limit || records.length),
       };
     }
-    
+
     return {
       data: records,
       total: records.length,
       limit: records.length,
-      offset: 0
+      offset: 0,
     };
   }
 
@@ -137,7 +154,11 @@ export class RecordClient {
    * 更新记录（PATCH /api/v1/tables/:tableId/records/:recordId）
    * ✅ 对齐 Teable 架构：所有记录操作都需要 tableID
    */
-  public async update(tableId: string, recordId: string, updates: UpdateRecordRequest): Promise<Record> {
+  public async update(
+    tableId: string,
+    recordId: string,
+    updates: UpdateRecordRequest
+  ): Promise<Record> {
     return this.httpClient.patch<Record>(`/api/v1/tables/${tableId}/records/${recordId}`, updates);
   }
 
@@ -157,17 +178,23 @@ export class RecordClient {
   public async bulkCreate(bulkData: BulkCreateRecordRequest): Promise<Record[]> {
     const { tableId, records } = bulkData;
     // 后端期望格式: { records: [{fields: {...}}, {fields: {...}}] }
-    const formattedRecords = records.map(record => ({ fields: record }));
-    const response = await this.httpClient.post<{ records: Record[]; successCount: number; failedCount: number }>(`/api/v1/tables/${tableId}/records/batch`, { records: formattedRecords });
+    const formattedRecords = records.map((record) => ({ fields: record }));
+    const response = await this.httpClient.post<{
+      records: Record[];
+      successCount: number;
+      failedCount: number;
+    }>(`/api/v1/tables/${tableId}/records/batch`, { records: formattedRecords });
     // 后端返回格式: { records: [], successCount: n, failedCount: m }
     return response.records || [];
   }
 
   /**
-   * 批量更新记录（PATCH /api/v1/records/batch）
+   * 批量更新记录（PATCH /api/v1/tables/:tableId/records/batch）
+   * ✅ 对齐新 API：使用包含 tableId 的路由
    */
   public async bulkUpdate(bulkData: BulkUpdateRecordRequest): Promise<Record[]> {
-    return this.httpClient.patch<Record[]>('/api/v1/records/batch', bulkData);
+    const { tableId, records } = bulkData;
+    return this.httpClient.patch<Record[]>(`/api/v1/tables/${tableId}/records/batch`, { records });
   }
 
   /**
@@ -176,8 +203,8 @@ export class RecordClient {
    */
   public async bulkDelete(bulkData: BulkDeleteRecordRequest): Promise<void> {
     const { tableId, recordIds } = bulkData;
-    await this.httpClient.delete(`/api/v1/tables/${tableId}/records/batch`, { 
-      data: { recordIds } 
+    await this.httpClient.delete(`/api/v1/tables/${tableId}/records/batch`, {
+      data: { recordIds },
     } as any);
   }
 
@@ -195,12 +222,16 @@ export class RecordClient {
    * 搜索记录
    * 注：当前API可能未实现，仅预留接口
    */
-  public async search(tableId: string, searchQuery: string, params?: PaginationParams): Promise<PaginatedResponse<Record>> {
+  public async search(
+    tableId: string,
+    searchQuery: string,
+    params?: PaginationParams
+  ): Promise<PaginatedResponse<Record>> {
     return this.httpClient.get<PaginatedResponse<Record>>(`/api/v1/search`, {
       query: searchQuery,
       scope: 'records',
       tableId,
-      ...(params || {})
+      ...(params || {}),
     } as any);
   }
 
@@ -208,12 +239,16 @@ export class RecordClient {
    * 高级搜索
    * 注：当前API可能未实现，仅预留接口
    */
-  public async advancedSearch(tableId: string, filters: FilterExpression[], params?: PaginationParams): Promise<PaginatedResponse<Record>> {
+  public async advancedSearch(
+    tableId: string,
+    filters: FilterExpression[],
+    params?: PaginationParams
+  ): Promise<PaginatedResponse<Record>> {
     return this.httpClient.post<PaginatedResponse<Record>>(`/api/v1/search/advanced`, {
       scope: 'records',
       tableId,
       filters,
-      ...(params || {})
+      ...(params || {}),
     } as any);
   }
 
@@ -237,7 +272,10 @@ export class RecordClient {
    * 获取字段统计
    * 注：当前API可能未实现，仅预留接口
    */
-  public async getFieldStats(tableId: string, fieldId: string): Promise<{
+  public async getFieldStats(
+    tableId: string,
+    fieldId: string
+  ): Promise<{
     fieldId: string;
     fieldName: string;
     fieldType: string;
@@ -253,15 +291,18 @@ export class RecordClient {
    * 聚合查询
    * 注：当前API可能未实现，仅预留接口
    */
-  public async aggregate(tableId: string, aggregation: {
-    group_by?: string[];
-    aggregations: Array<{
-      field: string;
-      function: 'count' | 'sum' | 'avg' | 'min' | 'max' | 'distinct';
-      alias?: string;
-    }>;
-    filter?: FilterExpression;
-  }): Promise<any[]> {
+  public async aggregate(
+    tableId: string,
+    aggregation: {
+      group_by?: string[];
+      aggregations: Array<{
+        field: string;
+        function: 'count' | 'sum' | 'avg' | 'min' | 'max' | 'distinct';
+        alias?: string;
+      }>;
+      filter?: FilterExpression;
+    }
+  ): Promise<any[]> {
     return this.httpClient.post(`/api/v1/tables/${tableId}/records/aggregate`, aggregation);
   }
 
@@ -272,7 +313,9 @@ export class RecordClient {
    * 注：当前API可能未实现，仅预留接口
    */
   public async updateFieldValue(recordId: string, fieldId: string, value: any): Promise<Record> {
-    return this.httpClient.patch<Record>(`/api/v1/records/${recordId}/fields/${fieldId}`, { value });
+    return this.httpClient.patch<Record>(`/api/v1/records/${recordId}/fields/${fieldId}`, {
+      value,
+    });
   }
 
   /**
@@ -287,11 +330,13 @@ export class RecordClient {
    * 批量更新字段值
    * 注：当前API可能未实现，仅预留接口
    */
-  public async bulkUpdateFieldValues(updates: Array<{
-    recordId: string;
-    fieldId: string;
-    value: any;
-  }>): Promise<Record[]> {
+  public async bulkUpdateFieldValues(
+    updates: Array<{
+      recordId: string;
+      fieldId: string;
+      value: any;
+    }>
+  ): Promise<Record[]> {
     return this.httpClient.post<Record[]>('/api/v1/records/bulk-update-fields', { updates });
   }
 
@@ -301,32 +346,57 @@ export class RecordClient {
    * 获取关联记录
    * 注：当前API可能未实现，仅预留接口
    */
-  public async getLinkedRecords(recordId: string, linkFieldId: string, params?: PaginationParams): Promise<PaginatedResponse<Record>> {
-    return this.httpClient.get<PaginatedResponse<Record>>(`/api/v1/records/${recordId}/links/${linkFieldId}`, params);
+  public async getLinkedRecords(
+    recordId: string,
+    linkFieldId: string,
+    params?: PaginationParams
+  ): Promise<PaginatedResponse<Record>> {
+    return this.httpClient.get<PaginatedResponse<Record>>(
+      `/api/v1/records/${recordId}/links/${linkFieldId}`,
+      params
+    );
   }
 
   /**
    * 添加关联记录
    * 注：当前API可能未实现，仅预留接口
    */
-  public async addLinkedRecord(recordId: string, linkFieldId: string, linkedRecordId: string): Promise<void> {
-    await this.httpClient.post(`/api/v1/records/${recordId}/links/${linkFieldId}`, { linkedRecordId });
+  public async addLinkedRecord(
+    recordId: string,
+    linkFieldId: string,
+    linkedRecordId: string
+  ): Promise<void> {
+    await this.httpClient.post(`/api/v1/records/${recordId}/links/${linkFieldId}`, {
+      linkedRecordId,
+    });
   }
 
   /**
    * 移除关联记录
    * 注：当前API可能未实现，仅预留接口
    */
-  public async removeLinkedRecord(recordId: string, linkFieldId: string, linkedRecordId: string): Promise<void> {
-    await this.httpClient.delete(`/api/v1/records/${recordId}/links/${linkFieldId}/${linkedRecordId}`);
+  public async removeLinkedRecord(
+    recordId: string,
+    linkFieldId: string,
+    linkedRecordId: string
+  ): Promise<void> {
+    await this.httpClient.delete(
+      `/api/v1/records/${recordId}/links/${linkFieldId}/${linkedRecordId}`
+    );
   }
 
   /**
    * 批量添加关联记录
    * 注：当前API可能未实现，仅预留接口
    */
-  public async bulkAddLinkedRecords(recordId: string, linkFieldId: string, linkedRecordIds: string[]): Promise<void> {
-    await this.httpClient.post(`/api/v1/records/${recordId}/links/${linkFieldId}/bulk`, { linkedRecordIds });
+  public async bulkAddLinkedRecords(
+    recordId: string,
+    linkFieldId: string,
+    linkedRecordIds: string[]
+  ): Promise<void> {
+    await this.httpClient.post(`/api/v1/records/${recordId}/links/${linkFieldId}/bulk`, {
+      linkedRecordIds,
+    });
   }
 
   // ==================== 记录版本管理 ====================
@@ -335,14 +405,22 @@ export class RecordClient {
    * 获取记录版本历史
    * 注：当前API可能未实现，仅预留接口
    */
-  public async getVersionHistory(recordId: string, params?: PaginationParams): Promise<PaginatedResponse<{
-    version: number;
-    data: JsonObject;
-    changes: JsonObject;
-    updated_by: string;
-    updated_at: string;
-  }>> {
-    return this.httpClient.get<PaginatedResponse<any>>(`/api/v1/records/${recordId}/versions`, params);
+  public async getVersionHistory(
+    recordId: string,
+    params?: PaginationParams
+  ): Promise<
+    PaginatedResponse<{
+      version: number;
+      data: JsonObject;
+      changes: JsonObject;
+      updated_by: string;
+      updated_at: string;
+    }>
+  > {
+    return this.httpClient.get<PaginatedResponse<any>>(
+      `/api/v1/records/${recordId}/versions`,
+      params
+    );
   }
 
   /**
@@ -367,30 +445,45 @@ export class RecordClient {
    * 导出记录
    * 注：当前API可能未实现，仅预留接口
    */
-  public async exportRecords(tableId: string, format: 'json' | 'csv' | 'xlsx' = 'json', params?: {
-    filter?: FilterExpression;
-    fields?: string[];
-  }): Promise<Blob> {
+  public async exportRecords(
+    tableId: string,
+    format: 'json' | 'csv' | 'xlsx' = 'json',
+    params?: {
+      filter?: FilterExpression;
+      fields?: string[];
+    }
+  ): Promise<Blob> {
     const query: any = { format };
     if (params?.filter) query.filter = JSON.stringify(params.filter);
     if (params?.fields) query.fields = params.fields.join(',');
-    return this.httpClient.downloadFile(`/api/v1/tables/${tableId}/records/export?${new URLSearchParams(query).toString()}`);
+    return this.httpClient.downloadFile(
+      `/api/v1/tables/${tableId}/records/export?${new URLSearchParams(query).toString()}`
+    );
   }
 
   /**
    * 导入记录
    * 注：当前API可能未实现，仅预留接口
    */
-  public async importRecords(tableId: string, file: File | Buffer, options?: {
-    updateExisting?: boolean;
-    skipErrors?: boolean;
-    fieldMapping?: globalThis.Record<string, string>;
-  }): Promise<{
+  public async importRecords(
+    tableId: string,
+    file: File | Buffer,
+    options?: {
+      updateExisting?: boolean;
+      skipErrors?: boolean;
+      fieldMapping?: globalThis.Record<string, string>;
+    }
+  ): Promise<{
     imported: number;
     updated: number;
     errors: Array<{ row: number; error: string }>;
   }> {
-    return this.httpClient.uploadFile(`/api/v1/tables/${tableId}/records/import`, file, 'file', options);
+    return this.httpClient.uploadFile(
+      `/api/v1/tables/${tableId}/records/import`,
+      file,
+      'file',
+      options
+    );
   }
 
   // ==================== 记录操作工具 ====================
@@ -407,10 +500,14 @@ export class RecordClient {
    * 移动记录到其他表
    * 注：当前API可能未实现，仅预留接口
    */
-  public async moveToTable(recordId: string, targetTableId: string, fieldMapping?: globalThis.Record<string, string>): Promise<Record> {
+  public async moveToTable(
+    recordId: string,
+    targetTableId: string,
+    fieldMapping?: globalThis.Record<string, string>
+  ): Promise<Record> {
     return this.httpClient.post<Record>(`/api/v1/records/${recordId}/move`, {
       targetTableId,
-      fieldMapping
+      fieldMapping,
     });
   }
 
@@ -418,7 +515,10 @@ export class RecordClient {
    * 验证记录数据
    * 注：当前API可能未实现，仅预留接口
    */
-  public async validate(recordData: JsonObject, tableId: string): Promise<{
+  public async validate(
+    recordData: JsonObject,
+    tableId: string
+  ): Promise<{
     valid: boolean;
     errors: Array<{ field: string; error: string }>;
   }> {
@@ -446,11 +546,11 @@ export class RecordQueryBuilder {
   constructor(client: RecordClient, tableId: string) {
     this.client = client;
     this.query = {
-      tableId: tableId,  // ✅ 使用 camelCase
+      tableId: tableId, // ✅ 使用 camelCase
       filter: undefined,
       sort: [],
       limit: 20,
-      offset: 0
+      offset: 0,
     };
   }
 
@@ -461,7 +561,7 @@ export class RecordQueryBuilder {
       // 构建复合条件
       this.query.filter = {
         logic: 'and',
-        conditions: [this.query.filter as any, { field, operator, value } as any]
+        conditions: [this.query.filter as any, { field, operator, value } as any],
       } as any;
     }
     return this;
@@ -473,7 +573,7 @@ export class RecordQueryBuilder {
     } else {
       this.query.filter = {
         logic: 'or',
-        conditions: [this.query.filter as any, { field, operator, value } as any]
+        conditions: [this.query.filter as any, { field, operator, value } as any],
       } as any;
     }
     return this;
@@ -503,7 +603,7 @@ export class RecordQueryBuilder {
 
   public async first(): Promise<Record | null> {
     const result = await this.limit(1).execute();
-    return (result.data.length > 0 ? (result.data[0] as Record) : null);
+    return result.data.length > 0 ? (result.data[0] as Record) : null;
   }
 
   public async count(): Promise<number> {

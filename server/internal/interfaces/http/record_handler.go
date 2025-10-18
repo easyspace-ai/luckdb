@@ -12,6 +12,7 @@ import (
 	"github.com/easyspace-ai/luckdb/server/internal/application/dto"
 	recordRepo "github.com/easyspace-ai/luckdb/server/internal/domain/record/repository"
 	"github.com/easyspace-ai/luckdb/server/internal/domain/record/valueobject"
+	infraRepository "github.com/easyspace-ai/luckdb/server/internal/infrastructure/repository"
 	"github.com/easyspace-ai/luckdb/server/pkg/errors"
 	"github.com/easyspace-ai/luckdb/server/pkg/logger"
 	"github.com/easyspace-ai/luckdb/server/pkg/response"
@@ -66,9 +67,22 @@ func (h *RecordHandler) CreateRecord(c *gin.Context) {
 
 // GetRecord 获取记录详情
 func (h *RecordHandler) GetRecord(c *gin.Context) {
+	tableID := c.Param("tableId")
 	recordID := c.Param("recordId")
 
-	resp, err := h.recordService.GetRecord(c.Request.Context(), recordID)
+	// ✅ 兼容旧路由：如果没有 tableID，尝试通过 recordID 查找 tableID
+	if tableID == "" {
+		// 使用临时兼容方法查找 tableID
+		recordIDObj := valueobject.NewRecordID(recordID)
+		foundTableID, err := h.recordRepo.(*infraRepository.RecordRepositoryDynamic).FindTableIDByRecordID(c.Request.Context(), recordIDObj)
+		if err != nil {
+			response.Error(c, errors.ErrNotFound.WithDetails("记录不存在"))
+			return
+		}
+		tableID = foundTableID
+	}
+
+	resp, err := h.recordService.GetRecord(c.Request.Context(), tableID, recordID)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -112,7 +126,7 @@ func (h *RecordHandler) UpdateRecord(c *gin.Context) {
 	// 异步计算，不阻塞响应
 	logger.Info("⚡ 即将启动虚拟字段异步计算",
 		logger.String("record_id", recordID))
-	go h.calculateVirtualFieldsAsync(recordID, req)
+	go h.calculateVirtualFieldsAsync(tableID, recordID, req)
 	logger.Info("⚡ 异步计算goroutine已启动",
 		logger.String("record_id", recordID))
 
@@ -266,74 +280,8 @@ func (h *RecordHandler) ListRecords(c *gin.Context) {
 
 // ==================== 辅助方法 ====================
 
-// calculateVirtualFieldsForCreate 创建记录后异步计算虚拟字段
-func (h *RecordHandler) calculateVirtualFieldsForCreate(recordID string, req dto.CreateRecordRequest) {
-	// ⚠️ 关键：添加延迟确保主线程的数据库事务已提交
-	time.Sleep(100 * time.Millisecond)
-
-	ctx := context.Background() // 使用独立context避免被取消
-
-	logger.Info("🚀 开始异步计算虚拟字段（创建）",
-		logger.String("record_id", recordID))
-
-	// 1. 提取所有字段ID（创建时req.Data的keys已经是字段ID）
-	fieldIDs := make([]string, 0, len(req.Data))
-	for fieldID := range req.Data {
-		fieldIDs = append(fieldIDs, fieldID)
-	}
-
-	if len(fieldIDs) == 0 {
-		logger.Info("⚠️ 没有字段数据，跳过虚拟字段计算",
-			logger.String("record_id", recordID))
-		return
-	}
-
-	logger.Info("📝 检测到字段数据",
-		logger.String("record_id", recordID),
-		logger.Strings("field_ids", fieldIDs))
-
-	// 2. 获取记录（确保获取到最新数据）
-	record, err := h.recordService.GetRecord(ctx, recordID)
-	if err != nil {
-		logger.Error("❌ 获取记录失败",
-			logger.String("record_id", recordID),
-			logger.ErrorField(err))
-		return
-	}
-
-	logger.Info("🔍 准备计算虚拟字段",
-		logger.String("record_id", recordID),
-		logger.String("table_id", record.TableID),
-		logger.Int("changed_field_count", len(fieldIDs)))
-
-	// 3. 通过RecordRepository获取Record entity（包含最新数据）
-	recordIDObj := valueobject.NewRecordID(recordID)
-	recordEntity, err := h.recordRepo.FindByID(ctx, recordIDObj)
-	if err != nil {
-		logger.Error("❌ 获取Record entity失败",
-			logger.String("record_id", recordID),
-			logger.ErrorField(err))
-		return
-	}
-
-	logger.Info("🔍 当前Record数据",
-		logger.String("record_id", recordID),
-		logger.Any("data_keys", h.getDataKeys(recordEntity.Data().ToMap())))
-
-	// 4. 调用CalculationService进行虚拟字段重算
-	if err := h.calculationService.CalculateAffectedFields(ctx, recordEntity, fieldIDs); err != nil {
-		logger.Error("❌ 虚拟字段计算失败",
-			logger.String("record_id", recordID),
-			logger.ErrorField(err))
-		return
-	}
-
-	logger.Info("✅ 虚拟字段计算完成（创建）",
-		logger.String("record_id", recordID))
-}
-
 // calculateVirtualFieldsAsync 异步计算虚拟字段
-func (h *RecordHandler) calculateVirtualFieldsAsync(recordID string, req dto.UpdateRecordRequest) {
+func (h *RecordHandler) calculateVirtualFieldsAsync(tableID, recordID string, req dto.UpdateRecordRequest) {
 	// ⚠️ 关键：添加延迟确保主线程的数据库事务已提交
 	time.Sleep(100 * time.Millisecond)
 
@@ -354,18 +302,8 @@ func (h *RecordHandler) calculateVirtualFieldsAsync(recordID string, req dto.Upd
 		logger.String("record_id", recordID),
 		logger.Strings("changed_fields", changedFields))
 
-	// 2. 获取记录（确保获取到最新数据）
-	record, err := h.recordService.GetRecord(ctx, recordID)
-	if err != nil {
-		logger.Error("❌ 获取记录失败",
-			logger.String("record_id", recordID),
-			logger.ErrorField(err))
-		return
-	}
-
-	// 3. ✅ 修复：检查是字段ID还是字段名
+	// 2. ✅ 修复：检查是字段ID还是字段名
 	// 现在前端发送的是字段ID，直接使用
-	tableID := record.TableID
 	fieldIDs := make([]string, 0, len(changedFields))
 
 	// 检查第一个字段是否为字段ID格式（fld_开头）
@@ -392,10 +330,11 @@ func (h *RecordHandler) calculateVirtualFieldsAsync(recordID string, req dto.Upd
 
 	// 4. 通过RecordRepository获取Record entity（包含最新数据）
 	recordIDObj := valueobject.NewRecordID(recordID)
-	recordEntity, err := h.recordRepo.FindByID(ctx, recordIDObj)
+	recordEntity, err := h.recordRepo.FindByTableAndID(ctx, tableID, recordIDObj)
 	if err != nil {
 		logger.Error("❌ 获取Record entity失败",
 			logger.String("record_id", recordID),
+			logger.String("table_id", tableID),
 			logger.ErrorField(err))
 		return
 	}

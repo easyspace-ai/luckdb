@@ -11,7 +11,7 @@ import type {
   UpdateBaseRequest,
   PaginationParams,
   PaginatedResponse
-} from '../types';
+} from '../types/index.js';
 import { adaptPaginatedResponse, type BackendPaginatedResponse } from '../utils/response-adapter';
 
 export class BaseClient {

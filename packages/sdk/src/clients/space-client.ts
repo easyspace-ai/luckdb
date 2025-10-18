@@ -13,7 +13,7 @@ import type {
   CollaboratorRole,
   PaginatedResponse,
   PaginationParams
-} from '../types';
+} from '../types/index.js';
 
 export class SpaceClient {
   private httpClient: HttpClient;

@@ -180,10 +180,10 @@ func (s *RecordService) CreateRecord(ctx context.Context, req dto.CreateRecordRe
 }
 
 // GetRecord 获取记录详情
-func (s *RecordService) GetRecord(ctx context.Context, recordID string) (*dto.RecordResponse, error) {
+func (s *RecordService) GetRecord(ctx context.Context, tableID, recordID string) (*dto.RecordResponse, error) {
 	id := valueobject.NewRecordID(recordID)
 
-	record, err := s.recordRepo.FindByID(ctx, id)
+	record, err := s.recordRepo.FindByTableAndID(ctx, tableID, id)
 	if err != nil {
 		return nil, pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("查找记录失败: %v", err))
 	}
@@ -269,15 +269,7 @@ func (s *RecordService) UpdateRecord(ctx context.Context, tableID, recordID stri
 			return pkgerrors.ErrValidationFailed.WithDetails(fmt.Sprintf("更新记录失败: %v", err))
 		}
 
-		// 6. 保存（在事务中）
-		// 注意：record.Update()已经递增了版本，但Save会用旧版本做乐观锁检查
-		if err := s.recordRepo.Save(txCtx, record); err != nil {
-			return pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("保存记录失败: %v", err))
-		}
-
-		logger.Info("记录更新成功（事务中）", logger.String("record_id", recordID))
-
-		// 6. ✨ 智能重算受影响的虚拟字段（在事务内）
+		// 6. ✨ 智能重算受影响的虚拟字段（在事务内，保存之前）
 		if s.calculationService != nil && len(changedFieldIDs) > 0 {
 			if err := s.calculationService.CalculateAffectedFields(txCtx, record, changedFieldIDs); err != nil {
 				logger.Error("受影响字段重算失败（回滚事务）",
@@ -291,7 +283,15 @@ func (s *RecordService) UpdateRecord(ctx context.Context, tableID, recordID stri
 				logger.Int("changed_fields", len(changedFieldIDs)))
 		}
 
-		// 7. ✅ 收集事件（不立即发送）
+		// 7. 保存（在事务中，包含计算后的字段）
+		// 注意：record.Update()已经递增了版本，但Save会用旧版本做乐观锁检查
+		if err := s.recordRepo.Save(txCtx, record); err != nil {
+			return pkgerrors.ErrDatabaseOperation.WithDetails(fmt.Sprintf("保存记录失败: %v", err))
+		}
+
+		logger.Info("记录更新成功（事务中）", logger.String("record_id", recordID))
+
+		// 8. ✅ 收集事件（不立即发送）
 		finalFields = record.Data().ToMap()
 		event := &database.RecordEvent{
 			EventType:  "record.update",
@@ -304,7 +304,7 @@ func (s *RecordService) UpdateRecord(ctx context.Context, tableID, recordID stri
 		}
 		database.AddEventToTx(txCtx, event)
 
-		// 8. ✨ 添加事务提交后回调（发布 WebSocket 事件）
+		// 9. ✨ 添加事务提交后回调（发布 WebSocket 事件）
 		database.AddTxCallback(txCtx, func() {
 			s.publishRecordEvent(event)
 		})

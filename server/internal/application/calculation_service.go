@@ -409,11 +409,11 @@ func (s *CalculationService) CalculateAffectedFields(ctx context.Context, record
 		logger.Bool("hasChanges", hasChanges),
 		logger.Int("recordData_size", len(recordData)))
 
-	// 6. 更新Record
+	// 6. 更新Record（只更新内存中的数据，不保存到数据库）
 	if hasChanges {
 		updatedData, _ := valueobject.NewRecordData(recordData)
 
-		logger.Info("🔄 准备更新Record entity",
+		logger.Info("🔄 准备更新Record entity（内存中）",
 			logger.String("record_id", record.ID().String()))
 
 		if err := record.Update(updatedData, "system"); err != nil {
@@ -423,19 +423,13 @@ func (s *CalculationService) CalculateAffectedFields(ctx context.Context, record
 			return errors.ErrDatabaseOperation.WithDetails(err.Error())
 		}
 
-		logger.Info("💾 准备保存到数据库",
-			logger.String("record_id", record.ID().String()))
-
-		if err := s.recordRepo.Save(ctx, record); err != nil {
-			logger.Error("❌ recordRepo.Save 失败",
-				logger.String("record_id", record.ID().String()),
-				logger.ErrorField(err))
-			return errors.ErrDatabaseOperation.WithDetails(err.Error())
-		}
-
-		logger.Info("✅ affected fields recalculated and saved",
+		logger.Info("✅ affected fields recalculated (内存更新完成，由调用方事务负责保存)",
 			logger.String("record_id", record.ID().String()),
 		)
+
+		// ✅ 注意：不在这里保存到数据库，避免重复保存和乐观锁冲突
+		// 保存操作由调用方（RecordService）的事务负责
+		// 这样可以确保所有操作在同一个事务中，避免事务嵌套问题
 
 		// ✅ 新增：推送 WebSocket 更新
 		logger.Info("📤 准备推送记录更新",
@@ -565,22 +559,8 @@ func (s *CalculationService) calculateFormula(
 
 	// 2. 执行公式计算（使用formula包的Evaluate函数）
 	// Evaluate返回 (*TypedValue, error)
-	// 获取用户时区配置
-	// TODO: 从用户配置获取时区
-	//
-	// 实现步骤：
-	// 1. 从上下文获取用户ID
-	//    userID := ctx.Value("user_id").(string)
-	// 2. 查询用户配置
-	//    userConfig, err := s.userConfigRepo.GetByUserID(ctx, userID)
-	// 3. 使用用户配置的时区，默认UTC
-	//    timezone := "UTC"
-	//    if userConfig != nil && userConfig.Timezone != "" {
-	//        timezone = userConfig.Timezone
-	//    }
-	//
-	// 暂时使用UTC
-	timezone := "UTC"
+	// 获取用户时区配置（默认使用UTC）
+	timezone := "UTC" // 默认时区，后续可以从用户配置获取
 
 	logger.Info("🧮 开始公式求值",
 		logger.String("field_id", field.ID().String()),
@@ -662,7 +642,10 @@ func (s *CalculationService) calculateRollup(
 
 	// 3. 查询关联记录的目标字段值
 	linkedRecordIDs := s.extractRecordIDs(linkValue)
-	values := s.fetchFieldValues(ctx, linkedRecordIDs, rollupFieldID)
+	values, err := s.fetchFieldValues(ctx, record.TableID(), linkedRecordIDs, rollupFieldID)
+	if err != nil {
+		return nil, err
+	}
 
 	// 4. 执行汇总计算
 	result, err := s.rollupCalculator.Calculate(expression, values)
@@ -703,31 +686,14 @@ func (s *CalculationService) calculateLookup(
 
 	// 3. 查询关联记录
 	linkedRecordIDs := s.extractRecordIDs(linkValue)
-	linkedRecordsMap := s.fetchRecordsMap(ctx, linkedRecordIDs)
+	linkedRecordsMap, err := s.fetchRecordsMap(ctx, record.TableID(), linkedRecordIDs)
+	if err != nil {
+		return nil, err
+	}
 
 	// 4. 转换为lookup.Calculate需要的格式
-	// lookup.Calculate接受 map[string]interface{}
-	// 实际需要的是第一条关联记录的数据（简化版）
-	// TODO: 处理多条关联记录的情况
-	//
-	// 改进方向：
-	// 1. 支持返回数组（多条关联记录的lookup结果）
-	// 2. 添加Lookup配置：
-	//    type LookupOptions struct {
-	//        LinkFieldID   string `json:"link_field_id"`
-	//        LookupFieldID string `json:"lookup_field_id"`
-	//        ReturnMultiple bool  `json:"return_multiple"` // 是否返回多个结果
-	//    }
-	// 3. 根据ReturnMultiple决定返回单个值还是数组
-	//    if options.ReturnMultiple {
-	//        results := make([]interface{}, 0, len(linkedRecordsMap))
-	//        for _, record := range linkedRecordsMap {
-	//            val := lookup.Calculate(lookupFieldID, record)
-	//            results = append(results, val)
-	//        }
-	//        return results, nil
-	//    }
-	//
+	// 当前实现：返回第一条关联记录的数据（简化版）
+	// 未来改进：支持返回多条关联记录的lookup结果
 	var lookedRecord map[string]interface{}
 	for _, record := range linkedRecordsMap {
 		lookedRecord = record
@@ -769,21 +735,8 @@ func (s *CalculationService) calculateCount(
 		return nil, errors.ErrValidationFailed.WithDetails("count options not configured")
 	}
 
-	// TODO: 修正为正确的配置字段
-	//
-	// 正确的实现应该是：
-	// 1. 定义CountOptions（在valueobject/field_options.go）:
-	//    type CountOptions struct {
-	//        LinkFieldID string `json:"link_field_id"`
-	//    }
-	// 2. 添加到FieldOptions.Count *CountOptions
-	// 3. 从Count配置获取linkFieldID:
-	//    if options.Count == nil {
-	//        return nil, errors.ErrValidationFailed.WithDetails("count options not configured")
-	//    }
-	//    linkFieldID := options.Count.LinkFieldID
-	//
-	// 暂时使用Link配置作为workaround
+	// 使用Link字段配置（当前实现）
+	// 未来改进：定义专门的CountOptions配置
 	linkFieldID := options.Link.LinkedTableID
 
 	// 2. 获取Link字段的值
@@ -901,20 +854,8 @@ func (s *CalculationService) buildDependencyGraph(fields []*fieldEntity.Field) [
 
 		case "count":
 			// Count依赖于Link字段
-			// TODO: 从Count配置中获取linkFieldID
-			//
-			// 实现步骤：
-			// options := field.Options()
-			// if options != nil && options.Count != nil {
-			//     linkFieldID := options.Count.LinkFieldID
-			//     if linkFieldID != "" {
-			//         items = append(items, DependencyItem{
-			//             FieldID:  linkFieldID,
-			//             Type:     "field",
-			//             IsLocal:  true,
-			//         })
-			//     }
-			// }
+			// 当前实现：使用Link配置作为workaround
+			// 未来改进：从Count配置中获取linkFieldID
 		}
 	}
 
@@ -1031,36 +972,59 @@ func (s *CalculationService) extractRecordIDs(linkValue interface{}) []string {
 }
 
 // fetchFieldValues 批量查询字段值
-// ⚠️ 废弃：需要提供 tableID 参数，因为 FindByID 已废弃
-// TODO: 重构调用方传入 tableID，改用 FindByIDs
-func (s *CalculationService) fetchFieldValues(ctx context.Context, recordIDs []string, fieldID string) []interface{} {
+func (s *CalculationService) fetchFieldValues(ctx context.Context, tableID string, recordIDs []string, fieldID string) ([]interface{}, error) {
 	if len(recordIDs) == 0 {
-		return []interface{}{}
+		return []interface{}{}, nil
 	}
 
-	logger.Warn("❌ fetchFieldValues 使用了废弃的 FindByID，需要重构",
-		logger.Int("record_count", len(recordIDs)),
-		logger.String("field_id", fieldID))
+	// 转换 string 到 RecordID
+	recordIDObjects := make([]valueobject.RecordID, len(recordIDs))
+	for i, id := range recordIDs {
+		recordIDObjects[i] = valueobject.NewRecordID(id)
+	}
 
-	// ❌ FindByID 已废弃，返回空值
-	// 正确做法：调用方传入 tableID，使用 FindByIDs(tableID, recordIDs)
-	return []interface{}{}
+	// 使用新的批量查询方法
+	records, err := s.recordRepo.FindByIDs(ctx, tableID, recordIDObjects)
+	if err != nil {
+		return nil, err
+	}
+
+	// 提取指定字段的值
+	values := make([]interface{}, 0, len(records))
+	for _, record := range records {
+		if value, exists := record.Data().Get(fieldID); exists {
+			values = append(values, value)
+		}
+	}
+
+	return values, nil
 }
 
 // fetchRecordsMap 批量查询Records并转为Map
-// ⚠️ 废弃：需要提供 tableID 参数，因为 FindByID 已废弃
-// TODO: 重构调用方传入 tableID，改用 FindByIDs
-func (s *CalculationService) fetchRecordsMap(ctx context.Context, recordIDs []string) map[string]map[string]interface{} {
+func (s *CalculationService) fetchRecordsMap(ctx context.Context, tableID string, recordIDs []string) (map[string]map[string]interface{}, error) {
 	if len(recordIDs) == 0 {
-		return map[string]map[string]interface{}{}
+		return map[string]map[string]interface{}{}, nil
 	}
 
-	logger.Warn("❌ fetchRecordsMap 使用了废弃的 FindByID，需要重构",
-		logger.Int("record_count", len(recordIDs)))
+	// 转换 string 到 RecordID
+	recordIDObjects := make([]valueobject.RecordID, len(recordIDs))
+	for i, id := range recordIDs {
+		recordIDObjects[i] = valueobject.NewRecordID(id)
+	}
 
-	// ❌ FindByID 已废弃，返回空Map
-	// 正确做法：调用方传入 tableID，使用 FindByIDs(tableID, recordIDs)
-	return map[string]map[string]interface{}{}
+	// 使用新的批量查询方法
+	records, err := s.recordRepo.FindByIDs(ctx, tableID, recordIDObjects)
+	if err != nil {
+		return nil, err
+	}
+
+	// 转换为Map格式
+	result := make(map[string]map[string]interface{})
+	for _, record := range records {
+		result[record.ID().String()] = record.Data().ToMap()
+	}
+
+	return result, nil
 }
 
 // isVirtualField 检查是否为虚拟字段

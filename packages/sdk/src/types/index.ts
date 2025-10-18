@@ -10,11 +10,11 @@
  */
 export interface BaseEntity {
   id: string;
-  createdAt: string;       // ISO 8601 格式 - camelCase
-  updatedAt: string;       // ISO 8601 格式 - camelCase
-  createdBy?: string;      // 用户ID - camelCase
-  updatedBy?: string;      // 用户ID - camelCase
-  deletedAt?: string | null;  // 软删除时间 - camelCase
+  createdAt: string; // ISO 8601 格式 - camelCase
+  updatedAt: string; // ISO 8601 格式 - camelCase
+  createdBy?: string; // 用户ID - camelCase
+  updatedBy?: string; // 用户ID - camelCase
+  deletedAt?: string | null; // 软删除时间 - camelCase
 }
 
 export interface PaginationParams {
@@ -36,18 +36,18 @@ export interface PaginatedResponse<T> {
  * 完全符合 server/pkg/response/response.go 定义
  */
 export interface APIResponse<T = any> {
-  code: number;           // 业务状态码
-  message: string;        // 响应消息
-  data: T;                // 响应数据
-  error?: ErrorPayload;   // 错误详情（仅错误时）
-  requestId?: string;     // 请求ID（追踪）- camelCase
-  timestamp?: string;     // 响应时间戳
-  durationMs?: number;    // 处理耗时（毫秒）- camelCase
-  version?: string;       // API版本
+  code: number; // 业务状态码
+  message: string; // 响应消息
+  data: T; // 响应数据
+  error?: ErrorPayload; // 错误详情（仅错误时）
+  requestId?: string; // 请求ID（追踪）- camelCase
+  timestamp?: string; // 响应时间戳
+  durationMs?: number; // 处理耗时（毫秒）- camelCase
+  version?: string; // API版本
 }
 
 export interface ErrorPayload {
-  details?: any;          // 错误详细信息
+  details?: any; // 错误详细信息
 }
 
 /**
@@ -57,7 +57,7 @@ export interface PaginationMeta {
   total: number;
   page: number;
   limit: number;
-  totalPages: number;      // camelCase
+  totalPages: number; // camelCase
 }
 
 /**
@@ -94,12 +94,12 @@ export interface ApiError {
 export interface User extends BaseEntity {
   name: string;
   email: string;
-  password?: never;        // 永不返回密码
+  password?: never; // 永不返回密码
   avatar?: string;
-  isActive: boolean;       // 账户激活状态 - camelCase
-  lastLoginAt?: string | null;  // camelCase
-  lastLoginIp?: string;    // camelCase
-  emailVerifiedAt?: string | null;  // camelCase
+  isActive: boolean; // 账户激活状态 - camelCase
+  lastLoginAt?: string | null; // camelCase
+  lastLoginIp?: string; // camelCase
+  emailVerifiedAt?: string | null; // camelCase
 }
 
 export interface UserPreferences {
@@ -110,10 +110,10 @@ export interface UserPreferences {
 }
 
 export interface NotificationSettings {
-  emailNotifications: boolean;        // camelCase
-  pushNotifications: boolean;         // camelCase
-  collaborationNotifications: boolean;  // camelCase
-  systemNotifications: boolean;       // camelCase
+  emailNotifications: boolean; // camelCase
+  pushNotifications: boolean; // camelCase
+  collaborationNotifications: boolean; // camelCase
+  systemNotifications: boolean; // camelCase
 }
 
 export interface LoginRequest {
@@ -132,10 +132,10 @@ export interface RegisterRequest {
  */
 export interface AuthResponse {
   user: User;
-  accessToken: string;     // camelCase
-  refreshToken: string;    // camelCase
-  expiresIn?: number;      // camelCase
-  tokenType?: string;      // camelCase
+  accessToken: string; // camelCase
+  refreshToken: string; // camelCase
+  expiresIn?: number; // camelCase
+  tokenType?: string; // camelCase
 }
 
 // ==================== 空间相关类型 ====================
@@ -154,8 +154,8 @@ export type CollaboratorRole = 'owner' | 'admin' | 'editor' | 'viewer';
 export type CollaboratorStatus = 'pending' | 'accepted' | 'rejected' | 'revoked';
 
 export interface SpaceCollaborator extends BaseEntity {
-  spaceId: string;  // camelCase
-  userId: string;    // camelCase
+  spaceId: string; // camelCase
+  userId: string; // camelCase
   role: CollaboratorRole;
   invited_by: string;
   accepted_at?: string;
@@ -182,7 +182,7 @@ export interface UpdateSpaceRequest {
 }
 
 export interface AddCollaboratorRequest {
-  userId: string;          // ✅ 统一使用 camelCase
+  userId: string; // ✅ 统一使用 camelCase
   role: CollaboratorRole;
 }
 
@@ -192,7 +192,7 @@ export interface AddCollaboratorRequest {
  * Base实体（响应类型使用camelCase）
  */
 export interface Base extends BaseEntity {
-  spaceId: string;         // camelCase
+  spaceId: string; // camelCase
   name: string;
   description?: string;
   icon?: string;
@@ -202,7 +202,7 @@ export interface Base extends BaseEntity {
  * 创建Base请求（统一使用camelCase）
  */
 export interface CreateBaseRequest {
-  spaceId: string;     // ✅ 统一使用 camelCase
+  spaceId: string; // ✅ 统一使用 camelCase
   name: string;
   description?: string;
   icon?: string;
@@ -220,21 +220,21 @@ export interface UpdateBaseRequest {
  * Table实体（响应类型使用camelCase）
  */
 export interface Table extends BaseEntity {
-  baseId: string;          // camelCase
+  baseId: string; // camelCase
   name: string;
   description?: string;
-  defaultViewId?: string;  // ✅ 默认视图ID（由后端自动创建）
+  defaultViewId?: string; // ✅ 默认视图ID（由后端自动创建）
   icon?: string;
-  dbTableName?: string;    // camelCase
+  dbTableName?: string; // camelCase
   version: number;
-  lastModifiedTime?: string | null;  // camelCase
+  lastModifiedTime?: string | null; // camelCase
 }
 
 /**
  * 创建Table请求（完全匹配 server/internal/application/dto/table_dto.go）
  */
 export interface CreateTableRequest {
-  baseId: string;      // ✅ 统一使用 camelCase
+  baseId: string; // ✅ 统一使用 camelCase
   name: string;
   description?: string;
   icon?: string;
@@ -258,20 +258,20 @@ export interface RenameTableRequest {
  */
 export interface DuplicateTableRequest {
   name: string;
-  withData?: boolean;    // 是否复制数据
-  withViews?: boolean;   // 是否复制视图
-  withFields?: boolean;  // 是否复制字段配置
+  withData?: boolean; // 是否复制数据
+  withViews?: boolean; // 是否复制视图
+  withFields?: boolean; // 是否复制字段配置
 }
 
 /**
  * 表用量响应
  */
 export interface TableUsageResponse {
-  recordCount: number;        // 记录数量
-  maxRecords: number;         // 最大记录数限制
-  usagePercentage: number;    // 使用百分比
-  storageSize: number;        // 存储大小（字节）
-  maxStorageSize: number;     // 最大存储限制（字节）
+  recordCount: number; // 记录数量
+  maxRecords: number; // 最大记录数限制
+  usagePercentage: number; // 使用百分比
+  storageSize: number; // 存储大小（字节）
+  maxStorageSize: number; // 最大存储限制（字节）
 }
 
 /**
@@ -310,39 +310,39 @@ export interface TableManagementMenu {
 /**
  * 字段类型（完全匹配 server/internal/domain/fields/valueobject/field_type.go）
  */
-export type FieldType = 
+export type FieldType =
   // 基础类型
-  | 'singleLineText'      // 单行文本
-  | 'longText'            // 长文本
-  | 'text'                // 文本（通用）
-  | 'number'              // 数字
-  | 'singleSelect'        // 单选
-  | 'multipleSelects'     // 多选
-  | 'select'              // 选择（通用）
-  | 'multipleSelect'      // 多选（别名）
-  | 'date'                // 日期
-  | 'datetime'            // 日期时间
-  | 'checkbox'            // 复选框
-  | 'boolean'             // 布尔值
-  | 'url'                 // 链接
-  | 'email'               // 邮箱
-  | 'phone'               // 电话
-  | 'attachment'          // 附件
-  | 'rating'              // 评分
-  | 'user'                // 用户
-  | 'button'              // 按钮
+  | 'singleLineText' // 单行文本
+  | 'longText' // 长文本
+  | 'text' // 文本（通用）
+  | 'number' // 数字
+  | 'singleSelect' // 单选
+  | 'multipleSelects' // 多选
+  | 'select' // 选择（通用）
+  | 'multipleSelect' // 多选（别名）
+  | 'date' // 日期
+  | 'datetime' // 日期时间
+  | 'checkbox' // 复选框
+  | 'boolean' // 布尔值
+  | 'url' // 链接
+  | 'email' // 邮箱
+  | 'phone' // 电话
+  | 'attachment' // 附件
+  | 'rating' // 评分
+  | 'user' // 用户
+  | 'button' // 按钮
   // 关联类型
-  | 'link'                // 关联记录
-  | 'formula'             // 公式
-  | 'rollup'              // 汇总
-  | 'count'               // 计数
-  | 'lookup'              // 查找
+  | 'link' // 关联记录
+  | 'formula' // 公式
+  | 'rollup' // 汇总
+  | 'count' // 计数
+  | 'lookup' // 查找
   // 系统类型
-  | 'createdTime'         // 创建时间
-  | 'lastModifiedTime'    // 最后修改时间
-  | 'createdBy'           // 创建者
-  | 'lastModifiedBy'      // 最后修改者
-  | 'autoNumber';         // 自动编号
+  | 'createdTime' // 创建时间
+  | 'lastModifiedTime' // 最后修改时间
+  | 'createdBy' // 创建者
+  | 'lastModifiedBy' // 最后修改者
+  | 'autoNumber'; // 自动编号
 
 export interface FieldOptions {
   placeholder?: string;
@@ -354,14 +354,14 @@ export interface FieldOptions {
   minLength?: number;
   maxLength?: number;
   pattern?: string;
-  dateFormat?: string;       // ✅ 统一使用 camelCase
-  timeFormat?: string;       // ✅ 统一使用 camelCase
-  maxFileSize?: number;      // ✅ 统一使用 camelCase
-  allowedTypes?: string[];   // ✅ 统一使用 camelCase
-  linkTableId?: string;      // ✅ 统一使用 camelCase
+  dateFormat?: string; // ✅ 统一使用 camelCase
+  timeFormat?: string; // ✅ 统一使用 camelCase
+  maxFileSize?: number; // ✅ 统一使用 camelCase
+  allowedTypes?: string[]; // ✅ 统一使用 camelCase
+  linkTableId?: string; // ✅ 统一使用 camelCase
   linkFieldId?: string;
   formula?: string;
-  validationRules?: ValidationRule[];  // ✅ 统一使用 camelCase
+  validationRules?: ValidationRule[]; // ✅ 统一使用 camelCase
 }
 
 export interface SelectOption {
@@ -380,25 +380,25 @@ export interface ValidationRule {
  * Field实体（完全匹配 server/internal/domain/fields/entity）
  */
 export interface Field extends BaseEntity {
-  tableId: string;           // ✅ 统一使用 camelCase
+  tableId: string; // ✅ 统一使用 camelCase
   name: string;
   type: FieldType;
   description?: string;
   required: boolean;
   unique: boolean;
   primary: boolean;
-  dbFieldName?: string;      // ✅ 统一使用 camelCase
+  dbFieldName?: string; // ✅ 统一使用 camelCase
   options?: FieldOptions | null;
   order: number;
   version: number;
-  lastModifiedTime?: string | null;  // ✅ 统一使用 camelCase
+  lastModifiedTime?: string | null; // ✅ 统一使用 camelCase
 }
 
 /**
  * 创建Field请求（完全匹配 server/internal/application/dto/field_dto.go）
  */
 export interface CreateFieldRequest {
-  tableId: string;     // ✅ 统一使用 camelCase
+  tableId: string; // ✅ 统一使用 camelCase
   name: string;
   type: FieldType;
   description?: string;
@@ -413,11 +413,11 @@ export interface UpdateFieldRequest {
   type?: FieldType;
   description?: string;
   required?: boolean;
-  isUnique?: boolean;        // ✅ 统一使用 camelCase
-  isPrimary?: boolean;       // ✅ 统一使用 camelCase
-  defaultValue?: string;     // ✅ 统一使用 camelCase
+  isUnique?: boolean; // ✅ 统一使用 camelCase
+  isPrimary?: boolean; // ✅ 统一使用 camelCase
+  defaultValue?: string; // ✅ 统一使用 camelCase
   options?: FieldOptions;
-  fieldOrder?: number;       // ✅ 统一使用 camelCase
+  fieldOrder?: number; // ✅ 统一使用 camelCase
 }
 
 // ==================== 记录相关类型 ====================
@@ -426,18 +426,18 @@ export interface UpdateFieldRequest {
  * Record实体（完全匹配 server/internal/domain/record/entity）
  */
 export interface Record extends BaseEntity {
-  tableId: string;               // ✅ 统一使用 camelCase
-  data: JsonObject;              // 字段名->值映射
+  tableId: string; // ✅ 统一使用 camelCase
+  data: JsonObject; // 字段名->值映射
   version: number;
-  autoNumber?: number | null;    // ✅ 统一使用 camelCase
-  lastModifiedTime?: string | null;  // ✅ 统一使用 camelCase
+  autoNumber?: number | null; // ✅ 统一使用 camelCase
+  lastModifiedTime?: string | null; // ✅ 统一使用 camelCase
 }
 
 /**
  * 创建Record请求（完全匹配 server/internal/application/dto/record_dto.go）
  */
 export interface CreateRecordRequest {
-  tableId: string;     // ✅ 统一使用 camelCase
+  tableId: string; // ✅ 统一使用 camelCase
   data: JsonObject;
 }
 
@@ -450,7 +450,7 @@ export interface UpdateRecordRequest {
  * 批量创建记录请求
  */
 export interface BulkCreateRecordRequest {
-  tableId: string;     // 这个字段在批量创建时不需要,由路径参数传递
+  tableId: string; // 这个字段在批量创建时不需要,由路径参数传递
   records: JsonObject[];
 }
 
@@ -458,6 +458,7 @@ export interface BulkCreateRecordRequest {
  * 批量更新记录请求
  */
 export interface BulkUpdateRecordRequest {
+  tableId: string; // ✅ 添加 tableId 字段，对齐新 API
   records: Array<{
     id: string;
     data: JsonObject;
@@ -468,12 +469,12 @@ export interface BulkUpdateRecordRequest {
  * 批量删除记录请求
  */
 export interface BulkDeleteRecordRequest {
-  tableId: string;      // ✅ 对齐 Teable 架构
-  recordIds: string[];  // ✅ 统一使用 camelCase
+  tableId: string; // ✅ 对齐 Teable 架构
+  recordIds: string[]; // ✅ 统一使用 camelCase
 }
 
 export interface RecordQuery {
-  tableId: string;      // ✅ 统一使用 camelCase
+  tableId: string; // ✅ 统一使用 camelCase
   filter?: FilterExpression | undefined;
   sort?: SortExpression[] | undefined;
   limit?: number | undefined;
@@ -488,7 +489,7 @@ export interface FilterExpression {
   conditions?: FilterExpression[];
 }
 
-export type FilterOperator = 
+export type FilterOperator =
   | 'equals'
   | 'not_equals'
   | 'contains'
@@ -522,41 +523,41 @@ export type ViewType = 'grid' | 'kanban' | 'form' | 'calendar' | 'gallery';
  * View实体（完全匹配 server/internal/domain/view/entity）
  */
 export interface View extends BaseEntity {
-  tableId: string;               // ✅ 统一使用 camelCase
+  tableId: string; // ✅ 统一使用 camelCase
   name: string;
   type: ViewType;
   description?: string;
-  filter?: any | null;           // JSON filter
-  sort?: any | null;             // JSON sort
-  group?: any | null;            // JSON group
-  columnMeta?: any | null;       // ✅ 统一使用 camelCase
-  options?: any | null;          // JSON view options
+  filter?: any | null; // JSON filter
+  sort?: any | null; // JSON sort
+  group?: any | null; // JSON group
+  columnMeta?: any | null; // ✅ 统一使用 camelCase
+  options?: any | null; // JSON view options
   order: number;
-  shareId?: string | null;       // ✅ 统一使用 camelCase
-  shareEnabled: boolean;         // ✅ 统一使用 camelCase
+  shareId?: string | null; // ✅ 统一使用 camelCase
+  shareEnabled: boolean; // ✅ 统一使用 camelCase
   sharePassword?: string | null; // ✅ 统一使用 camelCase
-  lockType?: string | null;      // ✅ 统一使用 camelCase
-  frozenColumnCount?: number | null;  // ✅ 统一使用 camelCase
-  lastModifiedTime?: string | null;   // ✅ 统一使用 camelCase
+  lockType?: string | null; // ✅ 统一使用 camelCase
+  frozenColumnCount?: number | null; // ✅ 统一使用 camelCase
+  lastModifiedTime?: string | null; // ✅ 统一使用 camelCase
 }
 
 export interface ViewConfig {
   // 通用配置
   filter?: FilterExpression;
   sort?: SortExpression[];
-  
+
   // 网格视图配置
   grid?: GridViewConfig;
-  
+
   // 表单视图配置
   form?: FormViewConfig;
-  
+
   // 看板视图配置
   kanban?: KanbanViewConfig;
-  
+
   // 日历视图配置
   calendar?: CalendarViewConfig;
-  
+
   // 画廊视图配置
   gallery?: GalleryViewConfig;
 }
@@ -615,7 +616,7 @@ export interface GalleryViewConfig {
  * 创建View请求（完全匹配 server/internal/application/dto/view_dto.go）
  */
 export interface CreateViewRequest {
-  tableId: string;     // ✅ 统一使用 camelCase
+  tableId: string; // ✅ 统一使用 camelCase
   name: string;
   type: ViewType;
   description?: string;
@@ -649,14 +650,14 @@ export interface CollaborationSession extends BaseEntity {
 }
 
 export interface CollaborationParticipant {
-  userId: string;    // camelCase
+  userId: string; // camelCase
   role: 'owner' | 'admin' | 'editor' | 'viewer';
   joined_at: string;
   last_activity_at?: string;
 }
 
 export interface Presence {
-  userId: string;    // camelCase
+  userId: string; // camelCase
   resource_type: 'table' | 'view' | 'record';
   resource_id: string;
   cursor_position?: CursorPosition;
@@ -702,7 +703,7 @@ export interface SearchResponse<T = any> {
 // ==================== 通知相关类型 ====================
 
 export interface Notification extends BaseEntity {
-  userId: string;    // camelCase
+  userId: string; // camelCase
   type: NotificationType;
   title: string;
   message: string;
@@ -712,7 +713,7 @@ export interface Notification extends BaseEntity {
   expires_at?: string;
 }
 
-export type NotificationType = 
+export type NotificationType =
   | 'collaboration_invite'
   | 'collaboration_join'
   | 'collaboration_leave'
@@ -724,7 +725,7 @@ export type NotificationType =
   | 'system_announcement';
 
 export interface NotificationSubscription extends BaseEntity {
-  userId: string;    // camelCase
+  userId: string; // camelCase
   type: NotificationType;
   resource_type: string;
   resource_id: string;

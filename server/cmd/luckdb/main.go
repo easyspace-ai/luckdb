@@ -25,8 +25,7 @@ func main() {
 		Long: `LuckDB 是一个现代化的数据库管理平台，提供：
   - 强大的 API 服务
   - 实时协作功能
-  - AI 增强能力
-  - MCP 协议支持`,
+  - AI 增强能力`,
 		Version: fmt.Sprintf("%s (commit: %s, built: %s)", Version, GitCommit, BuildTime),
 	}
 
@@ -36,7 +35,6 @@ func main() {
 	// 添加子命令
 	rootCmd.AddCommand(commands.NewServeCmd(&configPath, Version))
 	rootCmd.AddCommand(commands.NewMigrateCmd(&configPath))
-	rootCmd.AddCommand(commands.NewMCPCmd(&configPath, Version))
 	rootCmd.AddCommand(commands.NewUtilCmd(&configPath))
 
 	// 执行命令

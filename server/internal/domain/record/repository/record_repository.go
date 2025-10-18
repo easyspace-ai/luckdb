@@ -50,7 +50,7 @@ type RecordRepository interface {
 	CountByTableID(ctx context.Context, tableID string) (int64, error)
 
 	// FindWithVersion 根据ID和版本查找记录（用于乐观锁）
-	FindWithVersion(ctx context.Context, id valueobject.RecordID, version valueobject.RecordVersion) (*entity.Record, error)
+	FindWithVersion(ctx context.Context, tableID string, id valueobject.RecordID, version valueobject.RecordVersion) (*entity.Record, error)
 
 	// NextID 生成下一个记录ID
 	NextID() valueobject.RecordID

@@ -163,7 +163,26 @@ func (h *Handler) writePump(conn *Connection) {
 				return
 			}
 
-			if err := conn.Conn.WriteJSON(message); err != nil {
+			// 确保消息是结构体而不是字符串
+			if message == nil {
+				continue
+			}
+
+			// 验证消息格式
+			if err := message.Validate(); err != nil {
+				h.logger.Error("Invalid message format", zap.Error(err))
+				continue
+			}
+
+			// 使用 ToJSON 方法确保正确的序列化
+			messageBytes, err := message.ToJSON()
+			if err != nil {
+				h.logger.Error("Failed to serialize WebSocket message", zap.Error(err))
+				continue
+			}
+
+			// 发送 JSON 字节
+			if err := conn.Conn.WriteMessage(websocket.TextMessage, messageBytes); err != nil {
 				h.logger.Error("Failed to write WebSocket message", zap.Error(err))
 				return
 			}

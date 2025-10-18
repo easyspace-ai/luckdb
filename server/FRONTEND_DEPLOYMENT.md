@@ -14,6 +14,7 @@
 ```
 
 这个脚本会：
+
 1. 打包前端应用 (apps/manage)
 2. 复制静态文件到 server/internal/interfaces/http/web/
 3. 编译 Go 服务端（嵌入前端文件）
@@ -41,7 +42,6 @@ cd server
 
 - `/api/v1/*` - RESTful API 接口
 - `/ws` - WebSocket 连接
-- `/mcp/*` - MCP 协议接口
 - `/health` - 健康检查
 
 ### 前端路由
@@ -58,6 +58,7 @@ cd server
 ### 开发模式（前后端分离）
 
 **前端开发**:
+
 ```bash
 cd apps/manage
 npm run dev
@@ -65,6 +66,7 @@ npm run dev
 ```
 
 **后端开发**:
+
 ```bash
 cd server
 go run ./cmd/luckdb serve
@@ -114,7 +116,7 @@ var StaticFiles embed.FS
 func SetupRoutes(router *gin.Engine, cont *container.Container) {
 	// 静态文件服务
 	setupStaticFiles(router)
-	
+
 	// API 路由
 	v1 := router.Group("/api/v1")
 	// ...
@@ -188,6 +190,7 @@ server/
 ### Q: 前端更新后如何重新部署？
 
 A: 运行构建脚本重新编译：
+
 ```bash
 ./scripts/build-with-frontend.sh
 ```
@@ -199,6 +202,7 @@ A: 不可以。由于静态文件被嵌入到二进制文件中，任何前端�
 ### Q: 如何在生产环境使用 CDN？
 
 A: 有两种方案：
+
 1. 修改前端构建配置，使用 CDN URL
 2. 在 Nginx 等反向代理层处理静态文件
 
@@ -209,6 +213,7 @@ A: 前端打包后约 1.5 MB，Go 二进制约 30-50 MB，总大小 32-52 MB，�
 ### Q: 开发时必须每次都重新构建吗？
 
 A: 不需要。开发时前后端分离：
+
 - 前端: `npm run dev` (热重载)
 - 后端: `go run` 或 Air (热重载)
 
@@ -243,15 +248,16 @@ if strings.HasPrefix(c.Request.URL.Path, "/assets/") {
 ### 访问日志
 
 HTTP 请求日志：
+
 ```json
 {
-  "level":"info",
-  "ts":"2025-10-17T22:47:50.585+0800",
-  "msg":"HTTP Request",
-  "method":"GET",
-  "path":"/",
-  "status":200,
-  "duration":"5.2ms"
+  "level": "info",
+  "ts": "2025-10-17T22:47:50.585+0800",
+  "msg": "HTTP Request",
+  "method": "GET",
+  "path": "/",
+  "status": 200,
+  "duration": "5.2ms"
 }
 ```
 
@@ -262,6 +268,7 @@ curl http://localhost:8080/health
 ```
 
 响应：
+
 ```json
 {
   "status": "ok",
@@ -279,7 +286,7 @@ curl http://localhost:8080/health
 ✅ **版本一致** - 前后端版本匹配  
 ✅ **无需额外配置** - 不需要 Nginx 等  
 ✅ **容器化友好** - Docker 镜像更小  
-✅ **跨平台** - 编译后可在任何平台运行  
+✅ **跨平台** - 编译后可在任何平台运行
 
 适用场景：
 
@@ -299,4 +306,3 @@ curl http://localhost:8080/health
 - [构建脚本文档](../scripts/build-with-frontend.sh)
 - [API 文档](./README.md)
 - [部署指南](./docs/deployment.md)
-

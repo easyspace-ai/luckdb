@@ -12,7 +12,7 @@ import type {
   FieldOptions,
   PaginatedResponse,
   PaginationParams
-} from '../types';
+} from '../types/index.js';
 
 export class FieldClient {
   private httpClient: HttpClient;

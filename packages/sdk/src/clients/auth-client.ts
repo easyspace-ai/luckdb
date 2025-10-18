@@ -10,7 +10,7 @@ import type {
   RegisterRequest, 
   AuthResponse, 
   UserPreferences
-} from '../types';
+} from '../types/index.js';
 
 export class AuthClient {
   private httpClient: HttpClient;

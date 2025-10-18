@@ -4,7 +4,69 @@
  * 遵循 ShareDB 风格的协议
  */
 
-import WebSocket from 'ws';
+// WebSocket 类型定义
+interface WebSocketLike {
+  new (url: string): WebSocketLike;
+  on(event: string, listener: Function): void;
+  send(data: string | ArrayBuffer): void;
+  close(): void;
+  readyState: number;
+  url: string;
+}
+
+// 检测环境并使用相应的 WebSocket 实现
+const WebSocket = (() => {
+  // 1. 浏览器环境：使用原生 WebSocket
+  if (typeof window !== 'undefined' && window.WebSocket) {
+    return window.WebSocket as any;
+  }
+
+  // 2. Node.js 环境：优先使用内置 WebSocket（Node.js 18+）
+  if (typeof globalThis !== 'undefined' && globalThis.WebSocket) {
+    return globalThis.WebSocket as any;
+  }
+
+  // 3. Node.js 环境：使用全局 WebSocket（如果可用）
+  if (typeof global !== 'undefined' && global.WebSocket) {
+    return global.WebSocket as any;
+  }
+
+  // 4. 回退到 ws 库（仅 Node.js）
+  try {
+    // 尝试多种方式加载 ws 库
+    let ws;
+
+    // 方式1: 直接 require（CommonJS）
+    try {
+      ws = require('ws');
+    } catch (e1) {
+      // 方式2: 使用 eval require（ESM 兼容）
+      try {
+        ws = eval('require')('ws');
+      } catch (e2) {
+        // 方式3: 使用 import.meta.require（如果可用）
+        if (typeof import.meta !== 'undefined' && (import.meta as any).require) {
+          ws = (import.meta as any).require('ws');
+        } else {
+          throw new Error('All require methods failed');
+        }
+      }
+    }
+
+    return ws;
+  } catch (e) {
+    // 5. 最后的回退：尝试从 process 中获取
+    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+      throw new Error(
+        'WebSocket is not available in this Node.js environment. Please install the "ws" package: npm install ws'
+      );
+    }
+
+    throw new Error(
+      'WebSocket is not available in this environment. Please ensure you are running in a browser or Node.js environment with WebSocket support.'
+    );
+  }
+})() as any;
 
 // 简单的 EventEmitter 实现，兼容浏览器环境
 class EventEmitter {
@@ -19,13 +81,13 @@ class EventEmitter {
 
   emit(event: string, ...args: any[]) {
     if (this.events[event]) {
-      this.events[event]!.forEach(listener => listener(...args));
+      this.events[event]!.forEach((listener) => listener(...args));
     }
   }
 
   off(event: string, listener: Function) {
     if (this.events[event]) {
-      this.events[event] = this.events[event]!.filter(l => l !== listener);
+      this.events[event] = this.events[event]!.filter((l) => l !== listener);
     }
   }
 
@@ -38,7 +100,7 @@ class EventEmitter {
   }
 }
 
-import type { LuckDBConfig } from "../types";
+import type { LuckDBConfig } from '../types/index.js';
 
 export interface WebSocketClientOptions {
   reconnectInterval?: number;
@@ -50,40 +112,40 @@ export interface WebSocketClientOptions {
 /**
  * WebSocket 消息类型
  */
-export type MessageType = 
-  | 'subscribe'      // 订阅
-  | 'unsubscribe'    // 取消订阅
-  | 'query'          // 查询
-  | 'queryResponse'  // 查询响应
-  | 'submit'         // 提交操作
+export type MessageType =
+  | 'subscribe' // 订阅
+  | 'unsubscribe' // 取消订阅
+  | 'query' // 查询
+  | 'queryResponse' // 查询响应
+  | 'submit' // 提交操作
   | 'submitResponse' // 提交响应
-  | 'op'             // 操作 (Operation)
-  | 'presence'       // 在线状态
-  | 'cursor'         // 光标
-  | 'notification'   // 通知
-  | 'conflict'       // 冲突
-  | 'ping'           // 心跳
-  | 'pong'           // 心跳响应
-  | 'error';         // 错误
+  | 'op' // 操作 (Operation)
+  | 'presence' // 在线状态
+  | 'cursor' // 光标
+  | 'notification' // 通知
+  | 'conflict' // 冲突
+  | 'ping' // 心跳
+  | 'pong' // 心跳响应
+  | 'error'; // 错误
 
 /**
  * 操作消息数据格式 (ShareDB 风格)
  */
 export interface OperationMessage {
   op: Array<{
-    p: string[];           // path: 操作路径
-    oi?: any;             // object insert: 插入/更新对象
-    od?: any;             // object delete: 删除对象
-    li?: any;             // list insert: 列表插入
-    ld?: any;             // list delete: 列表删除
+    p: string[]; // path: 操作路径
+    oi?: any; // object insert: 插入/更新对象
+    od?: any; // object delete: 删除对象
+    li?: any; // list insert: 列表插入
+    ld?: any; // list delete: 列表删除
     [key: string]: any;
   }>;
-  source?: string;        // 操作来源
+  source?: string; // 操作来源
 }
 
 export class WebSocketClient extends EventEmitter {
-  private ws: WebSocket | undefined;
-  private config: LuckDBConfig;
+  private ws: any | undefined;
+  public config: LuckDBConfig; // ✅ 改为 public，允许外部访问
   private options: WebSocketClientOptions;
   private reconnectAttempts: number = 0;
   private reconnectTimer: any | undefined;
@@ -101,7 +163,7 @@ export class WebSocketClient extends EventEmitter {
       maxReconnectAttempts: 10,
       heartbeatInterval: 30000,
       debug: false,
-      ...options
+      ...options,
     };
   }
 
@@ -113,6 +175,14 @@ export class WebSocketClient extends EventEmitter {
       return;
     }
 
+    // ✅ 检查是否有 accessToken
+    if (!this.config.accessToken) {
+      if (this.options.debug) {
+        console.log('[LuckDB WebSocket] Cannot connect: no access token');
+      }
+      return;
+    }
+
     this.isConnecting = true;
 
     return new Promise((resolve, reject) => {
@@ -121,12 +191,24 @@ export class WebSocketClient extends EventEmitter {
         let wsUrl = this.config.baseUrl
           .replace(/^https:\/\//, 'wss://')
           .replace(/^http:\/\//, 'ws://');
-        
+
         // 移除可能的 /api/v1 后缀
         wsUrl = wsUrl.replace(/\/api\/v1$/, '');
-        
-        // 添加 WebSocket 路径和 token
-        const url = `${wsUrl}/ws?token=${this.config.accessToken}`;
+
+        // 添加 WebSocket 路径、token 和 user_id
+        // 从 token 中解析用户ID（简单实现，实际应该从登录响应中获取）
+        let userId = '';
+        try {
+          if (this.config.accessToken) {
+            // 简单的 JWT 解析（仅用于获取 user_id）
+            const payload = JSON.parse(atob(this.config.accessToken.split('.')[1]));
+            userId = payload.user_id || '';
+          }
+        } catch (e) {
+          console.warn('[LuckDB WebSocket] Failed to parse user_id from token:', e);
+        }
+
+        const url = `${wsUrl}/ws?token=${this.config.accessToken}&user_id=${userId}`;
 
         if (this.options.debug) {
           console.log('[LuckDB WebSocket] Connecting to:', url);
@@ -134,21 +216,31 @@ export class WebSocketClient extends EventEmitter {
 
         this.ws = new WebSocket(url);
 
-        this.ws.on('open', () => {
+        // 兼容浏览器和 Node.js 环境的事件监听
+        const addEventListener = (event: string, handler: Function) => {
+          if (typeof this.ws.addEventListener === 'function') {
+            // 浏览器环境：使用 addEventListener
+            this.ws.addEventListener(event, handler);
+          } else if (typeof this.ws.on === 'function') {
+            // Node.js 环境：使用 .on()
+            this.ws.on(event, handler);
+          }
+        };
+
+        addEventListener('open', () => {
           this.handleOpen();
           resolve();
         });
-        
-        this.ws.on('message', this.handleMessage.bind(this));
-        this.ws.on('close', this.handleClose.bind(this));
-        this.ws.on('error', (error) => {
+
+        addEventListener('message', this.handleMessage.bind(this));
+        addEventListener('close', this.handleClose.bind(this));
+        addEventListener('error', (error: any) => {
           this.handleError(error);
           if (this.isConnecting) {
             this.isConnecting = false;
             reject(error);
           }
         });
-
       } catch (error) {
         this.isConnecting = false;
         this.emit('error', error);
@@ -162,12 +254,12 @@ export class WebSocketClient extends EventEmitter {
    */
   public disconnect(): void {
     this.clearTimers();
-    
+
     if (this.ws) {
       this.ws.close(1000, 'Client disconnect'); // 1000 = 正常关闭
       this.ws = undefined;
     }
-    
+
     this.isConnected = false;
     this.isConnecting = false;
     this.reconnectAttempts = 0;
@@ -185,7 +277,10 @@ export class WebSocketClient extends EventEmitter {
     data?: any;
   }): void {
     if (!this.isConnected || !this.ws) {
-      throw new Error('WebSocket is not connected');
+      if (this.options.debug) {
+        console.warn('[LuckDB WebSocket] Cannot send message: WebSocket is not connected', message);
+      }
+      return; // ✅ 改为静默返回，而不是抛出错误
     }
 
     // 自动生成消息 ID（如果没有提供）
@@ -199,7 +294,14 @@ export class WebSocketClient extends EventEmitter {
       console.log('[LuckDB WebSocket] Sending:', messageStr);
     }
 
-    this.ws.send(messageStr);
+    try {
+      this.ws.send(messageStr);
+    } catch (error) {
+      if (this.options.debug) {
+        console.error('[LuckDB WebSocket] Failed to send message:', error);
+      }
+      this.emit('send_error', error);
+    }
   }
 
   /**
@@ -207,7 +309,7 @@ export class WebSocketClient extends EventEmitter {
    */
   public subscribe(collection: string, document?: string): void {
     const channelKey = document ? `${collection}.${document}` : collection;
-    
+
     // 避免重复订阅
     if (this.subscriptions.has(channelKey)) {
       if (this.options.debug) {
@@ -216,14 +318,16 @@ export class WebSocketClient extends EventEmitter {
       return;
     }
 
+    // ✅ 先添加到订阅列表，即使 WebSocket 未连接
+    this.subscriptions.add(channelKey);
+
+    // 发送订阅消息（如果已连接）
     this.send({
       type: 'subscribe',
       collection: collection,
       document: document,
       id: `sub_${Date.now()}_${channelKey}`,
     });
-
-    this.subscriptions.add(channelKey);
 
     if (this.options.debug) {
       console.log('[LuckDB WebSocket] Subscribed to:', channelKey);
@@ -235,11 +339,12 @@ export class WebSocketClient extends EventEmitter {
    */
   public unsubscribe(collection: string, document?: string): void {
     const channelKey = document ? `${collection}.${document}` : collection;
-    
+
     if (!this.subscriptions.has(channelKey)) {
       return;
     }
 
+    // ✅ 先发送取消订阅消息（如果已连接）
     this.send({
       type: 'unsubscribe',
       collection: collection,
@@ -247,6 +352,7 @@ export class WebSocketClient extends EventEmitter {
       id: `unsub_${Date.now()}_${channelKey}`,
     });
 
+    // 然后从订阅列表中移除
     this.subscriptions.delete(channelKey);
 
     if (this.options.debug) {
@@ -304,10 +410,17 @@ export class WebSocketClient extends EventEmitter {
       console.log('[LuckDB WebSocket] Connected');
     }
 
+    // ✅ 确保状态正确设置
     this.isConnected = true;
     this.isConnecting = false;
     this.reconnectAttempts = 0;
-    
+
+    // ✅ 清除重连定时器
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
+
     this.startHeartbeat();
     this.emit('connected');
 
@@ -318,13 +431,23 @@ export class WebSocketClient extends EventEmitter {
       }
       const subs = Array.from(this.subscriptions);
       this.subscriptions.clear(); // 清空后重新订阅
-      
-      subs.forEach(channelKey => {
+
+      subs.forEach((channelKey) => {
         const parts = channelKey.split('.');
         if (parts.length > 0 && parts[0]) {
           const collection = parts[0];
           const document = parts.length > 1 ? parts[1] : undefined;
-          this.subscribe(collection, document);
+
+          // ✅ 直接发送订阅消息，不调用 subscribe 方法避免重复添加
+          this.send({
+            type: 'subscribe',
+            collection: collection,
+            document: document,
+            id: `resub_${Date.now()}_${channelKey}`,
+          });
+
+          // 重新添加到订阅列表
+          this.subscriptions.add(channelKey);
         }
       });
     }
@@ -333,33 +456,35 @@ export class WebSocketClient extends EventEmitter {
   /**
    * 处理消息
    */
-  private handleMessage(data: WebSocket.Data): void {
+  private handleMessage(event: any): void {
     try {
+      // 从 WebSocket 事件中提取数据
+      const data = event.data || event;
       const message = JSON.parse(data.toString());
-      
+
       if (this.options.debug) {
         console.log('[LuckDB WebSocket] Received:', message);
       }
 
       this.emit('message', message);
-      
+
       // 根据消息类型触发特定事件
       switch (message.type) {
         case 'subscribe':
           // 订阅确认
           this.emit('subscribe_confirmed', message);
           break;
-          
+
         case 'unsubscribe':
           // 取消订阅确认
           this.emit('unsubscribe_confirmed', message);
           break;
-          
+
         case 'op':
           // 操作消息 (记录更新、字段变更等)
           this.emit('operation', message);
           this.emit('record_change', message); // 兼容旧版本
-          
+
           // 触发特定类型的操作事件
           if (message.collection === 'table') {
             this.emit('table_update', message);
@@ -369,28 +494,28 @@ export class WebSocketClient extends EventEmitter {
             this.emit('view_update', message);
           }
           break;
-          
+
         case 'presence':
           this.emit('presence_update', message);
           break;
-          
+
         case 'cursor':
           this.emit('cursor_update', message);
           break;
-          
+
         case 'notification':
           this.emit('notification', message);
           break;
-          
+
         case 'error':
           this.emit('message_error', message);
           break;
-          
+
         case 'pong':
           // 心跳响应
           this.emit('pong', message);
           break;
-          
+
         default:
           this.emit('unknown_message', message);
       }
@@ -405,9 +530,9 @@ export class WebSocketClient extends EventEmitter {
   /**
    * 处理连接关闭事件
    */
-  private handleClose(code: number, reason: Buffer): void {
-    const reasonStr = reason.toString();
-    
+  private handleClose(code: number, reason?: Buffer): void {
+    const reasonStr = reason ? reason.toString() : 'No reason provided';
+
     if (this.options.debug) {
       console.log('[LuckDB WebSocket] Disconnected:', code, reasonStr);
     }
@@ -415,7 +540,7 @@ export class WebSocketClient extends EventEmitter {
     this.isConnected = false;
     this.isConnecting = false;
     this.clearTimers();
-    
+
     this.emit('disconnected', { code, reason: reasonStr });
 
     // 如果不是主动断开(1000)，尝试重连
@@ -431,7 +556,7 @@ export class WebSocketClient extends EventEmitter {
     if (this.options.debug) {
       console.error('[LuckDB WebSocket] Error:', error);
     }
-    
+
     this.emit('error', error);
   }
 
@@ -450,14 +575,16 @@ export class WebSocketClient extends EventEmitter {
     );
 
     if (this.options.debug) {
-      console.log(`[LuckDB WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+      console.log(
+        `[LuckDB WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`
+      );
     }
 
     this.emit('reconnecting', { attempt: this.reconnectAttempts, delay });
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = undefined;
-      this.connect().catch(error => {
+      this.connect().catch((error) => {
         if (this.options.debug) {
           console.error('[LuckDB WebSocket] Reconnect failed:', error);
         }
@@ -491,7 +618,7 @@ export class WebSocketClient extends EventEmitter {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = undefined;
     }
-    
+
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = undefined;

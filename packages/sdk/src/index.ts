@@ -3,19 +3,19 @@
  * 提供统一的 API 接口，类似 Airtable SDK 的设计模式
  */
 
-import { HttpClient } from './core/http-client';
-import { WebSocketClient } from './core/websocket-client';
-import { AuthClient } from './clients/auth-client';
-import { SpaceClient } from './clients/space-client';
-import { BaseClient } from './clients/base-client';
-import { TableClient } from './clients/table-client';
-import { FieldClient } from './clients/field-client';
-import { RecordClient } from './clients/record-client';
-import { ViewClient } from './clients/view-client';
-import { CollaborationClient } from './clients/collaboration-client';
+import { HttpClient } from './core/http-client.js';
+import { WebSocketClient } from './core/websocket-client.js';
+import { AuthClient } from './clients/auth-client.js';
+import { SpaceClient } from './clients/space-client.js';
+import { BaseClient } from './clients/base-client.js';
+import { TableClient } from './clients/table-client.js';
+import { FieldClient } from './clients/field-client.js';
+import { RecordClient } from './clients/record-client.js';
+import { ViewClient } from './clients/view-client.js';
+import { CollaborationClient } from './clients/collaboration-client.js';
 
-import type { 
-  LuckDBConfig, 
+import type {
+  LuckDBConfig,
   User,
   Space,
   Base,
@@ -52,8 +52,8 @@ import type {
   WebSocketMessage,
   CollaborationMessage,
   RecordChangeMessage,
-  JsonObject
-} from './types';
+  JsonObject,
+} from './types/index.js';
 
 import {
   LuckDBError,
@@ -63,7 +63,7 @@ import {
   ValidationError,
   RateLimitError,
   ServerError,
-} from './types';
+} from './types/index.js';
 
 /**
  * LuckDB SDK 主类
@@ -97,22 +97,25 @@ export class LuckDB {
     this.viewClient = new ViewClient(this.httpClient);
     this.collaborationClient = new CollaborationClient(this.httpClient);
 
-    // 如果配置了 WebSocket，初始化 WebSocket 客户端
-    if (config.accessToken) {
-      this.initializeWebSocket(config);
-    }
+    // ✅ 总是初始化 WebSocket 客户端，即使没有 accessToken
+    this.initializeWebSocket(config);
   }
 
-  private async initializeWebSocket(config: LuckDBConfig): Promise<void> {
+  private initializeWebSocket(config: LuckDBConfig): void {
     const wsOptions = {
       debug: config.debug || false,
       reconnectInterval: 5000,
       maxReconnectAttempts: 10,
-      heartbeatInterval: 30000
+      heartbeatInterval: 30000,
     } as any;
 
     this.wsClient = new WebSocketClient(config, wsOptions);
     this.collaborationClient.setWebSocketClient(this.wsClient);
+
+    // ✅ 添加调试日志
+    if (config.debug) {
+      console.log('[LuckDB SDK] WebSocket client initialized with options:', wsOptions);
+    }
   }
 
   // ==================== 认证相关方法 ====================
@@ -123,11 +126,16 @@ export class LuckDB {
   public async login(credentials: LoginRequest): Promise<AuthResponse> {
     const response = await this.authClient.login(credentials);
     console.log('登录成功:', response);
-    // 登录成功后初始化 WebSocket 连接
+
+    // ✅ 登录成功后更新 WebSocket 客户端配置
     if (this.wsClient) {
+      // 更新配置中的 accessToken
+      this.wsClient.config.accessToken = response.accessToken;
+
+      // 尝试连接 WebSocket
       await this.wsClient.connect();
     }
-    
+
     return response;
   }
 
@@ -136,12 +144,12 @@ export class LuckDB {
    */
   public async register(userData: RegisterRequest): Promise<AuthResponse> {
     const response = await this.authClient.register(userData);
-    
+
     // 注册成功后初始化 WebSocket 连接
     if (this.wsClient) {
       await this.wsClient.connect();
     }
-    
+
     return response;
   }
 
@@ -150,7 +158,7 @@ export class LuckDB {
    */
   public async logout(): Promise<void> {
     await this.authClient.logout();
-    
+
     // 登出后断开 WebSocket 连接
     if (this.wsClient) {
       this.wsClient.disconnect();
@@ -244,7 +252,7 @@ export class LuckDB {
   public async deleteBase(baseId: string): Promise<void> {
     await this.baseClient.deleteBase(baseId);
   }
-  
+
   /**
    * 复制基础表
    */
@@ -269,7 +277,10 @@ export class LuckDB {
   /**
    * 添加基础表协作者
    */
-  public async addBaseCollaborator(baseId: string, data: { userId: string; role: string }): Promise<any> {
+  public async addBaseCollaborator(
+    baseId: string,
+    data: { userId: string; role: string }
+  ): Promise<any> {
     return this.baseClient.addBaseCollaborator(baseId, data);
   }
 
@@ -360,11 +371,13 @@ export class LuckDB {
   /**
    * 获取记录列表
    */
-  public async listRecords(params?: PaginationParams & { 
-    tableId?: string;
-    filter?: FilterExpression;
-    sort?: SortExpression[];
-  }): Promise<PaginatedResponse<Record>> {
+  public async listRecords(
+    params?: PaginationParams & {
+      tableId?: string;
+      filter?: FilterExpression;
+      sort?: SortExpression[];
+    }
+  ): Promise<PaginatedResponse<Record>> {
     return this.recordClient.list(params);
   }
 
@@ -380,8 +393,8 @@ export class LuckDB {
    * @param options - 可选参数，如 version（用于乐观锁）或 data（更新数据）
    */
   public async updateRecord(
-    tableId: string, 
-    recordId: string, 
+    tableId: string,
+    recordId: string,
     updates: JsonObject | { data: JsonObject; version?: number },
     options?: { version?: number }
   ): Promise<Record> {
@@ -389,9 +402,9 @@ export class LuckDB {
     // 1. updateRecord(tableId, recordId, { field: value })
     // 2. updateRecord(tableId, recordId, { data: {...}, version: 1 })
     // 3. updateRecord(tableId, recordId, { field: value }, { version: 1 })
-    
+
     let request: { data: JsonObject; version?: number };
-    
+
     if ('data' in updates && updates.data) {
       // 方式2：传递完整的 UpdateRecordRequest 对象
       request = updates as { data: JsonObject; version?: number };
@@ -400,22 +413,22 @@ export class LuckDB {
       }
     } else {
       // 方式1或3：updates 是纯数据对象
-      request = { 
+      request = {
         data: updates as JsonObject,
-        version: options?.version
+        version: options?.version,
       };
       if (this.config.debug) {
-        console.log('[updateRecord] 方式1/3: 纯数据+options', { 
-          hasOptions: !!options, 
-          version: options?.version 
+        console.log('[updateRecord] 方式1/3: 纯数据+options', {
+          hasOptions: !!options,
+          version: options?.version,
         });
       }
     }
-    
+
     if (this.config.debug) {
       console.log('[updateRecord] 最终请求', { version: request.version });
     }
-    
+
     return this.recordClient.update(tableId, recordId, request);
   }
 
@@ -435,16 +448,20 @@ export class LuckDB {
 
   /**
    * 批量更新记录
+   * ✅ 更新为需要 tableId 参数，对齐新 API
    */
-  public async bulkUpdateRecords(updates: Array<{ id: string; data: JsonObject }>): Promise<Record[]> {
-    return this.recordClient.bulkUpdate({ records: updates });
+  public async bulkUpdateRecords(
+    tableId: string,
+    updates: Array<{ id: string; data: JsonObject }>
+  ): Promise<Record[]> {
+    return this.recordClient.bulkUpdate({ tableId, records: updates });
   }
 
   /**
    * 批量删除记录
    */
   public async bulkDeleteRecords(tableId: string, recordIds: string[]): Promise<void> {
-    await this.recordClient.bulkDelete({ tableId, recordIds });  // ✅ 使用 camelCase
+    await this.recordClient.bulkDelete({ tableId, recordIds }); // ✅ 使用 camelCase
   }
 
   // ==================== 视图管理方法 ====================
@@ -501,7 +518,11 @@ export class LuckDB {
   /**
    * 更新在线状态
    */
-  public async updatePresence(resourceType: string, resourceId: string, cursorPosition?: CursorPosition): Promise<Presence> {
+  public async updatePresence(
+    resourceType: string,
+    resourceId: string,
+    cursorPosition?: CursorPosition
+  ): Promise<Presence> {
     return this.collaborationClient.updatePresence(resourceType, resourceId, cursorPosition);
   }
 
@@ -509,13 +530,19 @@ export class LuckDB {
    * 更新光标位置
    */
   public async updateCursor(
-    resourceType: string, 
-    resourceId: string, 
-    cursorPosition: CursorPosition, 
-    fieldId?: string, 
+    resourceType: string,
+    resourceId: string,
+    cursorPosition: CursorPosition,
+    fieldId?: string,
     recordId?: string
   ): Promise<void> {
-    return this.collaborationClient.updateCursor(resourceType, resourceId, cursorPosition, fieldId, recordId);
+    return this.collaborationClient.updateCursor(
+      resourceType,
+      resourceId,
+      cursorPosition,
+      fieldId,
+      recordId
+    );
   }
 
   /**
@@ -638,7 +665,9 @@ export class LuckDB {
     this.httpClient.clearTokens();
   }
 
-  public setTokenRefreshCallback(callback: (accessToken: string, refreshToken: string) => void): void {
+  public setTokenRefreshCallback(
+    callback: (accessToken: string, refreshToken: string) => void
+  ): void {
     this.httpClient.setTokenRefreshCallback(callback);
   }
 
@@ -692,6 +721,13 @@ export class LuckDB {
   public get collaboration(): CollaborationClient {
     return this.collaborationClient;
   }
+
+  /**
+   * 获取 WebSocket 客户端
+   */
+  public getWebSocketClient(): WebSocketClient | undefined {
+    return this.wsClient;
+  }
 }
 
 // ==================== 导出所有类型和类 ====================
@@ -703,7 +739,7 @@ export {
   // 核心类
   HttpClient,
   WebSocketClient,
-  
+
   // 客户端类
   AuthClient,
   SpaceClient,
@@ -712,7 +748,7 @@ export {
   RecordClient,
   ViewClient,
   CollaborationClient,
-  
+
   // 错误类
   LuckDBError,
   AuthenticationError,
@@ -756,7 +792,7 @@ export type {
   WebSocketMessage,
   CollaborationMessage,
   RecordChangeMessage,
-  JsonObject
+  JsonObject,
 };
 
 // 默认导出主类

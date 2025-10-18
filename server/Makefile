@@ -71,13 +71,6 @@ run: ## 运行 API 服务器（开发模式）
 
 dev: run ## 别名：运行 API 服务器
 
-run-mcp: ## 运行 MCP 服务器（HTTP 模式）
-	@echo "🚀 启动 MCP 服务器..."
-	go run ./cmd/luckdb mcp serve --transport=http
-
-run-mcp-stdio: ## 运行 MCP 服务器（stdio 模式）
-	@echo "🚀 启动 MCP 服务器（stdio）..."
-	go run ./cmd/luckdb mcp serve --transport=stdio
 
 # ==================== 数据库命令 ====================
 
@@ -142,7 +135,6 @@ test-coverage-detailed: ## 生成详细的测试覆盖率报告
 	go test ./internal/infrastructure/... -coverprofile=coverage/infrastructure.out
 	go test ./internal/interfaces/... -coverprofile=coverage/interfaces.out
 	go test ./internal/commands/... -coverprofile=coverage/commands.out
-	go test ./internal/mcp/... -coverprofile=coverage/mcp.out
 	@echo "✅ 详细报告生成在 coverage/ 目录"
 
 test-domain: ## 测试领域层
@@ -161,9 +153,6 @@ test-interfaces: ## 测试接口层
 	@echo "🧪 测试接口层..."
 	go test ./internal/interfaces/... -v -count=1
 
-test-mcp: ## 测试 MCP 模块
-	@echo "🧪 测试 MCP 模块..."
-	go test ./internal/mcp/... -v -count=1
 
 test-bench: ## 运行性能测试
 	@echo "⚡ 运行性能测试..."

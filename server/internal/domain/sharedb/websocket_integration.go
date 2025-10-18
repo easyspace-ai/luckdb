@@ -196,15 +196,51 @@ func (w *WebSocketIntegration) PublishOperationToWebSocket(rawOpMap RawOpMap) er
 	// 转换RawOpMap为WebSocket消息
 	for collection, docs := range rawOpMap {
 		for docID, rawOp := range docs {
-			// 创建WebSocket消息
+			// 确保 rawOp 是正确的 ShareDB 格式
+			// rawOp 是 *RawOperation 类型，直接使用
+			if rawOp == nil {
+				w.logger.Warn("RawOperation is nil",
+					logger.String("collection", collection),
+					logger.String("document", docID),
+				)
+				continue
+			}
+
+			// 将 OTOperation 转换为 interface{} 数组
+			opArray := make([]interface{}, len(rawOp.Op))
+			for i, otOp := range rawOp.Op {
+				opArray[i] = map[string]interface{}{
+					"p":  otOp.P,
+					"oi": otOp.OI,
+					"od": otOp.OD,
+				}
+			}
+
+			docOp := websocket.DocumentOperation{
+				Op:     opArray,
+				Source: "server",
+			}
+
+			// 创建 WebSocket 消息
 			wsMessage := &websocket.Message{
 				Type:       websocket.MessageTypeOp,
 				Collection: collection,
 				Document:   docID,
-				Data:       rawOp,
+				Data:       docOp, // 使用正确的 DocumentOperation 结构
+				Timestamp:  time.Now(),
 			}
 
-			// 发布到WebSocket频道
+			// 验证消息
+			if err := wsMessage.Validate(); err != nil {
+				w.logger.Error("Invalid WebSocket message",
+					logger.ErrorField(err),
+					logger.String("collection", collection),
+					logger.String("document", docID),
+				)
+				continue
+			}
+
+			// 发布到 WebSocket 频道
 			channels := []string{collection, fmt.Sprintf("%s.%s", collection, docID)}
 			for _, channel := range channels {
 				if err := w.wsService.BroadcastToChannel(channel, wsMessage); err != nil {

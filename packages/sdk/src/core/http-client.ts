@@ -9,7 +9,7 @@ import type {
   LuckDBConfig, 
   RequestOptions, 
   APIResponse,          // 新的统一响应格式
-} from '../types';
+} from '../types/index.js';
 import {
   LuckDBError,
   AuthenticationError,
@@ -18,7 +18,7 @@ import {
   ValidationError,
   RateLimitError,
   ServerError
-} from '../types';
+} from '../types/index.js';
 
 export class HttpClient {
   private axiosInstance: AxiosInstance;

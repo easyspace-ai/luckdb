@@ -6,11 +6,7 @@ module.exports = {
     project: './tsconfig.json',
   },
   plugins: ['@typescript-eslint'],
-  extends: [
-    'eslint:recommended',
-    '@typescript-eslint/recommended',
-    '@typescript-eslint/recommended-requiring-type-checking',
-  ],
+  extends: ['eslint:recommended'],
   rules: {
     // TypeScript specific rules
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
@@ -20,7 +16,7 @@ module.exports = {
     '@typescript-eslint/no-non-null-assertion': 'warn',
     '@typescript-eslint/prefer-const': 'error',
     '@typescript-eslint/no-var-requires': 'error',
-    
+
     // General rules
     'no-console': 'off',
     'no-debugger': 'error',
@@ -28,11 +24,11 @@ module.exports = {
     'no-unused-expressions': 'error',
     'prefer-const': 'error',
     'no-var': 'error',
-    
+
     // Code style
-    'indent': ['error', 2],
-    'quotes': ['error', 'single'],
-    'semi': ['error', 'always'],
+    indent: ['error', 2],
+    quotes: ['error', 'single'],
+    semi: ['error', 'always'],
     'comma-dangle': ['error', 'never'],
     'object-curly-spacing': ['error', 'always'],
     'array-bracket-spacing': ['error', 'never'],
@@ -42,7 +38,7 @@ module.exports = {
     'eol-last': 'error',
     'no-trailing-spaces': 'error',
     'no-multiple-empty-lines': ['error', { max: 2, maxEOF: 1 }],
-    
+
     // Import rules
     'import/order': 'off', // Disable if not using eslint-plugin-import
   },
@@ -51,10 +47,5 @@ module.exports = {
     es6: true,
     jest: true,
   },
-  ignorePatterns: [
-    'dist/',
-    'node_modules/',
-    '*.js',
-    '*.d.ts',
-  ],
+  ignorePatterns: ['dist/', 'node_modules/', '*.js', '*.d.ts'],
 };

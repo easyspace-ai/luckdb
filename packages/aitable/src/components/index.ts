@@ -12,11 +12,7 @@ export { FieldSetting } from '../grid/components/field-modal/FieldSetting';
 
 // Standard composite component
 export { StandardDataView } from './StandardDataView';
-export type { 
-  StandardDataViewProps, 
-  Tab,
-  View
-} from './StandardDataView';
+export type { StandardDataViewProps, Tab, View } from './StandardDataView';
 
 // View Header
 export { ViewHeader, CreateViewMenu } from './view-header';
@@ -35,28 +31,29 @@ export { ViewStatusBar } from './view-statusbar';
 export type { ViewStatusBarProps } from './view-statusbar';
 
 // Field configuration components
-export { 
-  FieldConfigPanel, 
+export {
+  FieldConfigPanel,
   FieldConfigCombobox,
-  AddFieldDialog, 
-  EditFieldDialog 
+  AddFieldDialog,
+  EditFieldDialog,
+  EnhancedEditFieldDialog,
+  EnhancedDeleteConfirmDialog,
+  FieldManagementProvider,
+  useFieldManagement,
 } from './field-config';
-export type { 
-  FieldConfig, 
+export type {
+  FieldConfig,
   FieldConfigPanelProps,
   FieldConfigComboboxProps,
   AddFieldDialogProps,
-  EditFieldDialogProps 
+  EditFieldDialogProps,
+  EnhancedEditFieldDialogProps,
+  EnhancedDeleteConfirmDialogProps,
 } from './field-config';
 
 // Row height components
-export { 
-  RowHeightCombobox 
-} from './row-height';
-export type { 
-  RowHeight, 
-  RowHeightComboboxProps 
-} from './row-height';
+export { RowHeightCombobox } from './row-height';
+export type { RowHeight, RowHeightComboboxProps } from './row-height';
 
 // State components
 export { LoadingState, EmptyState, ErrorState } from './states';
@@ -68,12 +65,7 @@ export type { TableDataState, UseTableDataOptions, CellData } from '../hooks/use
 
 // Add Record Dialog
 export { AddRecordDialog } from './add-record';
-export type { 
-  AddRecordDialogProps,
-  FormValues,
-  FormErrors,
-  FieldEditorProps 
-} from './add-record';
+export type { AddRecordDialogProps, FormValues, FormErrors, FieldEditorProps } from './add-record';
 
 // UI Components
 export { Combobox } from './ui/Combobox';
@@ -81,4 +73,3 @@ export type { ComboboxProps, ComboboxOption } from './ui/Combobox';
 
 // Filter components
 export * from './filter';
-

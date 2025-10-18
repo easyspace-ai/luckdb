@@ -41,7 +41,6 @@ func (h *StaticHandler) ServeStatic() gin.HandlerFunc {
 		// 如果是API路径，跳过
 		if strings.HasPrefix(requestPath, "/api/") ||
 			strings.HasPrefix(requestPath, "/ws") ||
-			strings.HasPrefix(requestPath, "/mcp") ||
 			strings.HasPrefix(requestPath, "/health") {
 			c.Next()
 			return
@@ -93,7 +92,6 @@ func (h *StaticHandler) ServeSPA() gin.HandlerFunc {
 		// 如果是API路径或特殊路径，跳过
 		if strings.HasPrefix(requestPath, "/api/") ||
 			strings.HasPrefix(requestPath, "/ws") ||
-			strings.HasPrefix(requestPath, "/mcp") ||
 			strings.HasPrefix(requestPath, "/health") {
 			c.Next()
 			return

@@ -349,7 +349,7 @@ func (s *CalculationService) calculateFieldValue(
 	recordData, ok := calcCtx.GetRecordData(recordID)
 	if !ok {
 		// 记录不在缓存中，从数据库加载
-		record, err := s.recordRepo.FindByID(ctx, field.TableID(), recordID)
+		record, err := s.recordRepo.FindByTableAndID(ctx, field.TableID(), recordID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load record: %w", err)
 		}
