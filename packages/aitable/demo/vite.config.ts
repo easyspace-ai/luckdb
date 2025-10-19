@@ -21,5 +21,12 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['@luckdb/aitable', '@luckdb/sdk'],
   },
+  define: {
+    global: 'globalThis',
+  },
+  build: {
+    rollupOptions: {
+      external: [],
+    },
+  },
 });
-

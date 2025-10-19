@@ -54,6 +54,11 @@ func NewFieldService(
 	}
 }
 
+// SetBroadcaster 设置广播器（用于延迟注入）
+func (s *FieldService) SetBroadcaster(broadcaster FieldBroadcaster) {
+	s.broadcaster = broadcaster
+}
+
 // CreateField 创建字段（参考原版实现逻辑）
 func (s *FieldService) CreateField(ctx context.Context, req dto.CreateFieldRequest, userID string) (*dto.FieldResponse, error) {
 	// 1. 验证字段名称

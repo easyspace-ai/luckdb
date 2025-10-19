@@ -4,6 +4,8 @@
  */
 
 import { HttpClient } from '../core/http-client';
+import type { ShareDBClient } from '../core/sharedb-client.js';
+import type { DocumentManager } from '../core/document-manager.js';
 import type {
   Record,
   CreateRecordRequest,
@@ -22,9 +24,19 @@ import type {
 
 export class RecordClient {
   private httpClient: HttpClient;
+  private sharedbClient?: ShareDBClient;
+  private documentManager?: DocumentManager;
 
   constructor(httpClient: HttpClient) {
     this.httpClient = httpClient;
+  }
+
+  /**
+   * 设置 ShareDB 客户端和文档管理器
+   */
+  public setShareDBClient(sharedbClient: ShareDBClient, documentManager: DocumentManager): void {
+    this.sharedbClient = sharedbClient;
+    this.documentManager = documentManager;
   }
 
   // ==================== 基础 CRUD 操作 ====================
@@ -609,5 +621,112 @@ export class RecordQueryBuilder {
   public async count(): Promise<number> {
     const result = await this.limit(1).execute();
     return result.total;
+  }
+}
+
+// ==================== ShareDB 实时协作功能 ====================
+
+/**
+ * 实时记录操作扩展
+ */
+export class RealtimeRecordClient extends RecordClient {
+  /**
+   * 实时更新记录字段
+   */
+  public async updateRecordFieldRealtime(
+    tableId: string,
+    recordId: string,
+    fieldId: string,
+    value: any
+  ): Promise<void> {
+    if (!this.documentManager) {
+      throw new Error('ShareDB client not initialized. Call setShareDBClient() first.');
+    }
+
+    await this.documentManager.updateRecordField(tableId, recordId, fieldId, value);
+  }
+
+  /**
+   * 批量实时更新记录字段
+   */
+  public async batchUpdateRecordFieldsRealtime(
+    tableId: string,
+    recordId: string,
+    fields: Record<string, any>
+  ): Promise<void> {
+    if (!this.documentManager) {
+      throw new Error('ShareDB client not initialized. Call setShareDBClient() first.');
+    }
+
+    await this.documentManager.batchUpdateRecordFields(tableId, recordId, fields);
+  }
+
+  /**
+   * 实时删除记录字段
+   */
+  public async deleteRecordFieldRealtime(
+    tableId: string,
+    recordId: string,
+    fieldId: string
+  ): Promise<void> {
+    if (!this.documentManager) {
+      throw new Error('ShareDB client not initialized. Call setShareDBClient() first.');
+    }
+
+    await this.documentManager.deleteRecordField(tableId, recordId, fieldId);
+  }
+
+  /**
+   * 订阅记录变更
+   */
+  public subscribeToRecord(
+    tableId: string,
+    recordId: string,
+    callback: (updates: JsonObject) => void
+  ) {
+    if (!this.documentManager) {
+      throw new Error('ShareDB client not initialized. Call setShareDBClient() first.');
+    }
+
+    return this.documentManager.subscribeToRecord(tableId, recordId, callback);
+  }
+
+  /**
+   * 获取记录快照
+   */
+  public async getRecordSnapshot(tableId: string, recordId: string) {
+    if (!this.documentManager) {
+      throw new Error('ShareDB client not initialized. Call setShareDBClient() first.');
+    }
+
+    return this.documentManager.getRecordSnapshot(tableId, recordId);
+  }
+
+  /**
+   * 查询记录（实时）
+   */
+  public async queryRecordsRealtime(tableId: string, query?: any, options?: any) {
+    if (!this.documentManager) {
+      throw new Error('ShareDB client not initialized. Call setShareDBClient() first.');
+    }
+
+    return this.documentManager.queryRecords(tableId, query, options);
+  }
+
+  /**
+   * 检查 ShareDB 是否可用
+   */
+  public isRealtimeAvailable(): boolean {
+    return !!(this.sharedbClient && this.documentManager);
+  }
+
+  /**
+   * 获取 ShareDB 连接状态
+   */
+  public getRealtimeConnectionState(): 'connecting' | 'connected' | 'disconnected' {
+    if (!this.sharedbClient) {
+      return 'disconnected';
+    }
+    return this.sharedbClient.getConnectionState();
   }
 }

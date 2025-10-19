@@ -68,6 +68,11 @@ func NewRecordService(
 	}
 }
 
+// SetBroadcaster 设置广播器（用于延迟注入）
+func (s *RecordService) SetBroadcaster(broadcaster Broadcaster) {
+	s.broadcaster = broadcaster
+}
+
 // CreateRecord 创建记录（集成自动计算）✨ 事务版
 //
 // 执行流程：

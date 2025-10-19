@@ -10,6 +10,9 @@
 import React from 'react';
 import { cn, tokens } from '../../grid/design-system';
 import { Button } from '../../ui/Button';
+
+// 稳定的空数组引用，避免无限渲染
+const EMPTY_ARRAY: any[] = [];
 import { 
   Plus, 
   Settings, 
@@ -188,7 +191,7 @@ export function ViewToolbar({
       <div className="flex items-center gap-2">
         {mergedConfig.showFilter && filterFields && (
           <FilterManager
-            data={[]} // 数据由父组件管理
+            data={EMPTY_ARRAY} // 数据由父组件管理，使用稳定的空数组引用
             fields={filterFields}
             conditions={filterConditions}
             onConditionsChange={onFilterConditionsChange || (() => {})}

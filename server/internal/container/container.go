@@ -242,7 +242,7 @@ func (c *Container) initServices() {
 	c.fieldService = application.NewFieldService(
 		c.fieldRepository,
 		nil,               // depGraphRepo（待实现）
-		nil,               // broadcaster（待实现）
+		nil,               // broadcaster（待实现，稍后在 initWebSocketService 后设置）
 		c.tableRepository, // ✅ 注入TableRepository
 		c.dbProvider,      // ✅ 注入DBProvider
 	)
@@ -302,6 +302,20 @@ func (c *Container) initWebSocketService() {
 
 	// 在后台启动 Manager
 	go c.wsManager.Run(context.Background())
+
+	// ✅ 设置字段服务的广播器
+	if c.fieldService != nil {
+		fieldBroadcaster := application.NewFieldBroadcaster(c.wsService)
+		c.fieldService.SetBroadcaster(fieldBroadcaster)
+		logger.Info("✅ 字段广播器已设置")
+	}
+
+	// ✅ 设置记录服务的广播器
+	if c.recordService != nil {
+		recordBroadcaster := application.NewRecordBroadcaster(c.wsService)
+		c.recordService.SetBroadcaster(recordBroadcaster)
+		logger.Info("✅ 记录广播器已设置")
+	}
 
 	logger.Info("✅ WebSocket 服务已初始化")
 }

@@ -5,6 +5,8 @@
 
 import { HttpClient } from './core/http-client.js';
 import { WebSocketClient } from './core/websocket-client.js';
+import { ShareDBClient } from './core/sharedb-client.js';
+import { DocumentManager } from './core/document-manager.js';
 import { AuthClient } from './clients/auth-client.js';
 import { SpaceClient } from './clients/space-client.js';
 import { BaseClient } from './clients/base-client.js';
@@ -72,6 +74,8 @@ import {
 export class LuckDB {
   private httpClient: HttpClient;
   private wsClient?: WebSocketClient;
+  private sharedbClient?: ShareDBClient;
+  private documentManager?: DocumentManager;
   private authClient: AuthClient;
   private spaceClient: SpaceClient;
   private baseClient: BaseClient;
@@ -112,9 +116,33 @@ export class LuckDB {
     this.wsClient = new WebSocketClient(config, wsOptions);
     this.collaborationClient.setWebSocketClient(this.wsClient);
 
+    // 初始化 ShareDB 客户端
+    this.initializeShareDB(config);
+
     // ✅ 添加调试日志
     if (config.debug) {
       console.log('[LuckDB SDK] WebSocket client initialized with options:', wsOptions);
+    }
+  }
+
+  private initializeShareDB(config: LuckDBConfig): void {
+    if (this.wsClient) {
+      const sharedbConfig = {
+        debug: config.debug || false,
+        reconnectInterval: 5000,
+        maxReconnectAttempts: 10,
+        heartbeatInterval: 30000,
+      };
+
+      this.sharedbClient = new ShareDBClient(this.wsClient, sharedbConfig);
+      this.documentManager = new DocumentManager(this.sharedbClient);
+
+      // 设置记录客户端的 ShareDB 支持
+      this.recordClient.setShareDBClient(this.sharedbClient, this.documentManager);
+
+      if (config.debug) {
+        console.log('[LuckDB SDK] ShareDB client initialized');
+      }
     }
   }
 
@@ -728,6 +756,120 @@ export class LuckDB {
   public getWebSocketClient(): WebSocketClient | undefined {
     return this.wsClient;
   }
+
+  // ==================== ShareDB 实时协作方法 ====================
+
+  /**
+   * 获取 ShareDB 客户端
+   */
+  public getShareDBClient(): ShareDBClient | undefined {
+    return this.sharedbClient;
+  }
+
+  /**
+   * 获取文档管理器
+   */
+  public getDocumentManager(): DocumentManager | undefined {
+    return this.documentManager;
+  }
+
+  /**
+   * 检查 ShareDB 是否可用
+   */
+  public isShareDBAvailable(): boolean {
+    return !!(this.sharedbClient && this.documentManager);
+  }
+
+  /**
+   * 获取 ShareDB 连接状态
+   */
+  public getShareDBConnectionState(): 'connecting' | 'connected' | 'disconnected' {
+    if (!this.sharedbClient) {
+      return 'disconnected';
+    }
+    return this.sharedbClient.getConnectionState();
+  }
+
+  /**
+   * 实时更新记录字段
+   */
+  public async updateRecordFieldRealtime(
+    tableId: string,
+    recordId: string,
+    fieldId: string,
+    value: any
+  ): Promise<void> {
+    if (!this.documentManager) {
+      throw new Error('ShareDB client not initialized');
+    }
+    await this.documentManager.updateRecordField(tableId, recordId, fieldId, value);
+  }
+
+  /**
+   * 批量实时更新记录字段
+   */
+  public async batchUpdateRecordFieldsRealtime(
+    tableId: string,
+    recordId: string,
+    fields: globalThis.Record<string, any>
+  ): Promise<void> {
+    if (!this.documentManager) {
+      throw new Error('ShareDB client not initialized');
+    }
+    await this.documentManager.batchUpdateRecordFields(tableId, recordId, fields);
+  }
+
+  /**
+   * 订阅记录变更（ShareDB 实时）
+   */
+  public subscribeToRecordRealtime(
+    tableId: string,
+    recordId: string,
+    callback: (updates: JsonObject) => void
+  ) {
+    if (!this.documentManager) {
+      throw new Error('ShareDB client not initialized');
+    }
+    return this.documentManager.subscribeToRecord(tableId, recordId, callback);
+  }
+
+  /**
+   * 订阅字段变更（ShareDB 实时）
+   */
+  public subscribeToFieldRealtime(
+    tableId: string,
+    fieldId: string,
+    callback: (updates: JsonObject) => void
+  ) {
+    if (!this.documentManager) {
+      throw new Error('ShareDB client not initialized');
+    }
+    return this.documentManager.subscribeToField(tableId, fieldId, callback);
+  }
+
+  /**
+   * 订阅视图变更（ShareDB 实时）
+   */
+  public subscribeToViewRealtime(
+    tableId: string,
+    viewId: string,
+    callback: (updates: JsonObject) => void
+  ) {
+    if (!this.documentManager) {
+      throw new Error('ShareDB client not initialized');
+    }
+    return this.documentManager.subscribeToView(tableId, viewId, callback);
+  }
+
+  /**
+   * 订阅表格变更（ShareDB 实时）
+   */
+  public subscribeToTableRealtime(tableId: string, callback: (updates: JsonObject) => void) {
+    if (!this.documentManager) {
+      throw new Error('ShareDB client not initialized');
+    }
+    return this.documentManager.subscribeToTable(tableId, callback);
+  }
 }
 
 // ==================== 导出所有类型和类 ====================
@@ -739,6 +881,8 @@ export {
   // 核心类
   HttpClient,
   WebSocketClient,
+  ShareDBClient,
+  DocumentManager,
 
   // 客户端类
   AuthClient,

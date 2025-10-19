@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { tokens, transitions, elevation } from '../../grid/design-system';
-import { 
-  X, 
+import {
+  X,
   Search,
-  Text, 
-  Hash, 
-  Calendar, 
-  CheckSquare, 
-  Image, 
+  Text,
+  Hash,
+  Calendar,
+  CheckSquare,
+  Image,
   Link,
   Mail,
   Phone,
@@ -19,7 +19,7 @@ import {
   List,
   ChevronRight,
   Check,
-  Sparkles
+  Sparkles,
 } from 'lucide-react';
 import {
   SelectFieldConfiguration,
@@ -35,13 +35,13 @@ import {
 /**
  * 字段类型分类
  */
-export type FieldCategory = 
-  | 'basic'      // 基础类型
-  | 'select'     // 选择类型
-  | 'datetime'   // 日期时间
-  | 'link'       // 链接类型
-  | 'advanced'   // 高级类型
-  | 'collab';    // 协作类型
+export type FieldCategory =
+  | 'basic' // 基础类型
+  | 'select' // 选择类型
+  | 'datetime' // 日期时间
+  | 'link' // 链接类型
+  | 'advanced' // 高级类型
+  | 'collab'; // 协作类型
 
 /**
  * 字段类型定义
@@ -54,18 +54,21 @@ export interface FieldType {
   example?: string;
   category: FieldCategory;
   color: string;
-  popular?: boolean;  // 是否常用
+  popular?: boolean; // 是否常用
   keywords?: string[]; // 搜索关键词
 }
 
 /**
  * 分类配置
  */
-const categoryConfig: Record<FieldCategory, {
-  name: string;
-  icon: React.ComponentType<any>;
-  color: string;
-}> = {
+const categoryConfig: Record<
+  FieldCategory,
+  {
+    name: string;
+    icon: React.ComponentType<any>;
+    color: string;
+  }
+> = {
   basic: {
     name: '基础类型',
     icon: FileText,
@@ -136,7 +139,7 @@ const fieldTypes: FieldType[] = [
     popular: true,
     keywords: ['数字', 'number', '数值'],
   },
-  
+
   // 选择类型
   {
     id: 'singleSelect',
@@ -170,7 +173,7 @@ const fieldTypes: FieldType[] = [
     color: '#84cc16',
     keywords: ['复选框', 'checkbox', '是否'],
   },
-  
+
   // 日期时间
   {
     id: 'date',
@@ -193,7 +196,7 @@ const fieldTypes: FieldType[] = [
     color: '#0ea5e9',
     keywords: ['时长', 'duration', '持续'],
   },
-  
+
   // 链接类型
   {
     id: 'link',
@@ -235,7 +238,7 @@ const fieldTypes: FieldType[] = [
     color: '#22c55e',
     keywords: ['地址', 'location', '位置'],
   },
-  
+
   // 高级类型
   {
     id: 'rating',
@@ -257,7 +260,7 @@ const fieldTypes: FieldType[] = [
     color: '#a855f7',
     keywords: ['进度', 'progress', '百分比'],
   },
-  
+
   // 协作类型
   {
     id: 'user',
@@ -290,16 +293,16 @@ export interface AddFieldDialogProps {
 /**
  * 字段配置类型联合
  */
-export type FieldTypeConfig = 
-  | SelectFieldConfig 
-  | NumberFieldConfig 
-  | DateFieldConfig 
-  | RatingFieldConfig 
+export type FieldTypeConfig =
+  | SelectFieldConfig
+  | NumberFieldConfig
+  | DateFieldConfig
+  | RatingFieldConfig
   | Record<string, any>;
 
 /**
  * Airtable 风格的字段添加对话框
- * 
+ *
  * 特性：
  * - 两步式创建流程
  * - 智能分类和搜索
@@ -307,47 +310,48 @@ export type FieldTypeConfig =
  * - 流畅的动画效果
  */
 export function AddFieldDialog({ isOpen, onClose, onConfirm }: AddFieldDialogProps) {
-  console.log('🔍 AddFieldDialog 渲染:', { isOpen, hasOnClose: !!onClose, hasOnConfirm: !!onConfirm });
-  
   // Step 1: 选择类型 | Step 2: 配置详情
   const [step, setStep] = useState<'selectType' | 'configure'>('selectType');
-  
+
   // 选中的字段类型
   const [selectedType, setSelectedType] = useState<FieldType | null>(null);
-  
+
   // 字段名称
   const [fieldName, setFieldName] = useState('');
-  
+
   // 搜索关键词
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // 选中的分类（用于筛选）
-  const [selectedCategory, setSelectedCategory] = useState<FieldCategory | 'all' | 'popular'>('all');
-  
+  const [selectedCategory, setSelectedCategory] = useState<FieldCategory | 'all' | 'popular'>(
+    'all'
+  );
+
   // 字段配置
   const [fieldConfig, setFieldConfig] = useState<FieldTypeConfig>({});
 
   // 筛选后的字段类型
   const filteredFieldTypes = useMemo(() => {
     let result = fieldTypes;
-    
+
     // 按分类筛选
     if (selectedCategory === 'popular') {
-      result = result.filter(type => type.popular);
+      result = result.filter((type) => type.popular);
     } else if (selectedCategory !== 'all') {
-      result = result.filter(type => type.category === selectedCategory);
+      result = result.filter((type) => type.category === selectedCategory);
     }
-    
+
     // 按搜索词筛选
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(type => 
-        type.name.toLowerCase().includes(query) ||
-        type.description.toLowerCase().includes(query) ||
-        type.keywords?.some(keyword => keyword.toLowerCase().includes(query))
+      result = result.filter(
+        (type) =>
+          type.name.toLowerCase().includes(query) ||
+          type.description.toLowerCase().includes(query) ||
+          type.keywords?.some((keyword) => keyword.toLowerCase().includes(query))
       );
     }
-    
+
     return result;
   }, [selectedCategory, searchQuery]);
 
@@ -365,7 +369,7 @@ export function AddFieldDialog({ isOpen, onClose, onConfirm }: AddFieldDialogPro
   const handleSelectType = (type: FieldType) => {
     setSelectedType(type);
     setFieldName(''); // 清空之前的名称
-    
+
     // 初始化默认配置
     let defaultConfig: FieldTypeConfig = {};
     if (type.id === 'singleSelect' || type.id === 'multipleSelect') {
@@ -378,7 +382,7 @@ export function AddFieldDialog({ isOpen, onClose, onConfirm }: AddFieldDialogPro
       defaultConfig = { maxRating: 5, icon: 'star' };
     }
     setFieldConfig(defaultConfig);
-    
+
     setStep('configure');
   };
 
@@ -390,22 +394,10 @@ export function AddFieldDialog({ isOpen, onClose, onConfirm }: AddFieldDialogPro
 
   // 确认创建
   const handleConfirm = () => {
-    console.log('🔍 AddFieldDialogV2 handleConfirm 被调用:', { 
-      fieldName: fieldName.trim(), 
-      selectedTypeId: selectedType?.id,
-      hasOnConfirm: !!onConfirm 
-    });
-    
     if (selectedType && fieldName.trim()) {
-      console.log('🔍 调用 onConfirm:', { fieldName: fieldName.trim(), fieldType: selectedType.id });
       onConfirm(fieldName.trim(), selectedType.id, fieldConfig);
       resetDialog();
       onClose();
-    } else {
-      console.error('❌ 无法确认：缺少字段名称或类型', { 
-        hasFieldName: !!fieldName.trim(), 
-        hasSelectedType: !!selectedType 
-      });
     }
   };
 
@@ -554,10 +546,10 @@ function TypeSelectionStep({
   // 按分类分组
   const groupedTypes = useMemo(() => {
     const groups: Record<string, FieldType[]> = {};
-    
+
     if (selectedCategory === 'all' || selectedCategory === 'popular') {
       // 按分类分组
-      filteredTypes.forEach(type => {
+      filteredTypes.forEach((type) => {
         if (!groups[type.category]) {
           groups[type.category] = [];
         }
@@ -567,11 +559,15 @@ function TypeSelectionStep({
       // 只显示选中的分类
       groups[selectedCategory] = filteredTypes;
     }
-    
+
     return groups;
   }, [filteredTypes, selectedCategory]);
 
-  const categories: Array<{ id: FieldCategory | 'all' | 'popular'; name: string; icon?: React.ComponentType<any> }> = [
+  const categories: Array<{
+    id: FieldCategory | 'all' | 'popular';
+    name: string;
+    icon?: React.ComponentType<any>;
+  }> = [
     { id: 'all', name: '全部类型' },
     { id: 'popular', name: '常用', icon: Star },
     ...Object.entries(categoryConfig).map(([id, config]) => ({
@@ -590,14 +586,23 @@ function TypeSelectionStep({
           borderBottom: `1px solid ${tokens.colors.border.subtle}`,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <h2 style={{ 
-            fontSize: '20px', 
-            fontWeight: 600, 
-            color: tokens.colors.text.primary,
-            margin: 0,
-            letterSpacing: '-0.01em',
-          }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '16px',
+          }}
+        >
+          <h2
+            style={{
+              fontSize: '20px',
+              fontWeight: 600,
+              color: tokens.colors.text.primary,
+              margin: 0,
+              letterSpacing: '-0.01em',
+            }}
+          >
             选择字段类型
           </h2>
           <button
@@ -626,16 +631,16 @@ function TypeSelectionStep({
 
         {/* 搜索框 */}
         <div style={{ position: 'relative' }}>
-          <Search 
-            size={18} 
-            style={{ 
+          <Search
+            size={18}
+            style={{
               position: 'absolute',
               left: '12px',
               top: '50%',
               transform: 'translateY(-50%)',
               color: tokens.colors.text.tertiary,
               pointerEvents: 'none',
-            }} 
+            }}
           />
           <input
             type="text"
@@ -668,8 +673,8 @@ function TypeSelectionStep({
       </div>
 
       {/* 分类标签 */}
-      <div 
-        style={{ 
+      <div
+        style={{
           padding: '16px 24px',
           borderBottom: `1px solid ${tokens.colors.border.subtle}`,
           display: 'flex',
@@ -681,7 +686,7 @@ function TypeSelectionStep({
         {categories.map((category) => {
           const isSelected = selectedCategory === category.id;
           const IconComponent = category.icon;
-          
+
           return (
             <button
               key={category.id}
@@ -720,9 +725,9 @@ function TypeSelectionStep({
       </div>
 
       {/* 字段类型列表 */}
-      <div 
-        style={{ 
-          flex: 1, 
+      <div
+        style={{
+          flex: 1,
           overflowY: 'auto',
           padding: '8px',
         }}
@@ -735,7 +740,10 @@ function TypeSelectionStep({
               color: tokens.colors.text.secondary,
             }}
           >
-            <Search size={48} style={{ color: tokens.colors.text.tertiary, marginBottom: '16px' }} />
+            <Search
+              size={48}
+              style={{ color: tokens.colors.text.tertiary, marginBottom: '16px' }}
+            />
             <div style={{ fontSize: '14px' }}>没有找到匹配的字段类型</div>
             <div style={{ fontSize: '13px', marginTop: '8px', color: tokens.colors.text.tertiary }}>
               试试其他关键词
@@ -759,7 +767,9 @@ function TypeSelectionStep({
                     gap: '8px',
                   }}
                 >
-                  {React.createElement(categoryConfig[category as FieldCategory].icon, { size: 14 })}
+                  {React.createElement(categoryConfig[category as FieldCategory].icon, {
+                    size: 14,
+                  })}
                   {categoryConfig[category as FieldCategory].name}
                 </div>
               )}
@@ -775,7 +785,7 @@ function TypeSelectionStep({
               >
                 {types.map((type, index) => {
                   const IconComponent = type.icon;
-                  
+
                   return (
                     <button
                       key={type.id}
@@ -792,7 +802,7 @@ function TypeSelectionStep({
                         gap: '12px',
                         position: 'relative',
                         overflow: 'hidden',
-                        animation: `slideInStagger 300ms cubic-bezier(0.16, 1, 0.3, 1) ${(groupIndex * 100) + (index * 40)}ms both`,
+                        animation: `slideInStagger 300ms cubic-bezier(0.16, 1, 0.3, 1) ${groupIndex * 100 + index * 40}ms both`,
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = tokens.colors.surface.hover;
@@ -838,7 +848,13 @@ function TypeSelectionStep({
                         >
                           {type.name}
                           {type.popular && (
-                            <Star size={12} style={{ color: tokens.colors.text.warning, fill: tokens.colors.text.warning }} />
+                            <Star
+                              size={12}
+                              style={{
+                                color: tokens.colors.text.warning,
+                                fill: tokens.colors.text.warning,
+                              }}
+                            />
                           )}
                         </div>
                         <div
@@ -853,14 +869,14 @@ function TypeSelectionStep({
                       </div>
 
                       {/* 箭头图标 */}
-                      <ChevronRight 
-                        size={18} 
-                        style={{ 
+                      <ChevronRight
+                        size={18}
+                        style={{
                           color: tokens.colors.text.tertiary,
                           flexShrink: 0,
                           opacity: 0,
                           transition: transitions.presets.all,
-                        }} 
+                        }}
                         className="arrow-icon"
                       />
                     </button>
@@ -920,7 +936,7 @@ function ConfigurationStep({
             isMultiple={false}
           />
         );
-      
+
       case 'multipleSelect':
         return (
           <SelectFieldConfiguration
@@ -929,7 +945,7 @@ function ConfigurationStep({
             isMultiple={true}
           />
         );
-      
+
       case 'number':
         return (
           <NumberFieldConfiguration
@@ -937,7 +953,7 @@ function ConfigurationStep({
             onChange={onFieldConfigChange}
           />
         );
-      
+
       case 'date':
         return (
           <DateFieldConfiguration
@@ -945,7 +961,7 @@ function ConfigurationStep({
             onChange={onFieldConfigChange}
           />
         );
-      
+
       case 'rating':
         return (
           <RatingFieldConfiguration
@@ -953,18 +969,20 @@ function ConfigurationStep({
             onChange={onFieldConfigChange}
           />
         );
-      
+
       default:
         // 默认：无额外配置
         return (
-          <div style={{
-            padding: '16px',
-            backgroundColor: tokens.colors.surface.hover,
-            borderRadius: '8px',
-            fontSize: '13px',
-            color: tokens.colors.text.secondary,
-            textAlign: 'center',
-          }}>
+          <div
+            style={{
+              padding: '16px',
+              backgroundColor: tokens.colors.surface.hover,
+              borderRadius: '8px',
+              fontSize: '13px',
+              color: tokens.colors.text.secondary,
+              textAlign: 'center',
+            }}
+          >
             此字段类型暂无额外配置项
           </div>
         );
@@ -980,7 +998,14 @@ function ConfigurationStep({
           borderBottom: `1px solid ${tokens.colors.border.subtle}`,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '16px',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {/* 返回按钮 */}
             <button
@@ -1003,12 +1028,12 @@ function ConfigurationStep({
                 e.currentTarget.style.backgroundColor = 'transparent';
               }}
             >
-              <ChevronRight 
-                size={20} 
-                style={{ 
+              <ChevronRight
+                size={20}
+                style={{
                   color: tokens.colors.text.secondary,
                   transform: 'rotate(180deg)',
-                }} 
+                }}
               />
             </button>
 
@@ -1028,20 +1053,24 @@ function ConfigurationStep({
                 <IconComponent size={20} style={{ color: selectedType.color }} />
               </div>
               <div>
-                <h2 style={{ 
-                  fontSize: '18px', 
-                  fontWeight: 600, 
-                  color: tokens.colors.text.primary,
-                  margin: 0,
-                  letterSpacing: '-0.01em',
-                }}>
+                <h2
+                  style={{
+                    fontSize: '18px',
+                    fontWeight: 600,
+                    color: tokens.colors.text.primary,
+                    margin: 0,
+                    letterSpacing: '-0.01em',
+                  }}
+                >
                   {selectedType.name}
                 </h2>
-                <div style={{
-                  fontSize: '12px',
-                  color: tokens.colors.text.secondary,
-                  marginTop: '2px',
-                }}>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: tokens.colors.text.secondary,
+                    marginTop: '2px',
+                  }}
+                >
                   {selectedType.description}
                 </div>
               </div>
@@ -1077,13 +1106,15 @@ function ConfigurationStep({
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
         {/* 字段名称 */}
         <div style={{ marginBottom: '24px' }}>
-          <label style={{
-            display: 'block',
-            fontSize: '13px',
-            fontWeight: 500,
-            color: tokens.colors.text.primary,
-            marginBottom: '8px',
-          }}>
+          <label
+            style={{
+              display: 'block',
+              fontSize: '13px',
+              fontWeight: 500,
+              color: tokens.colors.text.primary,
+              marginBottom: '8px',
+            }}
+          >
             字段名称 <span style={{ color: tokens.colors.text.error }}>*</span>
           </label>
           <input
@@ -1115,11 +1146,13 @@ function ConfigurationStep({
             }}
           />
           {selectedType.example && (
-            <div style={{
-              fontSize: '12px',
-              color: tokens.colors.text.tertiary,
-              marginTop: '6px',
-            }}>
+            <div
+              style={{
+                fontSize: '12px',
+                color: tokens.colors.text.tertiary,
+                marginTop: '6px',
+              }}
+            >
               💡 示例：{selectedType.example}
             </div>
           )}
@@ -1164,7 +1197,7 @@ function ConfigurationStep({
         >
           返回
         </button>
-        
+
         {/* 临时测试按钮 */}
         <button
           onClick={() => {
@@ -1180,22 +1213,22 @@ function ConfigurationStep({
             border: 'none',
             borderRadius: '8px',
             cursor: 'pointer',
-            marginRight: '10px'
+            marginRight: '10px',
           }}
         >
           测试按钮
         </button>
-        
+
         <button
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🔍 创建字段按钮被点击', { 
-              fieldName, 
-              fieldNameTrimmed: fieldName.trim(), 
+            console.log('🔍 创建字段按钮被点击', {
+              fieldName,
+              fieldNameTrimmed: fieldName.trim(),
               isDisabled: !fieldName.trim(),
               buttonElement: e.target,
-              eventType: e.type
+              eventType: e.type,
             });
             alert('按钮被点击了！'); // 临时测试
             onConfirm();
@@ -1206,7 +1239,9 @@ function ConfigurationStep({
             fontSize: '14px',
             fontWeight: 500,
             color: fieldName.trim() ? tokens.colors.text.inverse : tokens.colors.text.tertiary,
-            backgroundColor: fieldName.trim() ? tokens.colors.primary[600] : tokens.colors.surface.disabled,
+            backgroundColor: fieldName.trim()
+              ? tokens.colors.primary[600]
+              : tokens.colors.surface.disabled,
             border: 'none',
             borderRadius: '8px',
             cursor: fieldName.trim() ? 'pointer' : 'not-allowed',
@@ -1238,4 +1273,3 @@ function ConfigurationStep({
     </>
   );
 }
-

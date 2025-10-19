@@ -26,6 +26,8 @@ import {
 import { config } from './config';
 import { StyleTest } from './StyleTest';
 import AddRecordTest from './AddRecordTest';
+import { RealtimeDemo } from './RealtimeDemo';
+import { useRealtimeSync } from './hooks/useRealtimeSync';
 
 // ==================== SDK Context ====================
 
@@ -58,6 +60,7 @@ export function SDKProvider({ children }: { children: React.ReactNode }) {
 
         const luckDB = new LuckDB({
           baseUrl: config.baseURL,
+          websocketURL: config.wsURL,
           accessToken: localStorage.getItem('luckdb_token') || '',
           debug: config.debug,
         });
@@ -68,6 +71,13 @@ export function SDKProvider({ children }: { children: React.ReactNode }) {
           try {
             const user = await luckDB.getCurrentUser();
             console.log('✅ 已登录:', user);
+
+            // 确保 WebSocket 连接
+            if (luckDB.getWebSocketClient()) {
+              console.log('🔌 尝试连接 WebSocket...');
+              await luckDB.getWebSocketClient()!.connect();
+            }
+
             setSdk(luckDB);
           } catch (err) {
             console.warn('⚠️ Token 失效，需要重新登录');
@@ -97,6 +107,7 @@ export function SDKProvider({ children }: { children: React.ReactNode }) {
 
       const luckDB = new LuckDB({
         baseUrl: config.baseURL,
+        websocketURL: config.wsURL,
         debug: config.debug,
       });
 
@@ -315,11 +326,17 @@ function LoginForm() {
 
 function TableView() {
   const { sdk, logout } = useSDK();
-  const [fields, setFields] = useState<any[]>([]);
-  const [records, setRecords] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<'table' | 'test'>('table');
+  const [currentView, setCurrentView] = useState<'table' | 'test' | 'realtime'>('table');
+
+  // 🚀 使用实时同步 Hook
+  const { fields, records, isLoading, error, lastSyncTime, connectionStatus, refresh } =
+    useRealtimeSync({
+      tableId: config.testBase.tableId,
+      baseId: config.testBase.baseId,
+      sdk,
+      autoRefresh: true,
+      refreshInterval: 10000, // 10秒自动刷新
+    });
 
   // 过滤状态
   const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
@@ -340,63 +357,12 @@ function TableView() {
     }));
   }, [fields]);
 
-  // 加载数据
+  // 数据加载已由 useRealtimeSync Hook 处理
+
+  // 当记录数据变化时，更新过滤后的记录
   useEffect(() => {
-    if (!sdk) return;
-
-    async function loadData() {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        console.log('📊 加载数据...', config.testBase);
-
-        // 加载字段
-        const fieldsData = await sdk.listFields({
-          tableId: config.testBase.tableId,
-        });
-        console.log('✅ 字段加载成功:', fieldsData);
-        setFields(fieldsData || []);
-
-        // 加载记录
-        const recordsData = await sdk.listRecords({
-          tableId: config.testBase.tableId,
-        });
-        console.log('✅ 记录加载成功:', recordsData);
-
-        // 处理多种数据结构 - 内置映射工具会自动识别
-        let records: any[] = [];
-        if (recordsData) {
-          const data: any = recordsData;
-          if (Array.isArray(data)) {
-            records = data;
-          } else if (data.data) {
-            if (Array.isArray(data.data)) {
-              records = data.data;
-            } else if (data.data.list) {
-              records = data.data.list;
-            }
-          } else if (data.list) {
-            records = data.list;
-          }
-        }
-
-        console.log('📊 解析后的记录数据:', {
-          total: records.length,
-          sample: records[0],
-        });
-        setRecords(records);
-        setFilteredRecords(records); // 初始化过滤后的数据
-      } catch (err: any) {
-        console.error('❌ 加载数据失败:', err);
-        setError(err.message || '加载数据失败');
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    loadData();
-  }, [sdk]);
+    setFilteredRecords(records);
+  }, [records]);
 
   // 处理过滤条件变化
   const handleFilterConditionsChange = useCallback((conditions: FilterCondition[]) => {
@@ -520,22 +486,13 @@ function TableView() {
 
         await sdk.updateRecord(config.testBase.tableId, record.id, {
           data: { [field.id]: newValue.data },
+          version: record.version, // 添加版本号以支持乐观锁
         });
 
         console.log('✅ 更新成功');
 
-        // 更新本地数据
-        setRecords((prev) => {
-          const next = [...prev];
-          next[rowIndex] = {
-            ...next[rowIndex],
-            data: {
-              ...next[rowIndex].data,
-              [field.id]: newValue.data,
-            },
-          };
-          return next;
-        });
+        // 数据更新将由实时同步 Hook 自动处理
+        // 无需手动更新本地状态，useRealtimeSync 会通过 WebSocket 事件自动刷新
       } catch (err) {
         console.error('❌ 更新失败:', err);
         alert('更新失败: ' + (err as Error).message);
@@ -583,6 +540,30 @@ function TableView() {
             {filterConditions.length > 0 && (
               <span style={{ color: '#3b82f6' }}> • 过滤后: {filteredRecords.length} 条</span>
             )}
+            <br />
+            🔄 实时同步:
+            <span
+              style={{
+                color:
+                  connectionStatus === 'connected'
+                    ? '#10b981'
+                    : connectionStatus === 'connecting'
+                      ? '#f59e0b'
+                      : '#ef4444',
+                fontWeight: 'bold',
+              }}
+            >
+              {connectionStatus === 'connected'
+                ? '已连接'
+                : connectionStatus === 'connecting'
+                  ? '连接中'
+                  : '已断开'}
+            </span>
+            {lastSyncTime && (
+              <span style={{ color: '#6b7280' }}>
+                • 最后同步: {lastSyncTime.toLocaleTimeString()}
+              </span>
+            )}
           </p>
           {/* 样式测试 */}
           <div style={{ marginTop: '8px' }}>
@@ -621,7 +602,41 @@ function TableView() {
             >
               功能测试
             </button>
+            <button
+              onClick={() => setCurrentView('realtime')}
+              style={{
+                padding: '6px 12px',
+                background: currentView === 'realtime' ? '#3b82f6' : 'white',
+                color: currentView === 'realtime' ? 'white' : '#718096',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              🔄 实时协作
+            </button>
           </div>
+
+          {/* 手动刷新按钮 */}
+          <button
+            onClick={refresh}
+            disabled={isLoading}
+            style={{
+              padding: '6px 12px',
+              background: isLoading ? '#e2e8f0' : '#10b981',
+              color: isLoading ? '#9ca3af' : 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '12px',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            {isLoading ? '🔄' : '🔄'} {isLoading ? '刷新中...' : '刷新数据'}
+          </button>
 
           <button
             onClick={logout}
@@ -651,7 +666,12 @@ function TableView() {
 
       {/* Content */}
       <div style={{ flex: 1, overflow: 'hidden' }}>
-        {currentView === 'table' ? (
+        {currentView === 'realtime' ? (
+          <RealtimeDemo
+            tableId={config.testBase.tableId}
+            recordId={records.length > 0 ? records[0].id : undefined}
+          />
+        ) : currentView === 'table' ? (
           <AppProviders
             sdk={sdk}
             baseId={config.testBase.baseId}
@@ -714,41 +734,10 @@ function TableView() {
                 }}
                 gridProps={{
                   ...gridProps,
-                  // 数据刷新回调 - 自动刷新字段和记录
+                  // 数据刷新回调 - 使用实时同步的刷新功能
                   onDataRefresh: async () => {
                     console.log('🔄 自动刷新数据...');
-                    try {
-                      const fieldsData = await sdk!.listFields({
-                        tableId: config.testBase.tableId,
-                      });
-                      setFields(fieldsData || []);
-
-                      const recordsData = await sdk!.listRecords({
-                        tableId: config.testBase.tableId,
-                      });
-
-                      // 处理多种数据结构
-                      let records: any[] = [];
-                      if (recordsData) {
-                        const data: any = recordsData;
-                        if (Array.isArray(data)) {
-                          records = data;
-                        } else if (data.data) {
-                          if (Array.isArray(data.data)) {
-                            records = data.data;
-                          } else if (data.data.list) {
-                            records = data.data.list;
-                          }
-                        } else if (data.list) {
-                          records = data.list;
-                        }
-                      }
-
-                      setRecords(records);
-                      console.log('✅ 数据刷新完成:', records.length, '条记录');
-                    } catch (err) {
-                      console.error('❌ 数据刷新失败:', err);
-                    }
+                    await refresh();
                   },
                 }}
                 fields={fields.map((f: any) => ({

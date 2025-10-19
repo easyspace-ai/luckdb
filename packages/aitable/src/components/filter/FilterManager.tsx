@@ -101,11 +101,14 @@ export function FilterManagerComponent({
   }, [data, conditions, fields]);
 
   // 通知过滤结果变化
+  const onFilteredDataChangeRef = React.useRef(onFilteredDataChange);
+  onFilteredDataChangeRef.current = onFilteredDataChange;
+
   React.useEffect(() => {
-    if (onFilteredDataChange) {
-      onFilteredDataChange(filteredData);
+    if (onFilteredDataChangeRef.current) {
+      onFilteredDataChangeRef.current(filteredData);
     }
-  }, [filteredData]); // 移除 onFilteredDataChange 依赖，避免无限重渲染
+  }, [filteredData]);
 
   // 打开过滤对话框
   const handleOpenDialog = useCallback(() => {
